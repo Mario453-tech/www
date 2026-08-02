@@ -1,0 +1,343 @@
+/* MORALE DECISION OVERVIEW / PRZEGLAD DECYZYJNY MORALE */
+.hr-morale-heading {
+  align-items: flex-start;
+  display: flex;
+  gap: 18px;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.hr-morale-heading .hr-section-header {
+  margin-bottom: 0;
+}
+
+.hr-morale-count {
+  align-items: center;
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text2);
+  display: flex;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 8px;
+  letter-spacing: 0.08em;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hr-morale-count strong {
+  color: var(--gold);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hr-morale-overview {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.65fr);
+  margin-bottom: 14px;
+}
+
+.hr-morale-alert,
+.hr-morale-score {
+  background: linear-gradient(145deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  margin: 0;
+  min-width: 0;
+  padding: 22px;
+}
+
+.hr-morale-alert {
+  border-left: 3px solid var(--red);
+}
+
+.hr-morale-alert--stable {
+  border-left-color: var(--green);
+}
+
+.hr-morale-alert__kicker {
+  color: var(--red);
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.hr-morale-alert--stable .hr-morale-alert__kicker {
+  color: var(--green);
+}
+
+.hr-morale-alert > strong {
+  color: var(--text);
+  display: block;
+  font-size: 16px;
+  margin-bottom: 6px;
+}
+
+.hr-morale-alert p {
+  color: var(--text2);
+  font-size: 12px;
+  margin: 0;
+}
+
+.hr-morale-score {
+  align-content: center;
+  display: grid;
+  text-align: center;
+}
+
+.hr-morale-score > div {
+  display: grid;
+  gap: 8px;
+}
+
+.hr-morale-score dt,
+.hr-morale-kpis dt {
+  color: var(--text3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.hr-morale-score dd {
+  font-size: 30px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  margin: 0;
+}
+
+.hr-morale-kpis {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 28px;
+}
+
+.hr-morale-kpis > div {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  min-width: 0;
+  padding: 14px 16px;
+}
+
+.hr-morale-kpis dd {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  margin: 5px 0 10px;
+}
+
+.hr-morale-progress {
+  background: var(--bg4);
+  border-radius: var(--radius);
+  display: block;
+  height: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.hr-morale-progress__bar {
+  background: linear-gradient(90deg, var(--gold3), var(--gold));
+  display: block;
+  height: 100%;
+  width: var(--bar-w);
+}
+
+.hr-morale-progress__bar--good {
+  background: var(--green);
+}
+
+.hr-morale-progress__bar--warning {
+  background: linear-gradient(90deg, var(--gold3), var(--gold));
+}
+
+.hr-morale-progress__bar--danger {
+  background: var(--red);
+}
+
+.hr-tone--good {
+  color: var(--green) !important;
+}
+
+.hr-tone--warning {
+  color: var(--gold) !important;
+}
+
+.hr-tone--danger {
+  color: var(--red) !important;
+}
+
+.hr-tone--muted {
+  color: var(--text2) !important;
+}
+
+.hr-morale-list-header {
+  align-items: flex-end;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.hr-morale-list-header h3 {
+  color: var(--gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  margin: 0 0 3px;
+}
+
+.hr-morale-list-header p {
+  color: var(--text2);
+  font-size: 12px;
+  margin: 0;
+}
+
+.hr-morale-list-header > span {
+  background: var(--bg4);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  color: var(--text3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 6px 9px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.hr-morale-list {
+  gap: 8px;
+}
+
+.hr-morale-row {
+  background: linear-gradient(145deg, var(--bg3), var(--bg2));
+  border-color: var(--border2);
+  border-radius: var(--radius);
+  grid-template-columns: minmax(180px, 1.35fr) repeat(3, minmax(115px, 1fr)) minmax(130px, 0.95fr);
+  padding: 14px 16px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.hr-morale-row:hover {
+  border-color: var(--gold-border);
+  box-shadow: 0 0 0 1px var(--gold-dim);
+}
+
+.hr-morale-row--attention {
+  border-left: 3px solid var(--red);
+}
+
+.hr-morale-row__person strong {
+  color: var(--text);
+  font-size: 13px;
+  margin: 0;
+}
+
+.hr-morale-row__person span,
+.hr-morale-row__metric > span:first-child,
+.hr-morale-row__relation > span {
+  color: var(--text3);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hr-morale-row__person span {
+  margin-top: 3px;
+}
+
+.hr-morale-row__metric strong {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 7px;
+}
+
+.hr-morale-row__relation {
+  min-width: 0;
+}
+
+.hr-morale-status {
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  display: inline-flex !important;
+  font-size: 10px;
+  font-weight: 700;
+  margin-top: 6px !important;
+  padding: 5px 8px;
+}
+
+.hr-morale-status--good {
+  background: var(--green-dim);
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.hr-morale-status--warning {
+  background: var(--gold-dim);
+  border-color: var(--gold-border);
+  color: var(--gold);
+}
+
+.hr-morale-status--danger {
+  background: var(--red-dim);
+  border-color: var(--red);
+  color: var(--red);
+}
+
+.hr-morale-status--muted {
+  background: var(--bg4);
+  color: var(--text2);
+}
+
+@media (max-width: 900px) {
+  .hr-morale-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-morale-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hr-morale-row {
+    grid-template-columns: minmax(160px, 1.25fr) repeat(2, minmax(110px, 1fr));
+  }
+
+  .hr-morale-row__relation {
+    grid-column: 2 / -1;
+  }
+}
+
+@media (max-width: 640px) {
+  .hr-morale-heading,
+  .hr-morale-list-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .hr-morale-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-morale-row {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-morale-row__relation {
+    grid-column: auto;
+  }
+
+  .hr-morale-row__metric,
+  .hr-morale-row__relation {
+    border-top: 1px solid var(--border2);
+    padding-top: 9px;
+  }
+}

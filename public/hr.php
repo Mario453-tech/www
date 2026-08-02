@@ -270,6 +270,7 @@ $extraCss = [
     '/assets/css/recruitment.css',
     '/assets/css/hr.css',
     '/assets/css/hr_employees.css',
+    '/assets/css/hr_morale.css',
     '/assets/css/hr_strikes.css',
     '/assets/css/hr_raises.css',
 ];

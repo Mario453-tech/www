@@ -69,6 +69,61 @@ $hrSeniorityLevel = static function (array $employee): string {
     }
     return 'junior';
 };
+
+$moraleAttentionStatuses = ['unhappy', 'raise_requested', 'dispute', 'strike_threat', 'on_strike', 'leaving'];
+$moraleDisplayEmployees = $canonicalEmployees;
+usort($moraleDisplayEmployees, static function (array $left, array $right) use ($moraleAttentionStatuses): int {
+    $leftNeedsAttention = in_array((string)($left['relation_status'] ?? 'normal'), $moraleAttentionStatuses, true)
+        || (float)($left['leave_risk'] ?? 0) >= 20;
+    $rightNeedsAttention = in_array((string)($right['relation_status'] ?? 'normal'), $moraleAttentionStatuses, true)
+        || (float)($right['leave_risk'] ?? 0) >= 20;
+    if ($leftNeedsAttention !== $rightNeedsAttention) {
+        return $leftNeedsAttention ? -1 : 1;
+    }
+    $riskComparison = (float)($right['leave_risk'] ?? 0) <=> (float)($left['leave_risk'] ?? 0);
+    return $riskComparison !== 0
+        ? $riskComparison
+        : (float)($left['morale'] ?? 0) <=> (float)($right['morale'] ?? 0);
+});
+$moraleAttentionEmployees = array_values(array_filter(
+    $moraleDisplayEmployees,
+    static fn(array $employee): bool =>
+        in_array((string)($employee['relation_status'] ?? 'normal'), $moraleAttentionStatuses, true)
+        || (float)($employee['leave_risk'] ?? 0) >= 20
+));
+$moraleStableCount = count(array_filter(
+    $canonicalEmployees,
+    static fn(array $employee): bool => (string)($employee['relation_status'] ?? 'normal') === 'normal'
+));
+$moraleEmployeeCount = count($canonicalEmployees);
+$moralePrimaryAlert = $moraleAttentionEmployees[0] ?? null;
+$averageMoralePct = max(0.0, min(100.0, (float)($moraleSummary['average_morale'] ?? 0)));
+$averageLeaveRiskPct = max(0.0, min(100.0, (float)($moraleSummary['average_leave_risk'] ?? 0)));
+$averageStrikeSupportPct = max(0.0, min(100.0, (float)($moraleSummary['average_strike_support'] ?? 0)));
+$stableRelationsPct = $moraleEmployeeCount > 0
+    ? max(0.0, min(100.0, ($moraleStableCount / $moraleEmployeeCount) * 100))
+    : 0.0;
+$moraleTone = static function (float $value): string {
+    return $value < 45 ? 'danger' : ($value < 65 ? 'warning' : 'good');
+};
+$salaryTone = static function (float $value): string {
+    return $value < 70 ? 'danger' : ($value < 100 ? 'warning' : 'good');
+};
+$leaveRiskTone = static function (float $value): string {
+    return $value >= 20 ? 'danger' : ($value >= 10 ? 'warning' : 'good');
+};
+$strikeSupportTone = static function (float $value): string {
+    return $value >= 50 ? 'danger' : ($value >= 30 ? 'warning' : 'good');
+};
+$relationTone = static function (string $status): string {
+    if (in_array($status, ['dispute', 'strike_threat', 'on_strike', 'leaving'], true)) {
+        return 'danger';
+    }
+    if (in_array($status, ['unhappy', 'raise_requested'], true)) {
+        return 'warning';
+    }
+    return $status === 'normal' ? 'good' : 'muted';
+};
 ?>
 <?php
 $hrTabControls = [
@@ -632,30 +687,111 @@ $hrTabControls = [
 
 <div id="tab-morale" class="hr-tab-content" data-canonical-panel="morale"
      role="tabpanel" aria-labelledby="hr-tab-button-morale">
-    <div class="hr-section-header">
-        <h2><?= t('hr.morale_title') ?></h2>
-        <p><?= t('hr.morale_desc') ?></p>
+    <div class="hr-morale-heading">
+        <div class="hr-section-header">
+            <h2><?= t('hr.morale_title') ?></h2>
+            <p><?= t('hr.morale_desc') ?></p>
+        </div>
+        <span class="hr-morale-count">
+            <strong><?= $moraleEmployeeCount ?></strong>
+            <?= t('hr.employee_count') ?>
+        </span>
     </div>
-    <dl class="hr-summary-grid">
-        <div><dt><?= t('hr.employee_count') ?></dt><dd><?= (int)($moraleSummary['employee_count'] ?? 0) ?></dd></div>
-        <div><dt><?= t('hr.average_morale') ?></dt><dd><?= number_format((float)($moraleSummary['average_morale'] ?? 0), 1, ',', ' ') ?>%</dd></div>
-        <div><dt><?= t('hr.average_leave_risk') ?></dt><dd><?= number_format((float)($moraleSummary['average_leave_risk'] ?? 0), 1, ',', ' ') ?>%</dd></div>
-        <div><dt><?= t('hr.average_strike_support') ?></dt><dd><?= number_format((float)($moraleSummary['average_strike_support'] ?? 0), 1, ',', ' ') ?>%</dd></div>
+
+    <div class="hr-morale-overview">
+        <section class="hr-morale-alert<?= $moralePrimaryAlert === null ? ' hr-morale-alert--stable' : '' ?>"
+                 aria-labelledby="hr-morale-alert-title">
+            <?php if ($moralePrimaryAlert !== null):
+                $primaryName = trim((string)$moralePrimaryAlert['first_name'] . ' ' . (string)$moralePrimaryAlert['last_name']);
+                $primaryRisk = number_format((float)$moralePrimaryAlert['leave_risk'], 0, ',', ' ');
+                $primaryRelation = $relationLabel((string)$moralePrimaryAlert['relation_status']);
+            ?>
+                <span class="hr-morale-alert__kicker"><?= t('hr.morale_attention_kicker') ?></span>
+                <strong id="hr-morale-alert-title"><?= t('hr.morale_attention_title', ['count' => count($moraleAttentionEmployees)]) ?></strong>
+                <p><?= t('hr.morale_attention_employee', [
+                    'name' => htmlspecialchars($primaryName, ENT_QUOTES, 'UTF-8'),
+                    'risk' => $primaryRisk,
+                    'relation' => $primaryRelation,
+                ]) ?></p>
+            <?php else: ?>
+                <span class="hr-morale-alert__kicker"><?= t('hr.morale_stable_kicker') ?></span>
+                <strong id="hr-morale-alert-title"><?= t('hr.morale_stable_title') ?></strong>
+                <p><?= t('hr.morale_stable_desc') ?></p>
+            <?php endif ?>
+        </section>
+
+        <dl class="hr-morale-score">
+            <div>
+                <dt><?= t('hr.average_morale') ?></dt>
+                <dd class="hr-tone--<?= $moraleTone($averageMoralePct) ?>"><?= number_format($averageMoralePct, 1, ',', ' ') ?>%</dd>
+                <span class="hr-morale-progress" aria-hidden="true">
+                    <span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $moraleTone($averageMoralePct) ?>"
+                          style="--bar-w: <?= $averageMoralePct ?>%"></span>
+                </span>
+            </div>
+        </dl>
+    </div>
+
+    <dl class="hr-morale-kpis">
+        <div>
+            <dt><?= t('hr.average_leave_risk') ?></dt>
+            <dd class="hr-tone--<?= $leaveRiskTone($averageLeaveRiskPct) ?>"><?= number_format($averageLeaveRiskPct, 1, ',', ' ') ?>%</dd>
+            <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $leaveRiskTone($averageLeaveRiskPct) ?>" style="--bar-w: <?= $averageLeaveRiskPct ?>%"></span></span>
+        </div>
+        <div>
+            <dt><?= t('hr.average_strike_support') ?></dt>
+            <dd class="hr-tone--<?= $strikeSupportTone($averageStrikeSupportPct) ?>"><?= number_format($averageStrikeSupportPct, 1, ',', ' ') ?>%</dd>
+            <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $strikeSupportTone($averageStrikeSupportPct) ?>" style="--bar-w: <?= $averageStrikeSupportPct ?>%"></span></span>
+        </div>
+        <div>
+            <dt><?= t('hr.morale_stable_relations') ?></dt>
+            <dd class="hr-tone--good"><?= $moraleStableCount ?> / <?= $moraleEmployeeCount ?></dd>
+            <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--good" style="--bar-w: <?= $stableRelationsPct ?>%"></span></span>
+        </div>
     </dl>
+
     <?php if (empty($canonicalEmployees)): ?>
         <div class="hr-empty hr-empty--big"><p><?= t('hr.no_employees') ?></p></div>
     <?php else: ?>
+        <div class="hr-morale-list-header">
+            <div>
+                <h3><?= t('hr.morale_priority_title') ?></h3>
+                <p><?= t('hr.morale_priority_desc') ?></p>
+            </div>
+            <span><?= t('hr.morale_priority_sort') ?></span>
+        </div>
         <div class="hr-morale-list">
-            <?php foreach ($canonicalEmployees as $employee): ?>
-                <article class="hr-morale-row">
-                    <div>
+            <?php foreach ($moraleDisplayEmployees as $employee):
+                $employeeMorale = max(0.0, min(100.0, (float)($employee['morale'] ?? 0)));
+                $employeeSalary = max(0.0, min(120.0, (float)($employee['salary_satisfaction'] ?? 0)));
+                $employeeLeaveRisk = max(0.0, min(100.0, (float)($employee['leave_risk'] ?? 0)));
+                $employeeRelation = (string)($employee['relation_status'] ?? 'normal');
+                $needsAttention = in_array($employeeRelation, $moraleAttentionStatuses, true) || $employeeLeaveRisk >= 20;
+            ?>
+                <article class="hr-morale-row<?= $needsAttention ? ' hr-morale-row--attention' : '' ?>">
+                    <div class="hr-morale-row__person">
                         <strong><?= htmlspecialchars($employee['first_name'] . ' ' . $employee['last_name'], ENT_QUOTES, 'UTF-8') ?></strong>
                         <span><?= $departmentLabel((string)$employee['department_code']) ?></span>
                     </div>
-                    <div><span><?= t('hr.morale_label') ?></span><strong><?= number_format((float)$employee['morale'], 0, ',', ' ') ?>%</strong></div>
-                    <div><span><?= t('hr.salary_satisfaction') ?></span><strong><?= number_format((float)$employee['salary_satisfaction'], 0, ',', ' ') ?>%</strong></div>
-                    <div><span><?= t('hr.leave_risk') ?></span><strong><?= number_format((float)$employee['leave_risk'], 0, ',', ' ') ?>%</strong></div>
-                    <div><span><?= t('hr.relation_status') ?></span><strong><?= $relationLabel((string)$employee['relation_status']) ?></strong></div>
+                    <div class="hr-morale-row__metric">
+                        <span><?= t('hr.morale_label') ?></span>
+                        <strong class="hr-tone--<?= $moraleTone($employeeMorale) ?>"><?= number_format($employeeMorale, 0, ',', ' ') ?>%</strong>
+                        <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $moraleTone($employeeMorale) ?>" style="--bar-w: <?= $employeeMorale ?>%"></span></span>
+                    </div>
+                    <div class="hr-morale-row__metric">
+                        <span><?= t('hr.salary_satisfaction') ?></span>
+                        <strong class="hr-tone--<?= $salaryTone($employeeSalary) ?>"><?= number_format($employeeSalary, 0, ',', ' ') ?>%</strong>
+                        <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $salaryTone($employeeSalary) ?>" style="--bar-w: <?= min(100.0, $employeeSalary) ?>%"></span></span>
+                    </div>
+                    <div class="hr-morale-row__metric">
+                        <span><?= t('hr.leave_risk') ?></span>
+                        <strong class="hr-tone--<?= $leaveRiskTone($employeeLeaveRisk) ?>"><?= number_format($employeeLeaveRisk, 0, ',', ' ') ?>%</strong>
+                        <span class="hr-morale-progress" aria-hidden="true"><span class="hr-morale-progress__bar hr-morale-progress__bar--<?= $leaveRiskTone($employeeLeaveRisk) ?>" style="--bar-w: <?= $employeeLeaveRisk ?>%"></span></span>
+                    </div>
+                    <div class="hr-morale-row__relation">
+                        <span><?= t('hr.relation_status') ?></span>
+                        <strong class="hr-morale-status hr-morale-status--<?= $relationTone($employeeRelation) ?>"><?= $relationLabel($employeeRelation) ?></strong>
+                    </div>
                 </article>
             <?php endforeach ?>
         </div>
