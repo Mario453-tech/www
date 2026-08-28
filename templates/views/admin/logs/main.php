@@ -198,16 +198,15 @@ $buildUrl = fn(array $extra) => '/admin/logs.php?' . http_build_query(array_merg
     <?php endif ?>
 </section>
 
-<?php if ($totalPages > 1): ?>
+<?php if ($page > 1 || $gameLogHasMore): ?>
 <nav class="pagination" aria-label="<?= t('admin.logs.pagination') ?>">
     <?php if ($page > 1): ?>
     <a href="<?= $buildUrl(['page' => 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_first') ?></a>
     <a href="<?= $buildUrl(['page' => $page - 1]) ?>" class="btn btn-sm btn-secondary"> <?= t('admin.logs.page_prev') ?></a>
     <?php endif ?>
-    <span class="pagination-info"><?= t('admin.logs.page_of', ['page' => $page, 'total' => $totalPages]) ?></span>
-    <?php if ($page < $totalPages): ?>
+    <span class="pagination-info"><?= t('admin.logs.page_current', ['page' => $page]) ?></span>
+    <?php if ($gameLogHasMore): ?>
     <a href="<?= $buildUrl(['page' => $page + 1]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_next') ?> </a>
-    <a href="<?= $buildUrl(['page' => $totalPages]) ?>" class="btn btn-sm btn-secondary"><?= t('admin.logs.page_last') ?> </a>
     <?php endif ?>
 </nav>
 <?php endif ?>
