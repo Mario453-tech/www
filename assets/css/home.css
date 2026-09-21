@@ -364,7 +364,7 @@
 .trend-pulse-dot {
     position: absolute;
     top: 50%;
-    right: 12px;
+    left: 12px;
     width: 8px;
     height: 8px;
     border-radius: 50%;
@@ -499,6 +499,7 @@
 }
 
 .trend-alert__timer-wrap {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
