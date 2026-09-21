@@ -462,7 +462,9 @@
     font-weight: 600;
     color: var(--text);
     line-height: 1.4;
-    width: 100%;
+    width: 70%;
+    margin-left: 30%;
+    margin-top: 8px;
 }
 
 .trend-alert__impact {
@@ -912,6 +914,11 @@
     /* Sub-text goes to its own line below label + timer / Sub-tekst na osobnej linii pod label + timerem */
     .trend-alert__timer-sub {
         flex: 0 0 100%;
+    }
+
+    .trend-alert--redesign .trend-alert__message {
+        width: 100%;
+        margin-left: 0;
     }
 
     .action-btn-row {
