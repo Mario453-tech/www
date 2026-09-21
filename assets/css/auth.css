@@ -10,11 +10,12 @@ body.auth-page {
 
 .auth-bg {
     min-height: 100vh;
+    min-height: 100svh;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 24px 16px;
+    justify-content: flex-end;
+    padding: 24px 16px 40px;
     background:
         url('/assets/images/oilcorp_bg.png') center/cover no-repeat fixed;
     background-color: #08080f;
@@ -57,10 +58,6 @@ body.auth-page {
 
 /* -- Card container -------------------------------------------- */
 .login-container {
-    position: fixed;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%);
     width: 100%;
     max-width: 500px;
     display: flex;
@@ -74,10 +71,6 @@ body.auth-page {
 
 /* -- Register container (taller card, sits higher) ------------- */
 .register-container {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -20%);
     width: 100%;
     max-width: 500px;
     display: flex;
@@ -87,8 +80,7 @@ body.auth-page {
     z-index: 10;
     padding: 0 16px;
     box-sizing: border-box;
-    overflow-y: auto;
-    max-height: 90vh;
+    margin-block: auto;
 }
 
 /* -- Brand header (OILCORP logo above card) -------------------- */
@@ -130,6 +122,7 @@ body.auth-page {
     padding: 36px 32px 32px;
     width: 100%;
     max-width: 440px;
+    box-sizing: border-box;
     box-shadow: 0 24px 64px rgba(0,0,0,.6), 0 0 0 1px rgba(200,168,75,.06);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -344,7 +337,16 @@ body.auth-page {
     .login-card,
     .auth-card { padding: 28px 20px 24px; border-radius: 10px; }
 
-    .auth-bg { align-items: flex-start; padding: 16px 12px 32px; }
+    /* Show the full logo and leave form controls in the scrollable page flow. */
+    /* Pokaz cale logo i pozostaw formularz w przewijalnym ukladzie strony. */
+    .auth-bg {
+        justify-content: flex-start;
+        padding: clamp(160px, 58vw, 250px) 12px 24px;
+        background-size: 100% auto;
+        background-position: center top;
+        background-attachment: scroll;
+    }
+    .register-container { margin-block: 0; }
     .auth-language { top: 14px; right: 14px; }
 
     .auth-brand-name { font-size: 2rem; letter-spacing: .2em; }
