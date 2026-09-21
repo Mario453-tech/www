@@ -22,7 +22,7 @@ if (class_exists('GameLog', false)) {
         <span class="trend-alert__icon"><?= $trendIcon ?></span>
     </div>
     <div class="trend-alert__content">
-        <!-- Header row: event label left, price + date badges right / Wiersz nagłówka: etykieta po lewej, odznaki po prawej -->
+        <!-- Event details align with the message / Szczegoly zdarzenia wyrownane z komunikatem -->
         <div class="trend-alert__header-row">
             <span class="trend-tag trend-tag--event"><?= t('trend_alert.active_event') ?></span>
             <div class="trend-alert__event-badges">

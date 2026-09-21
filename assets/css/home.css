@@ -414,14 +414,14 @@
     align-items: center;
 }
 
-/* Nowy układ nagłówka: etykieta po lewej, odznaki po prawej / New header row: label left, badges right */
+/* Align event badges with the message / Wyrownaj odznaki zdarzenia z komunikatem */
 .trend-alert__header-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-start;
     width: 100%;
     gap: 8px;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
 }
 
 .trend-alert__event-badges {
