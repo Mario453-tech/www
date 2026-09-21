@@ -17,7 +17,7 @@ body.auth-page {
     justify-content: flex-end;
     padding: 24px 16px 40px;
     background:
-        url('/assets/images/oilcorp_bg.png') center/cover no-repeat fixed;
+        url('/assets/images/oilempire_bg.png') center/cover no-repeat fixed;
     background-color: #08080f;
 }
 
@@ -83,7 +83,7 @@ body.auth-page {
     margin-block: auto;
 }
 
-/* -- Brand header (OILCORP logo above card) -------------------- */
+/* -- Brand header (OilEmpire logo above card) ------------------ */
 .auth-brand {
     text-align: center;
     user-select: none;
