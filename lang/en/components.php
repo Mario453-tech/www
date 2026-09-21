@@ -275,7 +275,7 @@ return [
     'wg.metric_spiral' => 'Failure spiral',
     'wg.metric_spiral_tooltip' => 'Accumulated failure effect',
     'wg.metric_mode' => 'Mode',
-    'trend_alert.active_event' => 'Active market event',
+    'trend_alert.active_event' => 'Market signal',
     'trend_alert.price_tag_suffix' => 'oil price',
     'trend_alert.impact_label' => 'Impact on your revenue:',
     'trend_alert.remaining_label' => 'Remaining',

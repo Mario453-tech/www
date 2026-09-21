@@ -5,11 +5,6 @@ if (class_exists('GameLog', false)) {
 }
 ?>
 <?php if ($activeTrend ?? false):
-    $trendIcons = [
-        'crisis' => '', 'war' => '', 'boom' => '',
-        'discovery' => '', 'winter' => '', 'opec' => '',
-    ];
-    $trendIcon = $trendIcons[$trendClass] ?? '';
     $isPriceDrop = ($trendPricePct ?? 0) < 0;
     $pctLabel = ($trendPricePct ?? 0) > 0 ? '+' . $trendPricePct . '%' : $trendPricePct . '%';
  // Format timer
@@ -18,9 +13,6 @@ if (class_exists('GameLog', false)) {
     $remM = str_pad((string)floor(($remSecs % 3600) / 60), 2, '0', STR_PAD_LEFT);
 ?>
 <aside class="trend-alert trend-alert--redesign trend-<?= htmlspecialchars($trendClass) ?>" role="alert" aria-live="polite">
-        <div class="trend-alert__icon-wrap">
-        <span class="trend-alert__icon"><?= $trendIcon ?></span>
-    </div>
     <div class="trend-alert__content">
         <!-- Event details align with the message / Szczegoly zdarzenia wyrownane z komunikatem -->
         <div class="trend-alert__header-row">

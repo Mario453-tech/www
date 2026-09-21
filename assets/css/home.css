@@ -388,15 +388,6 @@
     }
 }
 
-.trend-alert--redesign .trend-alert__icon-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    width: 42px;
-    font-size: 2rem;
-}
-
 .trend-alert--redesign .trend-alert__content {
     flex: 1;
     display: flex;
@@ -443,9 +434,9 @@
 }
 
 .trend-tag--event {
-    background: rgba(255, 255, 255, .07);
-    color: var(--text2);
-    border: 1px solid rgba(255, 255, 255, .1);
+    background: rgba(230, 199, 121, .12);
+    color: #f3d37b;
+    border: 1px solid rgba(230, 199, 121, .32);
 }
 
 .trend-tag--pos {
@@ -461,13 +452,13 @@
 }
 
 .trend-tag--date {
-    background: transparent;
-    color: var(--text3);
-    border: 1px solid rgba(255, 255, 255, .07);
+    background: rgba(210, 226, 238, .1);
+    color: #dce8ef;
+    border: 1px solid rgba(210, 226, 238, .25);
 }
 
 .trend-alert--redesign .trend-alert__message {
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 600;
     color: var(--text);
     line-height: 1.4;

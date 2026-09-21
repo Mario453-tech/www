@@ -279,7 +279,7 @@ return [
     'wg.metric_spiral' => 'Spirala awarii',
     'wg.metric_spiral_tooltip' => 'Efekt skumulowanych awarii',
     'wg.metric_mode' => 'Tryb',
-    'trend_alert.active_event' => 'Aktywne zdarzenie rynkowe',
+    'trend_alert.active_event' => 'Sygnał z rynku',
     'trend_alert.price_tag_suffix' => 'ceny ropy',
     'trend_alert.impact_label' => 'Wpływ na Twoje przychody:',
     'trend_alert.remaining_label' => 'Pozostało',
