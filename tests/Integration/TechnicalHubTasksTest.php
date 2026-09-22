@@ -147,11 +147,25 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         );
     }
 
+    public function testTaskHistoryCleanupKeepsRecentActiveAndOtherPlayersTasks(): void
+    {
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, title, status, end_time, created_at) VALUES
+            (1, 1, 1, 'hub_repair', 'Old complete', 'completed', '2020-01-01 00:00:00', '2020-01-01 00:00:00'),
+            (2, 1, 1, 'hub_repair', 'Old failed', 'failed', NULL, '2020-01-01 00:00:00'),
+            (3, 1, 1, 'hub_repair', 'Old cancelled', 'cancelled', '2020-01-01 00:00:00', '2020-01-01 00:00:00'),
+            (4, 1, 1, 'hub_repair', 'Recent complete', 'completed', datetime('now'), '2020-01-01 00:00:00'),
+            (5, 1, 1, 'hub_repair', 'Active', 'in_progress', '2020-01-01 00:00:00', '2020-01-01 00:00:00'),
+            (6, 2, 1, 'hub_repair', 'Foreign', 'completed', '2020-01-01 00:00:00', '2020-01-01 00:00:00')");
+
+        $this->assertSame(3, $this->makeService()->cleanupTaskHistoryOlderThanDays(2));
+        $this->assertSame([4, 5, 6], $this->db->query('SELECT id FROM technical_tasks ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     private function createSchema(): void
     {
         $this->db->exec('CREATE TABLE players (id INTEGER PRIMARY KEY, cash REAL NOT NULL DEFAULT 0, bank_balance REAL NOT NULL DEFAULT 0, safety_procedures_level INTEGER DEFAULT 0, procedure_integrity REAL DEFAULT 100, procedures_last_decay_at TEXT NULL)');
         $this->db->exec('CREATE TABLE technical_staff (id INTEGER PRIMARY KEY, player_id INTEGER, first_name TEXT, last_name TEXT, spec_code TEXT, specialization TEXT NULL, spec_name TEXT, skill_level INTEGER, salary REAL DEFAULT 0, status TEXT, fired_at TEXT NULL)');
-        $this->db->exec('CREATE TABLE technical_tasks (id INTEGER PRIMARY KEY, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, title TEXT, module_type TEXT NULL, start_time TEXT NULL, end_time TEXT NULL, duration_hours INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, result_data TEXT NULL, notified INTEGER DEFAULT 0)');
+        $this->db->exec('CREATE TABLE technical_tasks (id INTEGER PRIMARY KEY, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, title TEXT, module_type TEXT NULL, start_time TEXT NULL, end_time TEXT NULL, duration_hours INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, result_data TEXT NULL, notified INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_task_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, module_type TEXT NULL, priority INTEGER DEFAULT 0, queued_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, well_id INTEGER NULL, type TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT)');
