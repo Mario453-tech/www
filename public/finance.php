@@ -66,16 +66,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $last      = $finSvc->getLastTick($playerId);
 $summary   = $finSvc->getSummary($playerId, $hours);
-$summary24 = $finSvc->getSummary($playerId, 24);
+$summary24 = $hours === 24 ? $summary : $finSvc->getSummary($playerId, 24);
 $history   = $finSvc->getHistory($playerId, $hours);
 $perWell   = $finSvc->getPerWellStats($playerId);
 $settings  = $policySvc->getSettings($playerId);
 $alerts    = $finSvc->getAlerts($playerId, $last ?? [], $summary24);
-$liquidity = $finSvc->getLiquidityOverview($playerId, $settings, $last, $summary24);
+$liquidity = $finSvc->getLiquidityOverview($playerId, $settings, $last, $summary24, $policySvc);
 $oilPrice = (float)($db->query("SELECT current_price FROM market_state WHERE id = 1")->fetchColumn() ?? 70);
 $cash     = (float)($db->query("SELECT cash FROM players WHERE id = " . (int)$playerId)->fetchColumn() ?? 0);
 $policySnapshot = $policySvc->getPolicySnapshot($playerId, (float)($liquidity['hourly_cost'] ?? 0.0), $cash);
-$policyImpact = $finSvc->getPolicyImpactOverview($playerId, $settings, $last, $summary24, $policySnapshot);
+$policyImpact = $finSvc->getPolicyImpactOverview($playerId, $settings, $last, $summary24, $policySnapshot, $policySvc);
 $policyRecommendation = $finSvc->getPolicyRecommendationOverview($settings, $liquidity, $summary24, $policyImpact);
 $riskOverview = $finSvc->getRiskOverview($settings, $last, $summary24, $perWell, $liquidity);
 $alerts = array_merge($alerts, $finSvc->getStage3Alerts($settings, $liquidity, $summary24));

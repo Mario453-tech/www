@@ -588,7 +588,7 @@ class FinanceService
  * @param array<string, float> $summary24h
  * @return array<string, float|string>
  */
-    public function getLiquidityOverview(int $playerId, array $settings, ?array $last, array $summary24h): array
+    public function getLiquidityOverview(int $playerId, array $settings, ?array $last, array $summary24h, ?FinancePolicyService $policySvc = null): array
     {
         $cash = 0.0;
         try {
@@ -617,7 +617,7 @@ class FinanceService
         $nextDay         = $hourlyNet * 24.0;
         $reserveHours    = 12.0;
         if (class_exists('FinancePolicyService')) {
-            $policySvc = new FinancePolicyService($this->db);
+            $policySvc ??= new FinancePolicyService($this->db);
             $reserveHours = $policySvc->getReserveTargetHours($playerId);
         } else {
             $reserveHours = ($settings['reserve_policy'] ?? 'standard') === 'high'
@@ -834,7 +834,7 @@ class FinanceService
  * @param array<string, mixed> $policySnapshot
  * @return array<string, mixed>
  */
-    public function getPolicyImpactOverview(int $playerId, array $settings, ?array $last, array $summary24h, array $policySnapshot = []): array
+    public function getPolicyImpactOverview(int $playerId, array $settings, ?array $last, array $summary24h, array $policySnapshot = [], ?FinancePolicyService $policySvc = null): array
     {
         $defaults = [
             'mode' => (string)($settings['savings_plan_mode'] ?? 'off'),
@@ -866,7 +866,7 @@ class FinanceService
         }
 
         try {
-            $policySvc = new FinancePolicyService($this->db);
+            $policySvc ??= new FinancePolicyService($this->db);
             $techMods = $policySvc->getTechnicalModifiers($playerId);
             $logMods = $policySvc->getLogisticsModifiers($playerId);
             $hrMods = $policySvc->getHRModifiers($playerId);

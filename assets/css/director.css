@@ -11,6 +11,10 @@
     margin-bottom: 18px;
 }
 
+.notifications-panel + .tech-notif-panel {
+    margin-top: 18px;
+}
+
 /* ── Nagłówek panelu ────────────────────────────────────────── */
 .notifications-header {
     display: flex;
