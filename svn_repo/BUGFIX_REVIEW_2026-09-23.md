@@ -42,6 +42,7 @@ fragmentow, faktyczny MIME i dekodowanie obrazu, publikacja jako PNG.
 - Audyt dry-run na bazie testowej: wszystkie 9 kontroli bez rozbieznosci. Nie jest to audyt danych produkcyjnych.
 - Niezalezne przeglady agentow: finanse, API, upload, panele, zadania i tick. Ostatni blocker propagacji bledu katastrofy zamknieto testem przez WellRiskHandler i ponownym przegladem.
 - Commity kodu: 7f68ecf (finanse), 062b6c2 (bezpieczenstwo i UI), bee4934 (tick, zadania i HR).
+- Pierwsza bramka CI wykryla brak jawnych dat w fixture'ach MySQL 8. Uzupelniono je bez zmiany schematu ani asercji; 34 testy / 388 asercji przechodza takze z STRICT_ALL_TABLES i zakazem zerowych dat. Produkcyjny deploy byl zablokowany.
 
 ## Wycofanie
 

@@ -11,6 +11,7 @@ require_once dirname(__DIR__) . '/fixtures/TransactionRaceFixtures.php';
 final class MySqlTransactionRacesTest extends TestCase
 {
     private PDO $db;
+    private ?string $previousSqlMode = null;
     private TransactionRaceFixtures $fixtures;
     private int $player;
     private int $other;
@@ -23,6 +24,8 @@ final class MySqlTransactionRacesTest extends TestCase
             $this->markTestSkipped('Requires an approved isolated test DB_NAME.');
         }
         $this->db = Database::getInstance()->getConnection();
+        $this->previousSqlMode = (string)$this->db->query('SELECT @@SESSION.sql_mode')->fetchColumn();
+        $this->db->exec("SET SESSION sql_mode='STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'");
         $this->fixtures = new TransactionRaceFixtures($this->db);
         new FinancialTransactionService($this->db);
         new LegalService($this->db);
@@ -49,7 +52,7 @@ final class MySqlTransactionRacesTest extends TestCase
                 $this->fixtures->insert('world_locations', ['id' => $id, 'region_id' => $this->region,
                     'name' => 'Race location', 'country_code' => 'PL', 'latitude' => 1, 'longitude' => 1]);
             }
-            $this->db->exec('INSERT IGNORE INTO market_state (id, base_price, current_price, volatility) VALUES (1, 100, 70, 1)');
+            $this->db->exec('INSERT IGNORE INTO market_state (id, base_price, current_price, volatility, last_market_tick_at) VALUES (1, 100, 70, 1, NOW())');
         } catch (Throwable $e) {
             $this->fixtures->cleanup();
             throw $e;
@@ -58,7 +61,13 @@ final class MySqlTransactionRacesTest extends TestCase
 
     protected function tearDown(): void
     {
-        if (isset($this->fixtures)) $this->fixtures->cleanup();
+        try {
+            if (isset($this->fixtures)) $this->fixtures->cleanup();
+        } finally {
+            if ($this->previousSqlMode !== null) {
+                $this->db->exec('SET SESSION sql_mode=' . $this->db->quote($this->previousSqlMode));
+            }
+        }
     }
 
     /** @dataProvider fixtureCollisionTables */
@@ -262,7 +271,7 @@ final class MySqlTransactionRacesTest extends TestCase
     {
         $this->permit($this->player);
         for ($i = 0; $i < 9; $i++) {
-            $this->db->prepare("INSERT INTO wells (player_id, status) VALUES (?, 'active')")->execute([$this->player]);
+            $this->db->prepare("INSERT INTO wells (player_id, status, created_at) VALUES (?, 'active', NOW())")->execute([$this->player]);
         }
         $results = $this->pair($this->job('map', ['id' => $this->location]), $this->job('map', ['id' => $this->location + 1]));
         $this->assertSame(1, $this->successes($results), json_encode($results));
@@ -273,8 +282,8 @@ final class MySqlTransactionRacesTest extends TestCase
     public function testSoldHistoryDoesNotBlockRepurchaseAndPreservesReservoir(): void
     {
         $this->permit($this->player);
-        $this->db->prepare("INSERT INTO wells (player_id, location_id, status, reservoir_remaining, reservoir_max, sold_at)
-            VALUES (?, ?, 'sold', 123, 300000, NOW())")->execute([$this->player, $this->location]);
+        $this->db->prepare("INSERT INTO wells (player_id, location_id, status, reservoir_remaining, reservoir_max, sold_at, created_at)
+            VALUES (?, ?, 'sold', 123, 300000, NOW(), NOW())")->execute([$this->player, $this->location]);
         $old = (int)$this->db->lastInsertId();
         $result = (new WorldMap($this->db))->buyWellAtLocation($this->player, $this->location);
         $this->assertTrue($result['success'], json_encode($result));
@@ -348,7 +357,7 @@ final class MySqlTransactionRacesTest extends TestCase
     public function testReadOnlyAuditReportsSeededDuplicatesWithoutRepair(): void
     {
         foreach ([$this->player, $this->other] as $id) {
-            $this->db->prepare("INSERT INTO wells (player_id, location_id, status) VALUES (?, ?, 'active')")
+            $this->db->prepare("INSERT INTO wells (player_id, location_id, status, created_at) VALUES (?, ?, 'active', NOW())")
                 ->execute([$id, $this->location]);
         }
         $this->db->prepare('UPDATE storage SET used = -1 WHERE player_id = ?')->execute([$this->player]);

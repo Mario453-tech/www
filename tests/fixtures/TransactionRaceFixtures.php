@@ -37,6 +37,9 @@ final class TransactionRaceFixtures
         if ($this->db->inTransaction()) {
             throw new LogicException('Fixture registration requires a committed insert.');
         }
+        if ($table === 'players') {
+            $values += ['created_at' => '2026-09-23 10:00:00', 'last_tick_at' => '2026-09-23 10:00:00'];
+        }
         $key = $table === 'legal_region_config' ? 'region_id' : 'id';
         $id = (int)($values[$key] ?? 0);
         if ($id <= 0) throw new InvalidArgumentException('Fixture ID is required.');
