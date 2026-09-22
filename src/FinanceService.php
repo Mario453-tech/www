@@ -5,10 +5,12 @@ class FinanceService
 {
     private PDO $db;
 
-    public function __construct()
+    public function __construct(bool $ensureSchema = true)
     {
         $this->db = Database::getInstance()->getConnection();
-        $this->ensureSchema();
+        if ($ensureSchema) {
+            $this->ensureSchema();
+        }
     }
 
     /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */

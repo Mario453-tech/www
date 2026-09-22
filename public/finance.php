@@ -11,8 +11,8 @@ $playerId = Auth::getUserId();
 
 require_once __DIR__ . '/../src/FinanceService.php';
 require_once __DIR__ . '/../src/FinancePolicyService.php';
-$finSvc = new FinanceService();
-$policySvc = new FinancePolicyService();
+$finSvc = new FinanceService(false);
+$policySvc = new FinancePolicyService(null, false);
 
 $hours = (int)($_GET['hours'] ?? 24);
 if (!in_array($hours, [24, 168], true)) {

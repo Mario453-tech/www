@@ -109,12 +109,14 @@ class FinancePolicyService
         return self::SAVINGS_PLAN_COOLDOWN_HOURS;
     }
 
-    public function __construct(?PDO $db = null)
+    public function __construct(?PDO $db = null, bool $ensureSchema = true)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
-        $this->ensureSchema();
-    }
+        if ($ensureSchema) {
+            $this->ensureSchema();
+        }
 
+    }
     /** @var array<int,bool> strażnik per połączenie (raz na proces, ale ponownie dla nowego PDO w testach) */
     private static array $schemaEnsured = [];
 
