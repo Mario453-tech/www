@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/PlayerPaymentService.php';
+require_once __DIR__ . '/WorldLocationCatalogSeeder.php';
 
 /**
  * WorldMap - world map service.
@@ -88,6 +89,11 @@ class WorldMap
     public function getLocations(): array
     {
         try {
+            try {
+                (new WorldLocationCatalogSeeder($this->db))->seed();
+            } catch (Throwable $e) {
+                GameLog::error('WorldMap', 'Location catalog seed failed', $e);
+            }
             $stmt = $this->db->query("
                 SELECT wl.*, wr.name AS region_name, wr.code AS region_code,
                        wr.tax_rate, wr.political_risk, wr.production_bonus,
