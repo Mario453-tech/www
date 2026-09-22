@@ -1,3 +1,4 @@
+<script src="/assets/js/admin_dashboard_flash.js" defer></script>
 <div class="db-container">
 
 <?php if ($msg):   ?><div class="db-alert db-alert--ok"><span class="db-alert-icon" aria-hidden="true"><svg viewBox="0 0 16 16" focusable="false"><path d="M6.4 11.4 3.3 8.3l-1 1 4.1 4.1 7.3-7.3-1-1z"/></svg></span><span><?= htmlspecialchars($msg) ?></span></div><?php endif ?>
@@ -120,7 +121,7 @@
             <div class="db-skill">
                 <div class="db-skill-lbl"><?= $skillLabel ?></div>
                 <div class="db-skill-bar">
-                    <div class="db-skill-fill" style="width:<?= $c[$skillKey] * 10 ?>%"></div>
+                    <progress class="db-skill-progress" max="10" value="<?= max(0, min(10, (float)$c[$skillKey])) ?>"></progress>
                 </div>
                 <div class="db-skill-val"><?= $c[$skillKey] ?></div>
             </div>
@@ -243,38 +244,4 @@
 
 </div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const roleInput = document.getElementById('director-role-id');
-    const roleGrid = document.getElementById('director-role-grid');
-    const regionInput = document.getElementById('director-region-code');
-    const regionGrid = document.getElementById('director-region-grid');
-    if (roleInput && roleGrid) {
-        roleGrid.addEventListener('click', function (event) {
-            const card = event.target.closest('.db-role-card');
-            if (!card) {
-                return;
-            }
-            roleInput.value = card.dataset.roleId || '';
-            roleGrid.querySelectorAll('.db-role-card').forEach(function (node) {
-                node.classList.toggle('is-selected', node === card);
-            });
-        });
-    }
-
-    if (!regionInput || !regionGrid) {
-        return;
-    }
-
-    regionGrid.addEventListener('click', function (event) {
-        const card = event.target.closest('.db-region-card');
-        if (!card) {
-            return;
-        }
-        regionInput.value = card.dataset.regionCode || 'PL';
-        regionGrid.querySelectorAll('.db-region-card').forEach(function (node) {
-            node.classList.toggle('is-selected', node === card);
-        });
-    });
-});
-</script>
+<script src="/assets/js/dashboard_controls.js" defer></script>

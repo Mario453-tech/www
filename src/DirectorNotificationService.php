@@ -270,6 +270,7 @@ class DirectorNotificationService
     {
         try {
             $this->db = Database::getInstance()->getConnection();
+            $this->ensureSchema();
             GameLog::info('DirectorNotificationService', 'Service initialized');
         } catch (Throwable $e) {
             GameLog::error('DirectorNotificationService', 'Initialization failed', ['error' => $e->getMessage()]);
@@ -288,12 +289,7 @@ class DirectorNotificationService
 
         $template = self::TEMPLATES[$templateKey];
 
- // Przetlumacz title i message przez t(), podstaw parametry
-        $title   = t($template['title_key']);
-        $message = t($template['message_key']);
-        foreach ($params as $key => $value) {
-            $message = str_replace('{' . $key . '}', $value, $message);
-        }
+        $paramsJson = json_encode($params, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
 
         $expiresAt = $expiresInHours 
             ? date('Y-m-d H:i:s', strtotime("+{$expiresInHours} hours"))
@@ -301,21 +297,27 @@ class DirectorNotificationService
 
         $stmt = $this->db->prepare("
             INSERT INTO director_notifications 
-                (player_id, type, priority, title, message, icon, requires_action, action_url, action_label, expires_at)
+                (player_id, type, priority, title, message, icon, requires_action, action_url, action_label, expires_at,
+                 title_key, message_key, action_label_key, message_params)
             VALUES 
-                (:player_id, :type, :priority, :title, :message, :icon, :requires_action, :action_url, :action_label, :expires_at)
+                (:player_id, :type, :priority, :title, :message, :icon, :requires_action, :action_url, :action_label, :expires_at,
+                 :title_key, :message_key, :action_label_key, :message_params)
         ");
 
         $stmt->execute([
             ':player_id' => $playerId,
             ':type' => $template['type'],
             ':priority' => $template['priority'],
-            ':title' => $title,
-            ':message' => $message,
+            ':title' => '',
+            ':message' => '',
+            ':title_key' => $template['title_key'],
+            ':message_key' => $template['message_key'],
+            ':action_label_key' => $template['action_label_key'] ?? null,
+            ':message_params' => $paramsJson,
             ':icon' => $template['icon'],
             ':requires_action' => $template['requires_action'] ? 1 : 0,
             ':action_url' => $template['action_url'] ?? null,
-            ':action_label' => isset($template['action_label_key']) ? t($template['action_label_key']) : null,
+            ':action_label' => null,
             ':expires_at' => $expiresAt
         ]);
 
@@ -362,7 +364,7 @@ class DirectorNotificationService
         }
 
         $stmt->execute();
-        return $stmt->fetchAll();
+        return array_map([self::class, 'localize'], $stmt->fetchAll());
     }
 
  /**
@@ -381,6 +383,7 @@ class DirectorNotificationService
             ':player_id' => $playerId
         ]);
 
+        $result = $result && $stmt->rowCount() > 0;
         if ($result) {
             $this->logAction($notificationId, $playerId, 'read');
         }
@@ -466,6 +469,40 @@ class DirectorNotificationService
         $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
         $stmt->execute();
 
-        return $stmt->fetchAll();
+        return array_map([self::class, 'localize'], $stmt->fetchAll());
+    }
+
+    public function ensureSchema(): void
+    {
+        $columns = $this->db->query('SHOW COLUMNS FROM director_notifications')->fetchAll(PDO::FETCH_COLUMN);
+        foreach (['title_key' => 'VARCHAR(190) NULL', 'message_key' => 'VARCHAR(190) NULL',
+            'action_label_key' => 'VARCHAR(190) NULL', 'message_params' => 'JSON NULL'] as $column => $definition) {
+            if (in_array($column, $columns, true)) continue;
+            if ($this->db->inTransaction()) {
+                throw new RuntimeException('Bootstrap director notification schema before starting a transaction');
+            }
+            Database::addColumnIfMissing('director_notifications', $column, $definition);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    public static function localize(array $row): array
+    {
+        $params = json_decode((string)($row['message_params'] ?? '{}'), true);
+        $params = is_array($params) ? $params : [];
+        if (($row['message_key'] ?? '') === 'director.admin_adjustment.message'
+            && in_array($params['direction'] ?? '', ['credit', 'debit'], true)) {
+            $params['direction'] = tPlain('director.admin_adjustment.' . $params['direction']);
+        }
+        foreach (['title', 'message', 'action_label'] as $field) {
+            $key = $row[$field . '_key'] ?? '';
+            if (is_string($key) && $key !== '') {
+                $row[$field] = tPlain($key, $params);
+            }
+        }
+        return $row;
     }
 }

@@ -39,76 +39,38 @@ $selectedId = (int)($_GET['player_id'] ?? 0);
 
 // ---- Obsluga POST (PRG) / Handle POST (PRG) ----
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $selectedId = max(0, (int)($_POST['player_id'] ?? 0));
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
-        $flash = ['type' => 'error', 'msg' => 'Nieprawidlowy token CSRF. / Invalid CSRF token.'];
+        $flash = ['type' => 'error', 'msg' => tPlain('common.csrf_error')];
     } else {
-        $action    = $_POST['action'] ?? '';
-        $targetPid = (int)($_POST['player_id'] ?? 0);
-        $note      = trim($_POST['note'] ?? '');
-
-        // Sanityzacja kwoty (przecinek -> kropka, spacje).
-        // Amount sanitization (comma -> dot, spaces).
-        $rawAmt = preg_replace('/\s+/u', '', (string)($_POST['amount'] ?? '0'));
-        if (strpos($rawAmt, '.') === false && strpos($rawAmt, ',') !== false) {
-            $rawAmt = str_replace(',', '.', $rawAmt);
-        }
-        $amount = (float)$rawAmt;
-
-        if ($targetPid <= 0) {
-            $flash = ['type' => 'error', 'msg' => 'Brak ID gracza. / Missing player ID.'];
-        } elseif ($amount <= 0) {
-            $flash = ['type' => 'error', 'msg' => 'Kwota musi byc wieksza od zera. / Amount must be greater than zero.'];
-        } elseif ($note === '') {
-            $flash = ['type' => 'error', 'msg' => 'Opis korekty jest wymagany. / Note is required.'];
-        } elseif ($action === 'admin_credit') {
-            $res = $fts->credit($targetPid, $amount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $note);
-            if ($res['success']) {
-                // Powiadom gracza / Notify player
-                try {
-                    $ns = new DirectorNotificationService();
-                    $ns->create($targetPid, 'admin_adjustment', [
-                        'direction' => 'dodano',
-                        'amount'    => number_format($res['amount'], 2, ',', ' '),
-                        'note'      => $note,
-                    ], 168);
-                } catch (Throwable $e) {
-                    GameLog::error('admin/bank.php', 'Notification failed (credit)', $e);
-                }
-                $flash = ['type' => 'success', 'msg' => 'Dodano ' . number_format($res['amount'], 2, ',', ' ') . ' PLN graczowi #' . $targetPid . '.'];
-                $selectedId = $targetPid;
-            } else {
-                $flash = ['type' => 'error', 'msg' => 'Blad: ' . ($res['error'] ?? 'nieznany') . ' / Error: ' . ($res['error'] ?? 'unknown')];
+        try {
+            require_once __DIR__ . '/../src/AdminBankAdjustment.php';
+            $action = (string)($_POST['action'] ?? '');
+            $note = is_string($_POST['note'] ?? null) ? trim($_POST['note']) : '';
+            $res = (new AdminBankAdjustment($db, $fts))->adjust(
+                $selectedId, $action, $_POST['amount'] ?? '', $note,
+                AdminAuth::getAdminUsername(), $_SERVER['REMOTE_ADDR'] ?? ''
+            );
+            $flash = ['type' => 'success', 'msg' => tPlain('admin.bank.saved', ['id' => $selectedId])];
+            try {
+                (new DirectorNotificationService())->create($selectedId, 'admin_adjustment', [
+                    'direction' => $action === 'admin_credit' ? 'credit' : 'debit',
+                    'amount' => number_format($res['amount'], 2, '.', ' '),
+                    'note' => $note,
+                ], 168);
+            } catch (Throwable $e) {
+                GameLog::error('admin/bank.php', 'Adjustment notification failed', $e);
             }
-        } elseif ($action === 'admin_debit') {
-            $res = $fts->debit($targetPid, $amount, FinancialTransactionService::TYPE_ADMIN_ADJUSTMENT, $note);
-            if ($res['success']) {
-                // Powiadom gracza / Notify player
-                try {
-                    $ns = new DirectorNotificationService();
-                    $ns->create($targetPid, 'admin_adjustment', [
-                        'direction' => 'pobrano',
-                        'amount'    => number_format($res['amount'], 2, ',', ' '),
-                        'note'      => $note,
-                    ], 168);
-                } catch (Throwable $e) {
-                    GameLog::error('admin/bank.php', 'Notification failed (debit)', $e);
-                }
-                $flash = ['type' => 'success', 'msg' => 'Pobrano ' . number_format($res['amount'], 2, ',', ' ') . ' PLN od gracza #' . $targetPid . '.'];
-                $selectedId = $targetPid;
-            } else {
-                $flash = ['type' => 'error', 'msg' => 'Blad: ' . ($res['error'] ?? 'nieznany') . ' / Error: ' . ($res['error'] ?? 'unknown')];
-            }
-        } else {
-            $flash = ['type' => 'error', 'msg' => 'Nieznana akcja. / Unknown action.'];
+        } catch (InvalidArgumentException $e) {
+            $flash = ['type' => 'error', 'msg' => tPlain('admin.bank.invalid')];
+        } catch (Throwable $e) {
+            GameLog::error('admin/bank.php', 'Audited adjustment failed', $e);
+            $flash = ['type' => 'error', 'msg' => tPlain('admin.bank.failed')];
         }
-
-        // PRG - przekieruj z komunikatem w sesji.
-        // PRG - redirect with flash message in session.
-        if (!isset($_SESSION)) { session_start(); }
-        $_SESSION['admin_bank_flash'] = $flash;
-        header('Location: /admin/bank.php' . ($selectedId ? '?player_id=' . $selectedId : ''));
-        exit();
     }
+    $_SESSION['admin_bank_flash'] = $flash;
+    header('Location: /admin/bank.php' . ($selectedId ? '?player_id=' . $selectedId : ''), true, 303);
+    exit;
 }
 
 // Odczyt flash z sesji (PRG).
@@ -193,7 +155,7 @@ $viewData = [
     'flash'           => $flash,
 ];
 
-$pageTitle = 'Bank — panel administratora';
+$pageTitle = t('admin.bank.title');
 $adminExtraCss = ['/assets/css/admin_bank.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/bank/main.php';
@@ -206,7 +168,7 @@ require_once __DIR__ . '/partials/footer.php';
     if (!headers_sent()) {
         http_response_code(500);
     }
-    echo 'Blad aplikacji. / Application error.';
+    echo t('common.app_error');
 } finally {
     if (class_exists('GameLog', false)) {
         GameLog::pageEnd('admin/bank.php', $_codexGuardStart);

@@ -1,3 +1,4 @@
+<script src="/assets/js/admin_dashboard_flash.js" defer></script>
 <?php extract($viewData, EXTR_SKIP); ?>
 
 <link rel="stylesheet" href="/assets/css/help_editor.css">
@@ -90,26 +91,25 @@
         </div>
 
         <!-- TinyMCE -->
-        <div class="he-tinymce" style="margin-top: 20px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;"><?= t('admin.help_editor.label_content_pl') ?></label>
+        <div class="he-tinymce">
+            <label><?= t('admin.help_editor.label_content_pl') ?></label>
             <textarea id="tinymce-content" name="content"><?= htmlspecialchars($editPage['content']) ?></textarea>
         </div>
-        <div class="he-tinymce" style="margin-top: 20px;">
-            <label style="display:block; margin-bottom: 5px; font-weight: bold;"><?= t('admin.help_editor.label_content_en') ?></label>
+        <div class="he-tinymce">
+            <label><?= t('admin.help_editor.label_content_en') ?></label>
             <textarea id="tinymce-content-en" name="content_en"><?= htmlspecialchars($editPage['content_en'] ?? '') ?></textarea>
         </div>
 
         <div class="form-row">
             <button type="submit" class="btn btn-primary"> <?= t('admin.help_editor.btn_save') ?></button>
             <a href="/help" target="_blank" class="btn btn-secondary"> <?= t('admin.help_editor.btn_preview') ?></a>
-            <button type="button" class="btn btn-danger"
-                onclick="if(confirm('<?= t('admin.help_editor.confirm_delete') ?>')) document.getElementById('deletePageForm').submit()">
+            <button type="submit" form="deletePageForm" class="btn btn-danger">
                  <?= t('admin.help_editor.btn_delete') ?>
             </button>
         </div>
     </form>
 
-    <form method="post" id="deletePageForm" class="hidden">
+    <form method="post" id="deletePageForm" class="hidden" data-confirm="<?= t('admin.help_editor.confirm_delete') ?>" data-confirm-type="danger">
         <?= CSRF::field() ?>
         <input type="hidden" name="action"  value="delete">
         <input type="hidden" name="page_id" value="<?= (int)$editPage['id'] ?>">

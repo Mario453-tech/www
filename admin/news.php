@@ -7,8 +7,9 @@ try {
     AdminAuth::requireLogin();
 
     $db       = Database::getInstance()->getConnection();
-    $msg      = '';
-    $err      = '';
+    $msg = $_SESSION['admin_news_flash']['msg'] ?? '';
+    $err = $_SESSION['admin_news_flash']['err'] ?? '';
+    unset($_SESSION['admin_news_flash']);
     $editNews = null;
     $hasTitleHtml = true;
 
@@ -31,7 +32,7 @@ try {
             if ($action === 'add') {
                 $titleHtml = AdminNewsHtml::sanitizeTitle(trim($_POST['title'] ?? ''));
                 $title   = AdminNewsHtml::plainText($titleHtml);
-                $content = trim($_POST['content'] ?? '');
+                $content = AdminNewsHtml::sanitizeContent(trim($_POST['content'] ?? ''));
                 $contentPlain = AdminNewsHtml::plainText($content);
 
                 if ($title === '' || $contentPlain === '') {
@@ -46,14 +47,14 @@ try {
                         $db->prepare("INSERT INTO admin_news (title, content, created_by) VALUES (?, ?, ?)")
                             ->execute([$dbTitle, $content, $who]);
                     }
-                    AdminLog::log('news_add', "Dodano news: {$title}");
+                    AdminLog::log('news_add', "News added: {$title}");
                     $msg = t('admin.news.msg_added');
                 }
             } elseif ($action === 'edit') {
                 $id      = (int) ($_POST['news_id'] ?? 0);
                 $titleHtml = AdminNewsHtml::sanitizeTitle(trim($_POST['title'] ?? ''));
                 $title   = AdminNewsHtml::plainText($titleHtml);
-                $content = trim($_POST['content'] ?? '');
+                $content = AdminNewsHtml::sanitizeContent(trim($_POST['content'] ?? ''));
                 $contentPlain = AdminNewsHtml::plainText($content);
 
                 if ($id <= 0 || $title === '' || $contentPlain === '') {
@@ -67,7 +68,7 @@ try {
                         $db->prepare("UPDATE admin_news SET title = ?, content = ? WHERE id = ? AND active = 1")
                             ->execute([$dbTitle, $content, $id]);
                     }
-                    AdminLog::log('news_edit', "Zaktualizowano news #{$id}: {$title}");
+                    AdminLog::log('news_edit', "News updated #{$id}: {$title}");
                     $msg = t('admin.news.msg_updated');
                 }
             } elseif ($action === 'delete') {
@@ -75,7 +76,7 @@ try {
 
                 if ($id > 0) {
                     $db->prepare("UPDATE admin_news SET active = 0 WHERE id = ?")->execute([$id]);
-                    AdminLog::log('news_delete', "Usunieto news #{$id}");
+                    AdminLog::log('news_delete', "News deleted #{$id}");
                     $msg = t('admin.news.msg_deleted');
                 }
             } elseif ($action === 'pin') {
@@ -88,7 +89,7 @@ try {
                         $err = t('admin.news.max_pinned_warn');
                     } else {
                         $db->prepare("UPDATE admin_news SET is_pinned = 1, pinned_at = NOW() WHERE id = ? AND active = 1")->execute([$id]);
-                        AdminLog::log('news_pin', "Przypieto news #{$id}");
+                        AdminLog::log('news_pin', "News pinned #{$id}");
                         $msg = t('admin.news.msg_pinned');
                     }
                 }
@@ -97,11 +98,17 @@ try {
 
                 if ($id > 0) {
                     $db->prepare("UPDATE admin_news SET is_pinned = 0, pinned_at = NULL WHERE id = ?")->execute([$id]);
-                    AdminLog::log('news_unpin', "Odpieto news #{$id}");
+                    AdminLog::log('news_unpin', "News unpinned #{$id}");
                     $msg = t('admin.news.msg_unpinned');
                 }
             }
         }
+    }
+
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $_SESSION['admin_news_flash'] = ['msg' => $msg, 'err' => $err];
+        header('Location: /admin/news.php', true, 303);
+        exit;
     }
 
  // Edit mode - load item into the form / Tryb edycji - zaladuj news do formularza
@@ -142,7 +149,8 @@ try {
         }
         unset($newsRow);
     } catch (Throwable $e) {
-        $err = t('admin.news.err_fetch') . ': ' . $e->getMessage();
+        GameLog::error('admin/news.php', 'News fetch failed', $e);
+        $err = t('admin.news.err_fetch');
     }
 
     $csrfToken = CSRF::generateToken();

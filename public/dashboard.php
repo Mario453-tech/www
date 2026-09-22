@@ -36,8 +36,9 @@ if ($isBankrupt && empty($_SESSION['bankruptcy_dashboard_visited'])) {
 if (!$isBankrupt) unset($_SESSION['bankruptcy_dashboard_visited']);
 
 // POST: dyrektor zatwierdza / odrzuca CV 
-$msg   = '';
-$error = '';
+$msg = $_SESSION['dashboard_flash']['msg'] ?? '';
+$error = $_SESSION['dashboard_flash']['error'] ?? '';
+unset($_SESSION['dashboard_flash']);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $error = t('common.csrf_error');
@@ -174,7 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Dane 
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['dashboard_flash'] = ['msg' => $msg, 'error' => $error];
+    header('Location: /dashboard', true, 303);
+    exit;
+}
+
+// Data / Dane
 
 // 1. Zarzd tylko pracownicy tego gracza
 $boardMembers = [];

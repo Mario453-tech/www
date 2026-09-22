@@ -13,7 +13,11 @@ function markNotificationRead(notificationId) {
             csrf_token: CSRF_TOKEN
         })
     })
-    .then(response => response.json())
+    .then(async response => {
+        const data = await response.json();
+        if (!response.ok || data.success !== true) throw new Error('Notification update failed');
+        return data;
+    })
     .then(data => {
         if (data.success) {
             const notificationEl = document.querySelector(`[data-notification-id="${notificationId}"]`);
@@ -27,11 +31,11 @@ function markNotificationRead(notificationId) {
             }
         }
     })
-    .catch(error => console.error('Error:', error));
+    .catch(() => alertError(window.MODAL_LANG.title_error));
 }
 
 function markAllNotificationsRead() {
-    confirmAction('Oznaczyć wszystkie komunikaty jako przeczytane?', function () {
+    confirmAction(document.querySelector('#director-notifications .btn-mark-all-read').textContent.trim() + '?', function () {
         fetch('/api/notifications/mark-all-read.php', {
             method: 'POST',
             headers: {
@@ -41,17 +45,21 @@ function markAllNotificationsRead() {
                 csrf_token: CSRF_TOKEN
             })
         })
-        .then(response => response.json())
+        .then(async response => {
+            const data = await response.json();
+            if (!response.ok || data.success !== true) throw new Error('Notification update failed');
+            return data;
+        })
         .then(data => {
             if (data.success) {
                 if (typeof window.showGameToast === 'function') {
-                    window.showGameToast('Komunikaty', 'Wszystkie komunikaty oznaczono jako przeczytane.', 'success');
+                    window.showGameToast('', window.MODAL_LANG.title_success, 'success');
                 }
                 location.reload();
             }
         })
-        .catch(error => console.error('Error:', error));
-    }, { type: 'confirm', confirmLabel: 'Oznacz' });
+        .catch(() => alertError(window.MODAL_LANG.title_error));
+    }, { type: 'confirm', confirmLabel: window.MODAL_LANG.confirm });
 }
 
 function updateNotificationCount() {

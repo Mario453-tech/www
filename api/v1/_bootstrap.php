@@ -15,36 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit;
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// TYMCZASOWA DIAGNOSTYKA: zamiast pustej odpowiedzi 500 pokaz prawdziwy blad PHP.
-// TEMPORARY DIAGNOSTICS: surface the real PHP fatal/exception instead of empty 500.
-// Mozna usunac po zdiagnozowaniu problemu z logowaniem.
-// ───────────────────────────────────────────────────────────────────────────
-set_exception_handler(function (\Throwable $e): void {
-    if (!headers_sent()) {
-        http_response_code(500);
-        header('Content-Type: application/json; charset=utf-8');
-    }
-    echo json_encode([
-        'error'  => 'PHP exception: ' . $e->getMessage() . ' @ ' . basename($e->getFile()) . ':' . $e->getLine(),
-        'detail' => $e->getMessage(),
-        'where'  => basename($e->getFile()) . ':' . $e->getLine(),
-    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-});
-register_shutdown_function(function (): void {
-    $e = error_get_last();
-    if ($e !== null && in_array($e['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_RECOVERABLE_ERROR], true)) {
-        if (!headers_sent()) {
-            http_response_code(500);
-            header('Content-Type: application/json; charset=utf-8');
-        }
-        echo json_encode([
-            'error'  => 'PHP fatal: ' . $e['message'] . ' @ ' . basename($e['file']) . ':' . $e['line'],
-            'detail' => $e['message'],
-            'where'  => basename($e['file']) . ':' . $e['line'],
-        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-    }
-});
+require_once dirname(__DIR__, 2) . '/src/ApiErrorHandler.php';
+ApiErrorHandler::install(true);
 
 $_API_ROOT = dirname(__DIR__, 2);
 // vendor/ NIE jest wgrywany na produkcje (deploy FTP wyklucza vendor/) i nie jest
@@ -56,6 +28,7 @@ if (is_file($_API_ROOT . '/vendor/autoload.php')) {
     require_once $_API_ROOT . '/vendor/autoload.php';
 }
 require_once $_API_ROOT . '/src/GameLog.php';
+GameLog::setEnabled(false);
 require_once $_API_ROOT . '/src/Database.php';
 require_once $_API_ROOT . '/src/ApiAuth.php';
 require_once $_API_ROOT . '/src/Market.php';
@@ -67,8 +40,6 @@ ApiAuth::ensureSchema();
 // Gwarantuje wiersz market_state id=1 (inaczej cena ropy = 0 na swiezej/przywroconej bazie).
 // Ensures the market_state singleton row exists (else oil price = 0 on a fresh/restored DB).
 Market::ensureState();
-
-GameLog::setEnabled(false);
 
 /**
  * Konczy zadanie z bledem JSON.
@@ -102,7 +73,7 @@ function apiRequireAuth(): array
 {
     $player = ApiAuth::getPlayerFromRequest();
     if (!$player) {
-        apiError(401, 'Unauthorized: pass token via "Authorization: Bearer <token>"');
+        apiError(401, ApiErrorHandler::message('unauthorized'));
     }
     return $player;
 }
@@ -118,7 +89,7 @@ function apiBody(): array
     $raw  = file_get_contents('php://input');
     $data = json_decode($raw ?: '{}', true);
     if (!is_array($data)) {
-        apiError(400, 'Invalid JSON body');
+        apiError(400, ApiErrorHandler::message('json'));
     }
     return $data;
 }

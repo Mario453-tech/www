@@ -1,3 +1,4 @@
+<script src="/assets/js/admin_dashboard_flash.js" defer></script>
 <?php
 $csrfField = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars($csrfToken) . '">';
 ?>
@@ -118,7 +119,7 @@ $csrfField = '<input type="hidden" name="csrf_token" value="' . htmlspecialchars
                         </form>
 
                         <form method="post" action="/admin/news.php" class="form-inline"
-                              onsubmit="return confirm('<?= t('admin.news.delete_confirm') ?>')">
+                              data-confirm="<?= t('admin.news.delete_confirm') ?>" data-confirm-type="danger">
                             <?= $csrfField ?>
                             <input type="hidden" name="action" value="delete">
                             <input type="hidden" name="news_id" value="<?= (int) $n['id'] ?>">

@@ -96,13 +96,20 @@ final class MobileWebBridgeTest extends SqliteIntegrationTestCase
 
     public function testBridgeEndpointRequiresBearerToken(): void
     {
-        $result = $this->runEndpoint('api_no_auth');
+        foreach ([
+            'pl' => 'Wymagane jest uwierzytelnienie.',
+            'en' => 'Authentication is required.',
+        ] as $locale => $message) {
+            foreach (['api_no_auth', 'api_invalid_auth'] as $mode) {
+                $result = $this->runEndpoint($mode, ['HTTP_ACCEPT_LANGUAGE' => $locale]);
 
-        $this->assertSame(401, $result['status']);
-        $this->assertSame(
-            'Unauthorized: pass token via "Authorization: Bearer <token>"',
-            $result['body']['error'] ?? null
-        );
+                $this->assertSame(401, $result['status'], $locale . ':' . $mode);
+                $this->assertSame(['error' => $message], $result['body']);
+                $this->assertArrayNotHasKey('user_id', $result['session']);
+                $this->assertArrayNotHasKey('bridge_url', $result['body']);
+                $this->assertArrayNotHasKey('token', $result['body']);
+            }
+        }
     }
 
     public function testBridgeEndpointRejectsWrongMethod(): void
@@ -329,9 +336,12 @@ $_SERVER = array_merge($_SERVER, [
     'SCRIPT_NAME' => '/endpoint-test.php',
 ], $serverOverrides);
 
-if ($mode === 'api_no_auth') {
+if ($mode === 'api_no_auth' || $mode === 'api_invalid_auth') {
     $_SERVER['REQUEST_METHOD'] = 'POST';
     unset($_SERVER['HTTP_AUTHORIZATION']);
+    if ($mode === 'api_invalid_auth') {
+        $_SERVER['HTTP_AUTHORIZATION'] = 'Bearer ' . str_repeat('f', 64);
+    }
     require $root . '/api/v1/auth/webview-bridge.php';
     exit;
 }

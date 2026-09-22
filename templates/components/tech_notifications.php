@@ -11,25 +11,25 @@ if (empty($techNotifications)) {
 }
 
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$panelTitle = $locale === 'en' ? 'Technical alerts' : 'Alerty techniczne';
-$markAllLabel = $locale === 'en' ? 'Mark all as read' : 'Odczytaj wszystkie';
-$wellLabel = $locale === 'en' ? 'Well #' : 'Odwiert #';
-$markReadLabel = $locale === 'en' ? 'Mark as read' : 'Odczytaj';
+$panelTitle = tPlain('director.tech_technical_alerts');
+$markAllLabel = tPlain('director.tech_mark_all_as_read');
+$wellLabel = tPlain('director.tech_well');
+$markReadLabel = tPlain('director.tech_mark_as_read');
 
 // Notification type labels.
 $__typeLabels = [
-    'failure'                          => $locale === 'en' ? 'Failure' : 'Awaria',
-    'pipeline'                         => $locale === 'en' ? 'Pipeline' : 'Rurociag',
-    'pressure'                         => $locale === 'en' ? 'Pressure' : 'Cisnienie',
-    'production'                       => $locale === 'en' ? 'Production' : 'Produkcja',
-    'drilling'                         => $locale === 'en' ? 'Drilling' : 'Wiercenie',
-    'maintenance'                      => $locale === 'en' ? 'Service' : 'Serwis',
-    'hse_warning'                      => $locale === 'en' ? 'HSE warning' : 'Ostrzezenie BHP',
-    'hse_critical'                     => $locale === 'en' ? 'Critical HSE' : 'Krytyczny BHP',
-    'disaster_blowout'                 => $locale === 'en' ? 'Disaster: blowout' : 'Katastrofa: blowout',
-    'disaster_pipeline_explosion'      => $locale === 'en' ? 'Disaster: pipeline' : 'Katastrofa: rurociag',
-    'disaster_reservoir_contamination' => $locale === 'en' ? 'Disaster: contamination' : 'Katastrofa: skazenie',
-    'disaster_surface_spill'           => $locale === 'en' ? 'Disaster: spill' : 'Katastrofa: wyciek',
+    'failure'                          => tPlain('director.tech_failure'),
+    'pipeline'                         => tPlain('director.tech_pipeline'),
+    'pressure'                         => tPlain('director.tech_pressure'),
+    'production'                       => tPlain('director.tech_production'),
+    'drilling'                         => tPlain('director.tech_drilling'),
+    'maintenance'                      => tPlain('director.tech_service'),
+    'hse_warning'                      => tPlain('director.tech_hse_warning'),
+    'hse_critical'                     => tPlain('director.tech_critical_hse'),
+    'disaster_blowout'                 => tPlain('director.tech_disaster_blowout'),
+    'disaster_pipeline_explosion'      => tPlain('director.tech_disaster_pipeline'),
+    'disaster_reservoir_contamination' => tPlain('director.tech_disaster_contamination'),
+    'disaster_surface_spill'           => tPlain('director.tech_disaster_spill'),
 ];
 
 // CSS class by severity.
@@ -48,13 +48,16 @@ $__severityClass = function (string $type): string {
 
 $__count = count($techNotifications);
 ?>
-<section class="card tech-notif-panel" id="tech-notif-panel" aria-labelledby="tech-notif-heading">
+<section class="card tech-notif-panel" id="tech-notif-panel" aria-labelledby="tech-notif-heading"
+         data-csrf="<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') ?>"
+         data-error="<?= t('director.notification_error') ?>">
+    <p class="tech-notif-error" role="alert" hidden></p>
     <h2 id="tech-notif-heading">
         <?= htmlspecialchars($panelTitle, ENT_QUOTES, 'UTF-8') ?>
         <span class="tech-notif-count"><?= $__count ?></span>
         <?php if ($__count > 1): ?>
         <button class="btn-mark-all-read tech-notif-mark-all"
-                onclick="techNotifMarkAll()">
+                data-tech-action="mark_all_read" data-confirm="<?= t('director.confirm_mark_all') ?>">
             <?= htmlspecialchars($markAllLabel, ENT_QUOTES, 'UTF-8') ?>
         </button>
         <?php endif ?>
@@ -80,26 +83,14 @@ $__count = count($techNotifications);
                 try {
                     $__dt   = new DateTime($__time);
                     $__diff = (new DateTime())->diff($__dt);
-                    if ($locale === 'en') {
-                        if ($__diff->days > 0) {
-                            echo $__diff->days . ' d ago';
-                        } elseif ($__diff->h > 0) {
-                            echo $__diff->h . ' h ago';
-                        } elseif ($__diff->i > 0) {
-                            echo $__diff->i . ' min ago';
-                        } else {
-                            echo 'just now';
-                        }
+                    if ($__diff->days > 0) {
+                        echo t('director.time_days_ago', ['n' => $__diff->days]);
+                    } elseif ($__diff->h > 0) {
+                        echo t('director.time_hours_ago', ['n' => $__diff->h]);
+                    } elseif ($__diff->i > 0) {
+                        echo t('director.time_minutes_ago', ['n' => $__diff->i]);
                     } else {
-                        if ($__diff->days > 0) {
-                            echo $__diff->days . ' dni temu';
-                        } elseif ($__diff->h > 0) {
-                            echo $__diff->h . ' godz. temu';
-                        } elseif ($__diff->i > 0) {
-                            echo $__diff->i . ' min temu';
-                        } else {
-                            echo 'przed chwila';
-                        }
+                        echo t('director.time_just_now');
                     }
                 } catch (Throwable $__ex) {
                     echo htmlspecialchars($__time);
@@ -110,7 +101,7 @@ $__count = count($techNotifications);
         <p class="tech-notif-item__msg"><?= nl2br(htmlspecialchars((string)($__n['message'] ?? ''))) ?></p>
         <div class="tech-notif-item__actions">
             <button class="btn btn-sm btn-secondary"
-                    onclick="techNotifMarkRead(<?= $__id ?>, this)">
+                    data-tech-action="mark_read" data-tech-id="<?= $__id ?>">
                 <?= htmlspecialchars($markReadLabel, ENT_QUOTES, 'UTF-8') ?>
             </button>
         </div>
@@ -119,43 +110,4 @@ $__count = count($techNotifications);
     </div>
 </section>
 
-<script>
-(function () {
-    var csrfToken = <?= json_encode(CSRF::generateToken(), JSON_UNESCAPED_UNICODE) ?>;
-
-    // Marks one notification as read and removes it from the view.
-    window.techNotifMarkRead = function (id, btn) {
-        fetch('/src/TechNotifApi.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=mark_read&notif_id=' + encodeURIComponent(id) + '&_token=' + encodeURIComponent(csrfToken)
-        }).then(function () {
-            var item = btn ? btn.closest('.tech-notif-item')
-                           : document.querySelector('[data-notif-id="' + id + '"]');
-            if (item) item.remove();
-            checkTechNotifEmpty();
-        });
-    };
-
-    // Marks all notifications as read and removes the entire panel.
-    window.techNotifMarkAll = function () {
-        fetch('/src/TechNotifApi.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'action=mark_all_read&_token=' + encodeURIComponent(csrfToken)
-        }).then(function () {
-            var panel = document.getElementById('tech-notif-panel');
-            if (panel) panel.remove();
-        });
-    };
-
-    // Hides the panel when the list is empty.
-    function checkTechNotifEmpty() {
-        var list = document.getElementById('tech-notif-list');
-        if (list && !list.querySelector('.tech-notif-item')) {
-            var panel = document.getElementById('tech-notif-panel');
-            if (panel) panel.remove();
-        }
-    }
-}());
-</script>
+<script src="/assets/js/tech_notifications.js" defer></script>

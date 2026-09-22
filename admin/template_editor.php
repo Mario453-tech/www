@@ -1,82 +1,54 @@
 <?php
-// AJAX chunk upload metadane w GET, surowe bajty w body 
-// application/octet-stream omija Suhosin i ModSecurity na az.pl
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST' &&
-    ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'XMLHttpRequest' &&
-    ($_GET['ajax_upload'] ?? '') === '1'
-) {
-    while (ob_get_level() > 0) ob_end_clean();
-    header('Content-Type: application/json; charset=utf-8');
-
-    function _ub_json(array $d): void { echo json_encode($d, JSON_UNESCAPED_UNICODE); exit; }
-
+// Shared upload validation; wspolna walidacja uploadu.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (
+    ($_GET['ajax_upload'] ?? '') === '1' || ($_POST['action'] ?? '') === 'upload_bg_chunk'
+)) {
+    require_once __DIR__ . '/../src/BoardroomUploadService.php';
+    require_once __DIR__ . '/../src/i18n.php';
+    $result = ['ok' => false, 'err' => tPlain('admin.template_editor.upload_server')];
     try {
         require_once __DIR__ . '/init.php';
-
-        if (!AdminAuth::isLoggedIn()) {
-            _ub_json(['ok' => false, 'err' => 'Sesja wygasa  zaloguj si ponownie.']);
+        if (!AdminAuth::isLoggedIn() || empty($_SESSION['admin_id']) || session_id() === '') {
+            throw new DomainException('auth');
         }
-        if (!CSRF::validateToken($_GET['csrf_token'] ?? '')) {
-            _ub_json(['ok' => false, 'err' => 'Bd CSRF  odwie stron.']);
+        $base64 = ($_POST['action'] ?? '') === 'upload_bg_chunk';
+        $input = $base64 ? $_POST : $_GET;
+        if (!is_string($input['csrf_token'] ?? null) || !CSRF::validateToken($input['csrf_token'])) {
+            throw new DomainException('csrf');
         }
-
-        $bgName      = preg_replace('/[^a-zA-Z0-9_]/', '', $_GET['bg_name']     ?? '');
-        $mime        = trim($_GET['bg_file_mime'] ?? '');
-        $chunkIdx    = (int)($_GET['chunk_index']  ?? 0);
-        $totalChunks = (int)($_GET['total_chunks'] ?? 1);
-        $uploadId    = preg_replace('/[^a-z0-9]/', '', $_GET['upload_id']     ?? '');
-
-        if (!$bgName)   _ub_json(['ok' => false, 'err' => 'Brak nazwy roli (bg_name).']);
-        if (!$uploadId) _ub_json(['ok' => false, 'err' => 'Brak upload_id.']);
-
- // Odczyt surowych danych binarnych z body
-        $chunkData = file_get_contents('php://input');
-        if ($chunkData === false || $chunkData === '') {
-            _ub_json(['ok' => false, 'err' => 'php://input pusty. CL=' . ($_SERVER['CONTENT_LENGTH'] ?? '?') . '  skontaktuj si z supportem az.pl.']);
-        }
-
-        $chunkDir = __DIR__ . '/../assets/images/boardroom/';
-        if (!is_dir($chunkDir) && !mkdir($chunkDir, 0755, true)) {
-            _ub_json(['ok' => false, 'err' => 'Nie mona utworzy katalogu assets/images/boardroom/.']);
-        }
-
-        $cf = $chunkDir . '.ub_' . $uploadId . '_' . $bgName . '_' . $chunkIdx;
-        if (file_put_contents($cf, $chunkData) === false) {
-            _ub_json(['ok' => false, 'err' => 'Bd zapisu chunka #' . $chunkIdx . '.']);
-        }
-
-        if ($chunkIdx + 1 >= $totalChunks) {
-            $finalData = '';
-            for ($i = 0; $i < $totalChunks; $i++) {
-                $cfi = $chunkDir . '.ub_' . $uploadId . '_' . $bgName . '_' . $i;
-                if (!file_exists($cfi)) {
-                    _ub_json(['ok' => false, 'err' => 'Brakuje chunka #' . $i . '.']);
-                }
-                $finalData .= file_get_contents($cfi);
-                unlink($cfi);
+        $data = $base64 ? ($input['chunk_data'] ?? null)
+            : file_get_contents('php://input', false, null, 0, BoardroomUploadService::MAX_CHUNK + 1);
+        if (!is_string($data)) throw new DomainException('image');
+        // Legacy base64 clients have no ID; stare klienty base64 nie przesylaja ID.
+        if ($base64 && !array_key_exists('upload_id', $input) && is_string($input['bg_name'] ?? null)) {
+            $legacyKey = hash('sha256', $input['bg_name']);
+            if (($input['chunk_index'] ?? null) === '0' || ($input['chunk_index'] ?? null) === 0) {
+                $_SESSION['boardroom_upload_ids'][$legacyKey] = bin2hex(random_bytes(16));
             }
-
-            if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'])) {
-                _ub_json(['ok' => false, 'err' => 'Niedozwolony format: ' . $mime]);
-            }
-            if (strlen($finalData) > 20 * 1024 * 1024) {
-                _ub_json(['ok' => false, 'err' => 'Plik za duy (max 20 MB).']);
-            }
-
-            $dest = __DIR__ . '/../assets/images/boardroom_bg_' . $bgName . '.png';
-            if (file_put_contents($dest, $finalData) !== false) {
-                GameLog::info('admin/template_editor', 'boardroom bg uploaded', ['name' => $bgName]);
-                _ub_json(['ok' => true, 'done' => true, 'msg' => 'Zapisano: boardroom_bg_' . $bgName . '.png']);
-            }
-            _ub_json(['ok' => false, 'err' => 'Bd zapisu pliku docelowego. Sprawd uprawnienia /assets/images/.']);
+            $input['upload_id'] = $_SESSION['boardroom_upload_ids'][$legacyKey] ?? '';
         }
-
-        _ub_json(['ok' => true, 'done' => false, 'chunk' => $chunkIdx]);
-
+        $service = new BoardroomUploadService(
+            sys_get_temp_dir() . '/oilempire-boardroom-' . hash('sha256', dirname(__DIR__)),
+            __DIR__ . '/../assets/images'
+        );
+        $result = $service->receive((string)$_SESSION['admin_id'] . ':' . session_id(), $input, $data, $base64);
+        if ($result['done']) {
+            $result['msg'] = tPlain('admin.template_editor.br_bg_msg_saved', ['name' => $input['bg_name']]);
+            AdminLog::log('BOARDROOM_BACKGROUND_UPLOAD', 'Boardroom background published as PNG: ' . $input['bg_name'], null, 'template');
+        }
+    } catch (DomainException $e) {
+        $code = in_array($e->getMessage(), ['metadata', 'size', 'image', 'dimensions', 'missing', 'retry', 'expired', 'auth', 'csrf'], true)
+            ? $e->getMessage() : 'server';
+        $result = ['ok' => false, 'err' => tPlain('admin.template_editor.upload_' . $code)];
+        if (class_exists('GameLog', false)) GameLog::info('admin/template_editor', 'Boardroom upload rejected', ['reason' => $code]);
     } catch (Throwable $e) {
-        _ub_json(['ok' => false, 'err' => 'Wyjtek: ' . $e->getMessage()]);
+        $result = ['ok' => false, 'err' => tPlain('admin.template_editor.upload_server')];
+        if (class_exists('GameLog', false)) GameLog::info('admin/template_editor', 'Boardroom upload failed', ['exception' => get_class($e)]);
     }
+    while (ob_get_level() > 0) ob_end_clean();
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode($result, JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/template_editor.php') : microtime(true);
@@ -373,76 +345,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = t('admin.template_editor.br_msg_img_removed');
             GameLog::info('admin/template_editor', 'boardroom header image removed', ['by' => $who]);
 
-        } elseif ($action === 'upload_bg_chunk') {
- // Chunked base64 upload each chunk is small, avoids post_max_size limit
- // Flush ALL previous output (PHP warnings, notices) before JSON
-            while (ob_get_level() > 0) { ob_end_clean(); }
-            header('Content-Type: application/json; charset=utf-8');
-            try {
-                $bgName      = preg_replace('/[^a-z0-9_]/', '', $_POST['bg_name'] ?? '');
-                $mime        = trim($_POST['bg_file_mime'] ?? '');
-                $chunkIdx    = (int)($_POST['chunk_index']   ?? 0);
-                $totalChunks = (int)($_POST['total_chunks']  ?? 1);
-                $chunkData   = $_POST['chunk_data'] ?? '';
-                $sessId      = session_id() ?: md5(uniqid('', true));
-
-                if (!$bgName)    { echo json_encode(['ok' => false, 'err' => 'Brak nazwy pliku.']);    exit; }
-                if (!$chunkData) { echo json_encode(['ok' => false, 'err' => 'Brak danych chunka.']);  exit; }
-
- // Uywamy assets/images/boardroom/ tam na pewno s uprawnienia
-                $chunkDir = __DIR__ . '/../assets/images/boardroom/';
-                if (!is_dir($chunkDir)) mkdir($chunkDir, 0755, true);
-
-                $chunkFile = $chunkDir . '.chunk_' . $sessId . '_' . $bgName . '_' . $chunkIdx;
-                if (file_put_contents($chunkFile, $chunkData) === false) {
-                    echo json_encode(['ok' => false, 'err' => 'Bd zapisu chunka. Sprawd uprawnienia /assets/images/boardroom/.']);
-                    exit;
-                }
-
- // All chunks received assemble
-                if ($chunkIdx + 1 >= $totalChunks) {
-                    $fullB64 = '';
-                    for ($i = 0; $i < $totalChunks; $i++) {
-                        $cf = $chunkDir . '.chunk_' . $sessId . '_' . $bgName . '_' . $i;
-                        if (!file_exists($cf)) {
-                            echo json_encode(['ok' => false, 'err' => 'Brakuje chunka #' . $i . '. Sprbuj ponownie.']);
-                            exit;
-                        }
-                        $fullB64 .= file_get_contents($cf);
-                        unlink($cf);
-                    }
-
-                    $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
-                    if (!in_array($mime, $allowedMimes)) {
-                        echo json_encode(['ok' => false, 'err' => 'Niedozwolony format pliku.']);
-                        exit;
-                    }
-
-                    $decoded = base64_decode($fullB64, true);
-                    if ($decoded === false) {
-                        echo json_encode(['ok' => false, 'err' => 'Bd dekodowania base64.']);
-                        exit;
-                    }
-                    if (strlen($decoded) > 20 * 1024 * 1024) {
-                        echo json_encode(['ok' => false, 'err' => 'Plik przekracza 20 MB.']);
-                        exit;
-                    }
-
-                    $dest = __DIR__ . '/../assets/images/boardroom_bg_' . $bgName . '.png';
-                    if (file_put_contents($dest, $decoded) !== false) {
-                        GameLog::info('admin/template_editor', 'boardroom bg uploaded (chunked)', ['name' => $bgName, 'by' => $who]);
-                        echo json_encode(['ok' => true, 'done' => true, 'msg' => 'To zapisane: boardroom_bg_' . $bgName . '.png']);
-                    } else {
-                        echo json_encode(['ok' => false, 'err' => 'Bd zapisu pliku. Sprawd uprawnienia /assets/images/.']);
-                    }
-                } else {
-                    echo json_encode(['ok' => true, 'done' => false, 'chunk' => $chunkIdx]);
-                }
-            } catch (Throwable $e) {
-                GameLog::error('admin/template_editor', 'upload_bg_chunk failed', $e);
-                echo json_encode(['ok' => false, 'err' => 'Bd serwera: ' . $e->getMessage()]);
-            }
-            exit;
 
         } elseif ($action === 'save_boardroom_bg') {
  // Fallback (unused chunked AJAX is primary path)

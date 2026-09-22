@@ -11,21 +11,25 @@ declare(strict_types=1);
  * The token is valid for 90 days.
  */
 require_once dirname(__DIR__) . '/_bootstrap.php';
+require_once dirname(__DIR__, 3) . '/src/ApiAuthRateLimiter.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    apiError(405, 'Method Not Allowed — use POST');
+    apiError(405, ApiErrorHandler::message('method'));
 }
 
 $body     = apiBody();
-$login    = trim((string)($body['login'] ?? $body['email'] ?? $body['username'] ?? ''));
-$password = (string)($body['password'] ?? '');
-$device   = isset($body['device']) ? substr((string)$body['device'], 0, 200) : null;
+$login    = ApiAuthRateLimiter::normalizeIdentifier($body['login'] ?? $body['email'] ?? $body['username'] ?? null);
+$password = $body['password'] ?? null;
+$device   = $body['device'] ?? null;
 
-if ($login === '' || $password === '') {
-    apiError(400, '"login" (email lub username) i "password" sa wymagane');
+if ($login === null || !is_string($password) || $password === '' || strlen($password) > 4096
+    || ($device !== null && (!is_string($device) || !mb_check_encoding($device, 'UTF-8')))) {
+    apiError(400, ApiErrorHandler::message('invalid'));
 }
+$device = $device === null ? null : mb_substr($device, 0, 200, 'UTF-8');
 
 $db = Database::getInstance()->getConnection();
+$limiter = new ApiAuthRateLimiter($db);
 
 if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
     $stmt = $db->prepare(
@@ -41,16 +45,24 @@ if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
 $stmt->execute([$login]);
 $player = $stmt->fetch();
 
+// Use the account ID so email and username share the same attempt budget.
+// Uzywaj ID konta, aby email i nazwa gracza mialy wspolny limit prob.
+$retryAfter = $limiter->consume($login, (string) ($_SERVER['REMOTE_ADDR'] ?? ''), $player ? (int) $player['id'] : null);
+if ($retryAfter > 0) {
+    header('Retry-After: ' . $retryAfter);
+    apiError(429, ApiErrorHandler::message('limited'));
+}
+
 if (!$player || !password_verify($password, $player['password_hash'])) {
     // Celowo ten sam komunikat dla obu przypadkow (bezpieczenstwo).
     // Intentionally same message for both cases (security).
-    apiError(401, 'Nieprawidlowy login lub haslo');
+    apiError(401, ApiErrorHandler::message('credentials'));
 }
 if (!(int)$player['ev']) {
-    apiError(403, 'Email nie zostal potwierdzony');
+    apiError(403, ApiErrorHandler::message('unverified'));
 }
 if ($player['status'] !== 'active') {
-    apiError(403, 'Konto jest ' . $player['status']);
+    apiError(403, ApiErrorHandler::message('inactive'));
 }
 
 $token = ApiAuth::generateToken((int)$player['id'], $device);

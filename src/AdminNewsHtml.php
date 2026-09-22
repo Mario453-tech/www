@@ -27,6 +27,7 @@ class AdminNewsHtml
         return self::sanitize($html, [
             'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'span', 'div',
             'ul', 'ol', 'li', 'a', 'h1', 'h2', 'h3', 'h4', 'blockquote',
+            'table', 'caption', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
         ]);
     }
 
@@ -181,12 +182,33 @@ class AdminNewsHtml
                 continue;
             }
 
+            if (self::isSafeTableAttribute($tag, $name, $value)) {
+                continue;
+            }
+
             $attrsToRemove[] = $attr->nodeName;
         }
 
         foreach ($attrsToRemove as $attrName) {
             $node->removeAttribute($attrName);
         }
+    }
+
+    private static function isSafeTableAttribute(string $tag, string $name, string $value): bool
+    {
+        if ($tag === 'th' && $name === 'scope') {
+            return in_array($value, ['row', 'col', 'rowgroup', 'colgroup'], true);
+        }
+        if ($tag === 'th' && $name === 'abbr') {
+            return strlen($value) <= 255;
+        }
+        $cellSpan = in_array($tag, ['th', 'td'], true) && in_array($name, ['colspan', 'rowspan'], true);
+        $columnSpan = in_array($tag, ['col', 'colgroup'], true) && $name === 'span';
+        // Bound spans to avoid oversized layouts; reject units and executable attributes.
+        // Ogranicz rozpiecie komorek; odrzuc jednostki i wykonywalne atrybuty.
+        return ($cellSpan || $columnSpan)
+            && preg_match('/^[1-9][0-9]{0,3}$/D', $value) === 1
+            && (int)$value <= 1000;
     }
 
     /**

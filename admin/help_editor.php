@@ -3,12 +3,13 @@ $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/h
 try {
 
 require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/../src/AdminNewsHtml.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
-$msg = '';
-$msg = '';
-$err = '';
+$msg = $_SESSION['help_editor_flash']['msg'] ?? '';
+$err = $_SESSION['help_editor_flash']['err'] ?? '';
+unset($_SESSION['help_editor_flash']);
 
 // Ensure the table exists. / Upewnij sie, ze tabela istnieje.
 try {
@@ -69,8 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $title   = trim($_POST['title']   ?? '');
             $title_en = trim($_POST['title_en'] ?? '');
             $icon    = trim($_POST['icon']    ?? '');
-            $content = $_POST['content']      ?? '';
-            $content_en = $_POST['content_en'] ?? '';
+            $content = AdminNewsHtml::sanitizeContent((string)($_POST['content'] ?? ''));
+            $content_en = AdminNewsHtml::sanitizeContent((string)($_POST['content_en'] ?? ''));
             $active  = isset($_POST['active']) ? 1 : 0;
             $sort    = (int)($_POST['sort_order'] ?? 0);
             $who     = AdminAuth::getAdminUsername();
@@ -115,6 +116,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['help_editor_flash'] = ['msg' => $msg, 'err' => $err];
+    header('Location: /admin/help_editor.php?edit=' . max(0, (int)($_POST['page_id'] ?? 0)), true, 303);
+    exit;
 }
 
 // Get all sections / Pobierz wszystkie sekcje

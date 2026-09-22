@@ -3,6 +3,7 @@ $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/a
 try {
 
 require_once __DIR__ . '/init.php';
+require_once __DIR__ . '/../src/AdminAlertThresholds.php';
 AdminAuth::requireLogin();
 
 $db = Database::getInstance()->getConnection();
@@ -21,22 +22,39 @@ $THRESHOLD_DEFAULTS = [
 ];
 
 // Zapisz progi jeli POST 
-$threshMsg = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_thresholds'])) {
+$threshMsg = $_SESSION['admin_alerts_flash'] ?? '';
+unset($_SESSION['admin_alerts_flash']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
         $threshMsg = 'error:' . t('common.csrf_error');
     } else {
+        try {
+        if (($_POST['save_thresholds'] ?? '') !== '1') {
+            throw new InvalidArgumentException('Unknown threshold action');
+        }
+        $values = AdminAlertThresholds::validate($_POST);
+        $db->beginTransaction();
         $upsert = $db->prepare("
             INSERT INTO well_config (`key`, `value`) VALUES (?, ?)
             ON DUPLICATE KEY UPDATE `value` = VALUES(`value`)
         ");
-        foreach ($THRESHOLD_DEFAULTS as $key => $default) {
-            $val = isset($_POST[$key]) ? (float)$_POST[$key] : $default;
+        foreach ($values as $key => $val) {
             $upsert->execute([$key, $val]);
         }
-        AdminLog::log('alerts_thresholds_save', t('admin.alerts.log_saved'), null, AdminAuth::getAdminUsername());
+        $db->commit();
+        AdminLog::log('alerts_thresholds_save', 'Alert thresholds updated');
         $threshMsg = 'ok:' . t('admin.alerts.msg_saved');
+        } catch (InvalidArgumentException $e) {
+            $threshMsg = 'error:' . t('admin.alerts.invalid_thresholds');
+        } catch (Throwable $e) {
+            if ($db->inTransaction()) $db->rollBack();
+            GameLog::error('admin/alerts', 'Threshold save failed', $e);
+            $threshMsg = 'error:' . t('common.app_error');
+        }
     }
+    $_SESSION['admin_alerts_flash'] = $threshMsg;
+    header('Location: /admin/alerts.php', true, 303);
+    exit;
 }
 
 // Wczytaj progi z well_config (fallback na domylne) 
@@ -127,16 +145,18 @@ if ($critCond > 0) {
 }
 
 // 3. Stan techniczny odwiertw
-$condStats = $db->query("
+$condStmt = $db->prepare("
     SELECT
-        SUM(technical_condition < 40) AS critical_count,
+        SUM(technical_condition < ?) AS critical_count,
         SUM(technical_condition < 60) AS warning_count,
         AVG(technical_condition) AS avg_condition,
-        SUM(wear_level > 80) AS high_wear_count,
+        SUM(wear_level > ?) AS high_wear_count,
         SUM(status = 'blowout') AS blowout_count
     FROM wells
     WHERE status NOT IN ('seized')
-")->fetch();
+");
+$condStmt->execute([$THRESHOLDS['condition_critical'], $THRESHOLDS['wear_critical']]);
+$condStats = $condStmt->fetch();
 
 $critCond2 = (int)($condStats['critical_count'] ?? 0);
 if ($critCond2 > 0) {

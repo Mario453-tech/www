@@ -40,6 +40,7 @@ try {
         echo json_encode(['success' => false, 'error' => t('tech_notif_api.err_unknown_action')]);
     }
 } catch (Throwable $e) {
-    GameLog::error('TechNotifApi', 'FAILED', $e, ['player_id' => $playerId]);
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    ApiErrorHandler::log('TechNotifApi', 'Notification update failed', $e, ['player_id' => $playerId]);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'error' => ApiErrorHandler::message('error')], JSON_UNESCAPED_UNICODE);
 }

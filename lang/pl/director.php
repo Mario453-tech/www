@@ -8,6 +8,26 @@ declare(strict_types=1);
  */
 
 return [
+    'director.tech_technical_alerts' => 'Alerty techniczne',
+    'director.tech_mark_all_as_read' => 'Odczytaj wszystkie',
+    'director.tech_well' => 'Odwiert #',
+    'director.tech_mark_as_read' => 'Odczytaj',
+    'director.tech_failure' => 'Awaria',
+    'director.tech_pipeline' => 'Rurociag',
+    'director.tech_pressure' => 'Cisnienie',
+    'director.tech_production' => 'Produkcja',
+    'director.tech_drilling' => 'Wiercenie',
+    'director.tech_service' => 'Serwis',
+    'director.tech_hse_warning' => 'Ostrzezenie BHP',
+    'director.tech_critical_hse' => 'Krytyczny BHP',
+    'director.tech_disaster_blowout' => 'Katastrofa: blowout',
+    'director.tech_disaster_pipeline' => 'Katastrofa: rurociag',
+    'director.tech_disaster_contamination' => 'Katastrofa: skazenie',
+    'director.tech_disaster_spill' => 'Katastrofa: wyciek',
+    'director.notification_error' => 'Nie udało się oznaczyć powiadomienia jako przeczytane. Spróbuj ponownie.',
+    'director.confirm_mark_all' => 'Oznaczyć wszystkie powiadomienia jako przeczytane?',
+    'director.admin_adjustment.credit' => 'dodano',
+    'director.admin_adjustment.debit' => 'pobrano',
 
     'dm.page_title' => 'Wiadomości prywatne',
     'dm.no_conversation' => 'Wybierz rozmowę z listy po lewej',

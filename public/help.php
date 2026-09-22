@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/AdminNewsHtml.php';
 Auth::requireLogin();
 
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
@@ -61,20 +62,20 @@ require_once __DIR__ . '/../templates/header.php';
         <h2><?= htmlspecialchars($displayTitle) ?></h2>
     </div>
     <div class="help-content">
-        <?= $displayContent ?>
+        <?= AdminNewsHtml::sanitizeContent($displayContent) ?>
     </div>
 </div>
 <?php endforeach ?>
 
 <?php else: ?>
 <!-- Fallback when the database is unavailable or the table does not exist. / Awaryjne zachowanie gdy baza nie odpowiada lub tabela nie istnieje. -->
-<div class="help-warn" style="margin-top:20px">
+<div class="help-warn help-fallback">
     <span class="help-tip-icon"></span>
     <p><?= $fallbackMessage ?></p>
 </div>
 <?php endif ?>
 
-<div style="text-align:center; margin-top:40px;">
+<div class="help-back">
     <a href="<?= url('home') ?>" class="btn btn-secondary"><?= htmlspecialchars($backLabel, ENT_QUOTES, 'UTF-8') ?></a>
 </div>
 

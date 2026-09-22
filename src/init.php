@@ -1,58 +1,14 @@
 <?php
 
-// ERROR LOGGING zbiera WSZYSTKIE bdy do error_log / collects ALL errors to error_log
+// Log error metadata without exposing credentials or exception payloads.
+// Loguj metadane bledow bez ujawniania danych logowania i tresci wyjatkow.
 error_reporting(E_ALL);
 ini_set('display_errors', '0');
-ini_set('log_errors', '1');
+ini_set('log_errors', '0');
 ini_set('error_log', __DIR__ . '/../error_log');
 
-set_exception_handler(function (Throwable $e) {
-    $msg  = '[UNCAUGHT EXCEPTION] ' . get_class($e) . ': ' . $e->getMessage();
-    $msg .= ' | file: ' . $e->getFile() . ':' . $e->getLine();
-    $msg .= ' | trace: ' . str_replace("\n", ' -> ', $e->getTraceAsString());
-    error_log($msg);
-    if (class_exists('GameLog', false)) {
-        GameLog::error('init', 'Uncaught exception', $e);
-    }
-    http_response_code(500);
-    echo '<!-- PHP ERROR: ' . htmlspecialchars($e->getMessage()) . ' -->';
-});
-
-register_shutdown_function(function () {
-    $err = error_get_last();
-    if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
-        error_log('[FATAL] ' . $err['message'] . ' | ' . $err['file'] . ':' . $err['line']);
-        if (class_exists('GameLog', false)) {
-            GameLog::error('init', 'Fatal shutdown error', null, [
-                'type'    => $err['type'],
-                'message' => $err['message'],
-                'file'    => $err['file'],
-                'line'    => $err['line'],
-            ]);
-        }
-    }
-});
-
-set_error_handler(function (int $errno, string $errstr, string $errfile, int $errline): bool {
-    $types = [
-        E_WARNING           => 'WARNING',
-        E_NOTICE            => 'NOTICE',
-        E_DEPRECATED        => 'DEPRECATED',
-        E_USER_ERROR        => 'USER_ERROR',
-        E_USER_WARNING      => 'USER_WARNING',
-        E_USER_NOTICE       => 'USER_NOTICE',
-        2048 => 'STRICT', // E_STRICT (deprecated in PHP 8.1+, constant value = 2048)
-        E_RECOVERABLE_ERROR => 'RECOVERABLE',
-    ];
-    $type  = $types[$errno] ?? "ERR#$errno";
-    $bt    = array_slice(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS), 1, 6);
-    $trace = implode(' -> ', array_map(
-        fn($f) => ($f['file'] ?? '?') . ':' . ($f['line'] ?? '?'),
-        $bt
-    ));
-    error_log("[$type] $errstr | $errfile:$errline | trace: $trace");
-    return false;
-});
+require_once __DIR__ . '/ApiErrorHandler.php';
+ApiErrorHandler::install(false);
 
 // KLASY CORE 
 require_once __DIR__ . '/GameLog.php';

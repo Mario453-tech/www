@@ -1,3 +1,4 @@
+<script src="/assets/js/admin_dashboard_flash.js" defer></script>
 <?php extract($viewData, EXTR_SKIP); ?>
 
 <h1> <?= t('admin.alerts.title') ?></h1>
@@ -80,7 +81,7 @@ $tickAgeMin = $lastTick ? round((time() - strtotime($lastTick)) / 60) : 999;
     </div>
     <?php endif ?>
 
-    <form method="post">
+    <form method="post" data-confirm="<?= t('admin.alerts.confirm_save') ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="save_thresholds" value="1">
         <?php foreach ($THRESHOLDS as $key => $val):
@@ -101,8 +102,7 @@ $tickAgeMin = $lastTick ? round((time() - strtotime($lastTick)) / 60) : 999;
         </div>
         <?php endforeach ?>
         <div class="form-row mt-4">
-            <button type="submit" class="btn btn-primary"
-                    onclick="confirmSubmit(this, '<?= t('admin.alerts.confirm_save') ?>'); return false;">
+            <button type="submit" class="btn btn-primary">
                  <?= t('admin.alerts.btn_save') ?>
             </button>
             <span class="form-hint"><?= t('admin.alerts.save_hint') ?></span>

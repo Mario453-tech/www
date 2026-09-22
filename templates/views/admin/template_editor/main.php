@@ -332,11 +332,11 @@
                 <div class="br-link-row">
                     <input type="text" name="footer_link_label[]" value="<?= htmlspecialchars($link['label'] ?? '') ?>" placeholder="<?= t('admin.template_editor.br_label_link_label') ?>">
                     <input type="text" name="footer_link_url[]" value="<?= htmlspecialchars($link['url'] ?? '') ?>" placeholder="<?= t('admin.template_editor.br_label_link_url') ?>">
-                    <button type="button" onclick="this.parentElement.remove()" class="br-btn-remove-link"></button>
+                    <button type="button" data-br-remove-footer class="br-btn-remove-link"></button>
                 </div>
             <?php endforeach ?>
             </div>
-            <button type="button" onclick="addBrFooterLink()" class="br-btn-add-link">
+            <button type="button" data-br-add-footer data-label="<?= t('admin.template_editor.br_label_link_label') ?>" data-url="<?= t('admin.template_editor.br_label_link_url') ?>" class="br-btn-add-link">
                 <?= t('admin.template_editor.br_btn_add_link') ?>
             </button>
         </div>
@@ -388,7 +388,21 @@
         <details class="br-bg-upload-wrap">
             <summary class="btn btn-secondary btn-sm"><?= t('admin.template_editor.br_bg_btn_upload') ?></summary>
             <div class="br-bg-upload-body">
-                <form method="post" id="br-bg-upload-form">
+                <form method="post" id="br-bg-upload-form"
+                      data-upload-messages="<?= htmlspecialchars(json_encode([
+                          'name' => tPlain('admin.template_editor.br_bg_err_name'),
+                          'file' => tPlain('admin.template_editor.br_bg_err_file'),
+                          'size' => tPlain('admin.template_editor.upload_size'),
+                          'image' => tPlain('admin.template_editor.upload_image'),
+                          'csrf' => tPlain('admin.template_editor.upload_csrf'),
+                          'progress' => tPlain('admin.template_editor.upload_progress'),
+                          'http' => tPlain('admin.template_editor.upload_http'),
+                          'response' => tPlain('admin.template_editor.upload_response'),
+                          'network' => tPlain('admin.template_editor.upload_network'),
+                          'timeout' => tPlain('admin.template_editor.upload_timeout'),
+                          'server' => tPlain('admin.template_editor.upload_server'),
+                          'saved' => tPlain('admin.template_editor.upload_saved'),
+                      ], JSON_THROW_ON_ERROR), ENT_QUOTES, 'UTF-8') ?>">
                     <?= CSRF::field() ?>
                     <input type="hidden" name="action"       value="save_boardroom_bg">
                     <input type="hidden" name="bg_name"      id="br-bg-name-input" value="">
@@ -422,7 +436,7 @@
                             <label class="te-label"><?= t('admin.template_editor.br_bg_label_file') ?></label>
                             <input type="file" id="br-bg-file-picker" accept="image/jpeg,image/png,image/webp" class="br-file-input">
                             <div class="br-file-hint"><?= t('admin.template_editor.br_bg_file_hint') ?></div>
-                            <div id="br-bg-file-status" class="mt-xs font-sm muted2"></div>
+                            <div id="br-bg-file-status" class="mt-xs font-sm muted2" role="status" aria-live="polite" aria-atomic="true"></div>
                         </div>
                     </div>
 
@@ -433,132 +447,7 @@
     </div>
 </div>
 
-<script>
-// Boardroom background filename builder 
-(function() {
-    const roleOrder = ['hr','tech','finance','legal','logistics'];
-
-    function updateBgName() {
-        const parts = [];
-        roleOrder.forEach(role => {
-            const cb  = document.querySelector('.br-bg-role-cb[data-role="' + role + '"]');
-            const sel = document.querySelector('.br-bg-gender-sel[data-role="' + role + '"]');
-            if (cb && cb.checked) {
-                const g = sel ? sel.value : '';
-                parts.push(g ? role + '_' + g : role);
-            }
-        });
-        const name    = parts.join('_');
-        const display = name ? 'boardroom_bg_' + name + '.png' : 'boardroom_bg.png';
-        const preview = document.getElementById('br-bg-name-preview');
-        const input   = document.getElementById('br-bg-name-input');
-        if (preview) preview.textContent = display;
-        if (input)   input.value = name;
-    }
-
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('br-bg-role-cb')) {
-            const role = e.target.dataset.role;
-            const sel  = document.querySelector('.br-bg-gender-sel[data-role="' + role + '"]');
-            if (sel) sel.disabled = !e.target.checked;
-            updateBgName();
-        }
-        if (e.target.classList.contains('br-bg-gender-sel')) {
-            updateBgName();
-        }
-    });
-
- // Chunked AJAX upload surowe bajty w body, metadane w URL 
- // application/octet-stream omija Suhosin i WAF na az.pl
-    const picker  = document.getElementById('br-bg-file-picker');
-    const status  = document.getElementById('br-bg-file-status');
-    const form    = document.getElementById('br-bg-upload-form');
-    const btn     = document.getElementById('br-bg-submit-btn');
-    const CHUNK   = 8 * 1024; // 8 KB  limit az.pl: body  16 KB jest blokowane przez WAF
-
-    function getCsrfToken() {
-        const inp = form ? form.querySelector('input[name="csrf_token"]') : document.querySelector('input[name="csrf_token"]');
-        return inp ? inp.value : '';
-    }
-
-    async function sendChunk(uploadId, bgName, mime, bytes, idx, total) {
-        const chunk = bytes.slice(idx * CHUNK, (idx + 1) * CHUNK);
-        const url   = new URL('/admin/template_editor.php', window.location.origin);
-        url.searchParams.set('ajax_upload',   '1');
-        url.searchParams.set('csrf_token',    getCsrfToken());
-        url.searchParams.set('upload_id',     uploadId);
-        url.searchParams.set('bg_name',       bgName);
-        url.searchParams.set('bg_file_mime',  mime);
-        url.searchParams.set('chunk_index',   idx);
-        url.searchParams.set('total_chunks',  total);
-
-        const resp = await fetch(url.toString(), {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-                'Content-Type':     'application/octet-stream',
-                'X-Requested-With': 'XMLHttpRequest',
-            },
-            body: chunk,
-        });
-        const text = await resp.text();
-        try {
-            return JSON.parse(text);
-        } catch (e) {
-            const preview = text.substring(0, 400).replace(/</g, '&lt;');
-            throw new Error('Serwer zwrci nieoczekiwan odpowied:<br><code style="font-size:0.8em">' + preview + '</code>');
-        }
-    }
-
-    if (picker && btn) {
-        btn.addEventListener('click', async function(e) {
-            e.preventDefault();
-
-            const file   = picker.files[0];
-            const bgName = document.getElementById('br-bg-name-input').value;
-
-            if (!bgName) { alert('Wybierz przynajmniej jedn rol, eby ustali nazw pliku.'); return; }
-            if (!file)   { alert('Wybierz plik graficzny.'); return; }
-
-            btn.disabled = true;
-            status.textContent = ' Wczytuj plik';
-
-            try {
-                const buffer   = await file.arrayBuffer();
-                const bytes    = new Uint8Array(buffer);
-                const total    = Math.ceil(bytes.length / CHUNK);
-                const uploadId = Math.random().toString(36).substring(2, 14);
-
-                for (let i = 0; i < total; i++) {
-                    status.textContent = ' Wysyam cz ' + (i + 1) + ' z ' + total + '';
-                    const res = await sendChunk(uploadId, bgName, file.type, bytes, i, total);
-                    if (!res.ok) throw new Error(res.err || 'Bd serwera.');
-                    if (res.done) {
-                        status.innerHTML = ' ' + (res.msg || 'Zapisano!');
-                        setTimeout(() => window.location.reload(), 1200);
-                        return;
-                    }
-                }
-            } catch (err) {
-                status.innerHTML = ' ' + err.message;
-                btn.disabled = false;
-            }
-        });
-    }
-})();
-
-function addBrFooterLink() {
-    const list = document.getElementById('br-footer-links-list');
-    const row = document.createElement('div');
-    row.className = 'br-link-row';
-    row.innerHTML = `
-        <input type="text" name="footer_link_label[]" placeholder="<?= t('admin.template_editor.br_label_link_label') ?>">
-        <input type="text" name="footer_link_url[]" placeholder="<?= t('admin.template_editor.br_label_link_url') ?>">
-        <button type="button" onclick="this.parentElement.remove()" class="br-btn-remove-link"></button>
-    `;
-    list.appendChild(row);
-}
-</script>
+<script src="/assets/js/admin-template-upload.js?v=1" defer></script>
 
 <?php else: ?>
 <!--  ZAKADKA: NAGWEK & STOPKA  -->
