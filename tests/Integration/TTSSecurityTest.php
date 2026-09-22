@@ -33,6 +33,14 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         parent::setUp();
         $this->db = $this->createSqlitePdo();
         $this->createSchema();
+        $this->db->exec('ALTER TABLE players ADD COLUMN bank_balance REAL NOT NULL DEFAULT 0');
+        $this->db->exec('ALTER TABLE technical_tasks ADD COLUMN created_at TEXT');
+        $this->db->exec('ALTER TABLE technical_tasks ADD COLUMN strike_paused_at TEXT');
+        $this->db->exec("CREATE TABLE employee_state (player_id INTEGER, source_type TEXT, source_id INTEGER, relation_status TEXT)");
+        $this->db->exec('ALTER TABLE wells ADD COLUMN paused_staff_reason TEXT');
+        $this->db->exec('ALTER TABLE wells ADD COLUMN location_name TEXT');
+        $this->db->exec('ALTER TABLE logistics_hubs ADD COLUMN player_id INTEGER DEFAULT 1');
+        $this->db->exec('ALTER TABLE logistics_hubs ADD COLUMN tenant_player_id INTEGER DEFAULT 0');
     }
 
     // =========================================================================
@@ -259,6 +267,160 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $stmt->execute([$code, $name, 'technical', 'common', 6000, 13000]);
     }
 
+    private function seedAtomicTask(): void
+    {
+        $this->db->exec("INSERT INTO players (id,cash) VALUES (1,10000000)");
+        $this->db->exec("INSERT INTO technical_staff (id,player_id,spec_code,status) VALUES (10,1,'safety_engineer','busy')");
+        $this->db->exec("INSERT INTO technical_tasks (id,player_id,staff_id,task_type,end_time) VALUES (1,1,10,'test_effect','2000-01-01')");
+    }
+
+    public function testCompletionNotificationFailureRollsBackAndCanRetry(): void
+    {
+        $this->seedAtomicTask();
+        $this->db->exec('ALTER TABLE wells ADD COLUMN base_production_per_hour REAL DEFAULT 100');
+        $this->db->exec('ALTER TABLE wells ADD COLUMN production_boost_pct REAL DEFAULT 0');
+        $this->db->exec('INSERT INTO wells (id,player_id) VALUES (5,1)');
+        $this->db->exec("UPDATE technical_tasks SET task_type='production_optimization', well_id=5 WHERE id=1");
+        $service = $this->makeService(1);
+        $task = $this->db->query('SELECT * FROM technical_tasks WHERE id=1')->fetch();
+        $this->db->exec("CREATE TRIGGER fail_notification BEFORE INSERT ON technical_notifications BEGIN SELECT RAISE(ABORT, 'injected notification failure'); END");
+        $this->db->beginTransaction();
+        $this->db->exec('UPDATE players SET cash=9000000 WHERE id=1');
+        try {
+            $service->completeTask($task);
+            self::fail('Injected write failure must propagate');
+        } catch (PDOException $e) {
+            self::assertStringContainsString('injected notification failure', $e->getMessage());
+        }
+        self::assertTrue($this->db->inTransaction());
+        self::assertSame('in_progress', $this->db->query('SELECT status FROM technical_tasks WHERE id=1')->fetchColumn());
+        self::assertSame('busy', $this->db->query('SELECT status FROM technical_staff WHERE id=10')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query('SELECT notified FROM technical_tasks WHERE id=1')->fetchColumn());
+        self::assertSame(100.0, (float)$this->db->query('SELECT base_production_per_hour FROM wells WHERE id=5')->fetchColumn());
+        self::assertSame(9000000.0, (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn());
+        $this->db->exec('DROP TRIGGER fail_notification');
+        $service->completeTask($task);
+        $service->completeTask($task);
+        self::assertSame('completed', $this->db->query('SELECT status FROM technical_tasks WHERE id=1')->fetchColumn());
+        self::assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM technical_notifications')->fetchColumn());
+        self::assertSame(105.0, (float)$this->db->query('SELECT base_production_per_hour FROM wells WHERE id=5')->fetchColumn());
+        $this->db->rollBack();
+        self::assertSame('in_progress', $this->db->query('SELECT status FROM technical_tasks WHERE id=1')->fetchColumn());
+    }
+
+    public function testStartFailureRollsBackDebitAndPreservesOuterTransaction(): void
+    {
+        $this->seedAtomicTask();
+        $this->db->exec("UPDATE technical_tasks SET status='completed'");
+        new FinancialTransactionService($this->db);
+        $this->db->exec("CREATE TRIGGER fail_task BEFORE INSERT ON technical_tasks BEGIN SELECT RAISE(ABORT, 'injected task failure'); END");
+        $this->db->beginTransaction();
+        try {
+            $this->makeService(1)->assignTask(10, 'safety_audit');
+            self::fail('Injected task failure must propagate');
+        } catch (PDOException $e) {
+            self::assertStringContainsString('injected task failure', $e->getMessage());
+        }
+        self::assertTrue($this->db->inTransaction());
+        self::assertSame(10000000.0, (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM bank_transactions')->fetchColumn());
+        $this->db->rollBack();
+    }
+
+    /** @dataProvider queueRefusalCases */
+    public function testCancelPreservesQueueWhenStartIsRefused(bool $strike): void
+    {
+        $this->seedAtomicTask();
+        $this->db->exec('UPDATE players SET cash=0 WHERE id=1');
+        if ($strike) {
+            $this->db->exec("INSERT INTO employee_state VALUES (1,'technical_staff',10,'on_strike')");
+        }
+        $this->db->exec("INSERT INTO technical_task_queue (player_id,staff_id,task_type) VALUES (1,10,'safety_audit')");
+        self::assertTrue($this->makeService(1)->cancelTask(1)['success']);
+        self::assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM technical_task_queue')->fetchColumn());
+        self::assertSame('cancelled', $this->db->query('SELECT status FROM technical_tasks')->fetchColumn());
+    }
+
+    public static function queueRefusalCases(): array
+    {
+        return [[false], [true]];
+    }
+
+    /** @dataProvider lostTargetCases */
+    public function testQueuePromotionRechecksTarget(string $target, string $change, bool $complete): void
+    {
+        $this->seedAtomicTask();
+        $this->db->exec('INSERT INTO players (id,cash) VALUES (2,10000000)');
+        $this->db->exec("INSERT INTO wells (id,player_id,status,location_name) VALUES (5,1,'active','Test')");
+        $this->db->exec("INSERT INTO logistics_hubs (id,player_id,name) VALUES (6,1,'Test hub')");
+        if (str_contains($change, 'tenant_player_id=0')) {
+            $this->db->exec('UPDATE logistics_hubs SET player_id=2, tenant_player_id=1 WHERE id=6');
+        }
+        $this->db->exec('INSERT INTO logistics_hub_assignments (hub_id,well_id) VALUES (6,5)');
+        $this->db->exec('INSERT INTO well_pipelines (id,player_id,well_id) VALUES (7,1,5)');
+        $spec = $target === 'pipeline' ? 'pipeline_engineer' : 'maintenance_engineer';
+        $this->db->prepare('UPDATE technical_staff SET spec_code=? WHERE id=10')->execute([$spec]);
+        $taskType = $target === 'pipeline' ? 'pipeline_maintenance' : ($target === 'hub' ? 'hub_maintenance' : 'well_maintenance');
+        $service = $this->makeService(1);
+        self::assertTrue($service->assignTask(10, $taskType, $target === 'well' ? 5 : null, null, $target === 'hub' ? 6 : null, $target === 'pipeline' ? 7 : null)['queued']);
+        $this->db->exec($change);
+        $before = $this->db->query('SELECT * FROM ' . ($target === 'well' ? 'wells' : ($target === 'hub' ? 'logistics_hubs' : 'well_pipelines')))->fetchAll();
+        $this->db->beginTransaction();
+        if ($complete) {
+            $service->completeTask($this->db->query('SELECT * FROM technical_tasks WHERE id=1')->fetch());
+        } else {
+            self::assertTrue($service->cancelTask(1)['success']);
+        }
+        self::assertTrue($this->db->inTransaction());
+        self::assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM technical_task_queue WHERE player_id=1')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM technical_tasks WHERE status='in_progress'")->fetchColumn());
+        self::assertSame(10000000.0, (float)$this->db->query('SELECT cash FROM players WHERE id=1')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM bank_transactions')->fetchColumn());
+        self::assertSame($before, $this->db->query('SELECT * FROM ' . ($target === 'well' ? 'wells' : ($target === 'hub' ? 'logistics_hubs' : 'well_pipelines')))->fetchAll());
+        $this->db->rollBack();
+    }
+
+    public static function lostTargetCases(): array
+    {
+        $cases = [];
+        foreach ([
+            ['well', 'UPDATE wells SET player_id=2 WHERE id=5'],
+            ['well', "UPDATE wells SET status='sold' WHERE id=5"],
+            ['well', "UPDATE wells SET status='seized' WHERE id=5"],
+            ['well', "UPDATE wells SET status='paused_staff' WHERE id=5"],
+            ['well', 'DELETE FROM wells WHERE id=5'],
+            ['hub', 'UPDATE logistics_hubs SET player_id=2 WHERE id=6'],
+            ['hub', 'UPDATE logistics_hubs SET tenant_player_id=0 WHERE id=6'],
+            ['hub', "UPDATE logistics_hub_assignments SET status='inactive' WHERE hub_id=6"],
+            ['hub', 'UPDATE wells SET player_id=2 WHERE id=5'],
+            ['hub', "UPDATE wells SET status='sold' WHERE id=5"],
+            ['hub', "UPDATE logistics_hubs SET status='building' WHERE id=6"],
+            ['hub', 'DELETE FROM logistics_hubs WHERE id=6'],
+            ['pipeline', 'UPDATE well_pipelines SET player_id=2 WHERE id=7'],
+            ['pipeline', "UPDATE well_pipelines SET status='building' WHERE id=7"],
+            ['pipeline', 'DELETE FROM well_pipelines WHERE id=7'],
+        ] as [$target, $change]) {
+            foreach ([false, true] as $complete) $cases[] = [$target, $change, $complete];
+        }
+        return $cases;
+    }
+
+    public function testTickPropagatesStrikeWriteFailureAndKeepsTaskRetryable(): void
+    {
+        $this->seedAtomicTask();
+        $this->db->exec("INSERT INTO employee_state VALUES (1,'technical_staff',10,'on_strike')");
+        $this->db->exec("CREATE TRIGGER fail_pause BEFORE UPDATE ON technical_tasks BEGIN SELECT RAISE(ABORT, 'injected pause failure'); END");
+        try {
+            $this->makeService(1)->processTick();
+            self::fail('Pause failure must propagate');
+        } catch (PDOException $e) {
+            self::assertStringContainsString('injected pause failure', $e->getMessage());
+        }
+        self::assertFalse($this->db->inTransaction());
+        self::assertSame('in_progress', $this->db->query('SELECT status FROM technical_tasks WHERE id=1')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM technical_notifications')->fetchColumn());
+    }
+
     /** @return IncidentService */
     private function makeIncidentService(): IncidentService
     {
@@ -295,7 +457,10 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $queueId2 = (int)$this->db->lastInsertId();
 
         // Gracz 1 ma tez wpis w kolejce / Player 1 also has a queue entry
-        $this->db->exec("INSERT INTO technical_task_queue (player_id, staff_id, task_type) VALUES (1, 10, 'hub_maintenance')");
+        $this->db->exec("INSERT INTO wells (id,player_id) VALUES (5,1)");
+        $this->db->exec("INSERT INTO logistics_hubs (id,player_id,name) VALUES (6,1,'Owned hub')");
+        $this->db->exec("INSERT INTO logistics_hub_assignments (hub_id,well_id) VALUES (6,5)");
+        $this->db->exec("INSERT INTO technical_task_queue (player_id, staff_id, task_type, hub_id) VALUES (1, 10, 'hub_maintenance', 6)");
         $queueId1 = (int)$this->db->lastInsertId();
 
         // Anuluj zadanie gracza 1 / Cancel player 1's task
@@ -309,6 +474,10 @@ final class TTSSecurityTest extends SqliteIntegrationTestCase
         $stmt->execute([$queueId2]);
         $q2Exists = (int)$stmt->fetchColumn();
         $this->assertSame(1, $q2Exists, 'Wpis kolejki gracza 2 nie moze zostac usuniety / Player 2 queue entry must not be deleted');
+        $stmt->execute([$queueId1]);
+        $this->assertSame(0, (int)$stmt->fetchColumn());
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM technical_tasks WHERE player_id=1 AND status='in_progress'")->fetchColumn());
+        $this->assertSame(1, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions WHERE from_player_id=1 AND transaction_type='tts_fee'")->fetchColumn());
     }
 
     public function testRepairSpeedPerkReducesRepairTaskDurationMultiplier(): void

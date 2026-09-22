@@ -122,6 +122,7 @@ class FinanceService
             ]);
         } catch (Throwable $e) {
             GameLog::error('FinanceService', 'saveTick FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 

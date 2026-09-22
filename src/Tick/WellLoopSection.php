@@ -274,6 +274,7 @@ class WellLoopSection
                 );
             } catch (Throwable $e) {
                 GameLog::error('tick', 'well loop FAILED', $e, ['well_id' => $wellId, 'player_id' => $playerId]);
+                throw $e;
             }
         }
 
@@ -494,6 +495,7 @@ class WellLoopSection
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'salary deduction FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 

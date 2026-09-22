@@ -37,6 +37,7 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         (new EmployeeSystemConfigService($this->db))->save(['raise_accept_morale_gain' => 12]);
         $this->db->exec("UPDATE employee_state SET leave_risk=40 WHERE player_id=1 AND source_type='technical_staff' AND source_id=20");
         $this->db->exec("UPDATE technical_staff SET trait_loyalty=6 WHERE id=20 AND player_id=1");
+        $this->db->exec("UPDATE employee_state SET expected_salary=15000, last_morale_cycle_id=77 WHERE player_id=1 AND source_type='technical_staff' AND source_id=20");
         $service = $this->service();
 
         $first = $service->acceptFull(1, 1, 'accept-full-token');
@@ -49,6 +50,8 @@ final class EmployeeRaiseRequestServiceTest extends SqliteIntegrationTestCase
         $this->assertTrue($second['idempotent']);
         $this->assertSame(12000.0, $this->salary('technical_staff', 20));
         $state = $this->state(1, 'technical_staff', 20);
+        $this->assertSame(80.0, (float)$state['salary_satisfaction']);
+        $this->assertSame(77, (int)$state['last_morale_cycle_id']);
         $this->assertSame('normal', $state['relation_status']);
         $this->assertSame(25.0, (float)$state['leave_risk']);
         $this->assertSame(6.0, $this->loyalty('technical_staff', 20));

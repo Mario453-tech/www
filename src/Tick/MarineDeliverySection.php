@@ -181,6 +181,7 @@ class MarineDeliverySection
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'MarineDeliverySection::process FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 
@@ -278,8 +279,9 @@ class MarineDeliverySection
 
         if ($roll <= 5) {
  // Piraci caly ladunek utracony / Pirates entire cargo lost
+            $ownTx = !$this->db->inTransaction();
             try {
-                $this->db->beginTransaction();
+                if ($ownTx) $this->db->beginTransaction();
                 // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
                 // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
                 $this->db->prepare(
@@ -290,13 +292,13 @@ class MarineDeliverySection
  // H3: Usun z port_queue na wypadek sieroty (dostawa trafila do kolejki przed utrata)
  // H3: Remove from port_queue in case of orphan (delivery was queued before being lost)
                 $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ? AND player_id = ?")->execute([$deliveryId, (int)$playerId]);
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
+                if ($ownTx && $this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
                 }
                 GameLog::error('tick', 'marine_delivery_lost_piracy FAILED — rolled back', $e, ['delivery_id' => $deliveryId]);
-                return;
+                throw $e;
             }
             $this->lostBbl += $volumeBbl;
             $this->lostDeliveries++;
@@ -306,8 +308,9 @@ class MarineDeliverySection
 
         } elseif ($roll <= 15) {
  // Katastrofa caly ladunek utracony / Catastrophe entire cargo lost
+            $ownTx = !$this->db->inTransaction();
             try {
-                $this->db->beginTransaction();
+                if ($ownTx) $this->db->beginTransaction();
                 // Filtruj po player_id — izolacja gracza przy UPDATE marine_deliveries (Rule 1).
                 // Filter by player_id — player isolation on UPDATE marine_deliveries (Rule 1).
                 $this->db->prepare(
@@ -317,13 +320,13 @@ class MarineDeliverySection
                 )->execute([$deliveryId, $playerId]);
  // H3: Usun z port_queue na wypadek sieroty / H3: Remove from port_queue in case of orphan
                 $this->db->prepare("DELETE FROM port_queue WHERE delivery_id = ? AND player_id = ?")->execute([$deliveryId, (int)$playerId]);
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
+                if ($ownTx && $this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
                 }
                 GameLog::error('tick', 'marine_delivery_lost_catastrophe FAILED — rolled back', $e, ['delivery_id' => $deliveryId]);
-                return;
+                throw $e;
             }
             $this->lostBbl += $volumeBbl;
             $this->lostDeliveries++;
@@ -470,8 +473,9 @@ class MarineDeliverySection
  // H2: Add to port queue atomically — both operations must succeed or neither.
  // A crash between UPDATE and INSERT would leave the delivery in 'waiting_for_port'
  // with no port_queue entry, never picked up by PortSection (stuck forever).
+        $ownTx = !$this->db->inTransaction();
         try {
-            $this->db->beginTransaction();
+            if ($ownTx) $this->db->beginTransaction();
             $this->db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'waiting_for_port', port_id = ?, arrived_at = ?
@@ -485,15 +489,15 @@ class MarineDeliverySection
                      volume_bbl = IF(status = 'done', volume_bbl, VALUES(volume_bbl)),
                      queued_at  = IF(status = 'done', queued_at,  VALUES(queued_at))"
             )->execute([$portId, $deliveryId, $playerId, round($volumeBbl, 4), $nowStr]);
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
+            if ($ownTx && $this->db->inTransaction()) {
                 try { $this->db->rollBack(); } catch (Throwable $re) {}
             }
             GameLog::error('tick', 'marine_delivery_forwardToPort FAILED — rolled back', $e, [
                 'delivery_id' => $deliveryId, 'port_id' => $portId,
             ]);
-            return;
+            throw $e;
         }
 
         $this->queuedDeliveries++;

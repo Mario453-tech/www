@@ -34,6 +34,7 @@ trait TTSProceduresTrait
             ];
         } catch (Throwable $e) {
             GameLog::error('TTS', 'getProcedureStatus FAILED', $e, ['player_id' => $this->playerId]);
+            if ($this->db->inTransaction()) throw $e;
             return ['level' => 0, 'integrity' => 100.0, 'last_decay_at' => null];
         }
     }
@@ -374,6 +375,7 @@ trait TTSProceduresTrait
             }
         } catch (Throwable $e) {
             GameLog::error('TTS', 'processProcedureDecay FAILED', $e, ['player_id' => $this->playerId]);
+            throw $e;
         }
     }
 

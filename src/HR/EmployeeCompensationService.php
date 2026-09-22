@@ -22,6 +22,7 @@ final class EmployeeCompensationService
         $sources = $this->linkedSources($ref);
         foreach ($sources as $source) {
             $this->updateSource($source, $salary);
+            $this->refreshSalarySatisfaction($source, $salary);
         }
 
         foreach ($sources as $source) {
@@ -49,6 +50,25 @@ final class EmployeeCompensationService
         }
         $source = $this->lockSource($ref);
         $this->setSalary($ref, round((float)$source['salary'] * (1.0 + $raisePct / 100.0), 2));
+    }
+
+    private function refreshSalarySatisfaction(EmployeeRef $ref, float $salary): void
+    {
+        $stmt = $this->db->prepare(
+            'SELECT expected_salary FROM employee_state WHERE player_id=? AND source_type=? AND source_id=?'
+            . ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '')
+        );
+        $params = [$ref->playerId, $ref->sourceType, $ref->sourceId];
+        $stmt->execute($params);
+        $expected = $stmt->fetchColumn();
+        if ($expected === false) {
+            return;
+        }
+        $satisfaction = (float)$expected > 0.0
+            ? round(max(0.0, min(120.0, ($salary / (float)$expected) * 100.0)), 2)
+            : 100.0;
+        $this->db->prepare('UPDATE employee_state SET salary_satisfaction=? WHERE player_id=? AND source_type=? AND source_id=?')
+            ->execute([$satisfaction, ...$params]);
     }
 
     /** @return list<EmployeeRef> */

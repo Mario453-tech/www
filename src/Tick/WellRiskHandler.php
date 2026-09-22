@@ -52,13 +52,13 @@ class WellRiskHandler
                 $loopCtx->totalCosts  += $repairCost;
                 $loopCtx->playerCash   = max(0.0, $loopCtx->playerCash - $repairCost);
             }
-        } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); }
+        } catch (Throwable $e) { GameLog::error('tick', 'processDegradation FAILED', $e, ['well_id' => $wellId]); throw $e; }
 
         // Skip risk score update for wells that are already in a terminal/inactive state.
         // Pomijamy aktualizacje risk score dla odwiertow w stanie terminalnym/nieaktywnym.
         if (!in_array($well['status'], ['blowout', 'broken', 'seized', 'sold'], true)) {
             try { $ws->updateRiskScore($wellId, $deltaHours, $hseBonus, $playerId); }
-            catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); }
+            catch (Throwable $e) { GameLog::error('tick', 'updateRiskScore FAILED', $e, ['well_id' => $wellId]); throw $e; }
         }
 
         if (in_array($well['status'], ['active','contaminated','no_technician','paused_storage','paused_cash'])) {
@@ -74,10 +74,10 @@ class WellRiskHandler
  * $transportWearMult * $this->ctx->gBalanceMults['wear'] * $mults['layerWearMult']
  * (float)($this->ctx->financeTechnicalMods['wear_mult'] ?? 1.0),
                 $playerId);
-            } catch (Throwable $e) { GameLog::error('tick', 'well wear FAILED', $e, ['well_id' => $wellId]); }
+            } catch (Throwable $e) { GameLog::error('tick', 'well wear FAILED', $e, ['well_id' => $wellId]); throw $e; }
 
             try { $ws->processSpiralDecay($wellId, $deltaHours, $hseBonus, $playerId); }
-            catch (Throwable $e) { GameLog::error('tick', 'spiral decay FAILED', $e, ['well_id' => $wellId]); }
+            catch (Throwable $e) { GameLog::error('tick', 'spiral decay FAILED', $e, ['well_id' => $wellId]); throw $e; }
         }
     }
 
@@ -148,6 +148,7 @@ class WellRiskHandler
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'processDisasterRoll FAILED', $e, ['well_id' => $wellId]);
+            throw $e;
         }
         return false;
     }
@@ -236,7 +237,7 @@ class WellRiskHandler
             return max($freshDrop, $ongoingDrop);
         } catch (Throwable $e) {
             GameLog::error('tick', 'IncidentService::processTick FAILED', $e, ['well_id' => $wellId]);
+            throw $e;
         }
-        return 0.0;
     }
 }

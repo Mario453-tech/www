@@ -27,7 +27,8 @@ trait WellDisastersTrait
             'fine' => number_format($envFine),
         ]) . ' | Kara: ' . number_format($envFine) . ' PLN.';
 
-        $this->db->beginTransaction();
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
  // Uszkodz rurociag w modelu per-odwiert (well_pipelines). $pipelineId zawsze pochodzi
  // z well_pipelines (PipelineSection). NIE robimy fallbacku na legacy tabele `pipelines`:
@@ -85,7 +86,7 @@ trait WellDisastersTrait
                 'active',
             ]);
 
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
 
             $this->notifyDirectorDisaster($playerId, 'pipeline_explosion', $hseActive, [
                 'pipe' => $pipelineId,
@@ -108,11 +109,11 @@ trait WellDisastersTrait
                 'desc' => $desc,
             ];
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
+            if ($ownTx && $this->db->inTransaction()) {
                 $this->db->rollBack();
             }
             GameLog::error('WellService', 'triggerPipelineExplosion FAILED', $e, ['pipeline_id' => $pipelineId]);
-            return ['disaster' => null];
+            throw $e;
         }
     }
 
@@ -142,7 +143,8 @@ trait WellDisastersTrait
             'fine' => number_format($envFine),
         ]) . ' | Utrata: ' . number_format((int)$oilLost) . ' bbl. Kara: ' . number_format($envFine) . ' PLN.';
 
-        $this->db->beginTransaction();
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
  // Utrata ropy NIE jest odejmowana tutaj: SpillSection obniza $currentStorage w pamieci,
  // a PlayersSection zapisuje roznicowo (used = used + delta). Bezposredni UPDATE tutaj
@@ -174,7 +176,7 @@ trait WellDisastersTrait
                 $desc, 'resolved'
             ]);
 
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
 
  // Powiadom Dyrektora z losowym komunikatem BHP / Notify Director with a random HSE message
             $this->notifyDirectorDisaster($playerId, 'surface_spill', $hseActive, [
@@ -197,9 +199,9 @@ trait WellDisastersTrait
             ];
 
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('WellService', 'triggerSurfaceSpill FAILED', $e, ['player_id' => $playerId]);
-            return ['disaster' => null];
+            throw $e;
         }
     }
 
@@ -274,7 +276,8 @@ trait WellDisastersTrait
             'fine' => number_format($envFine),
         ]) . ' | Kara: ' . number_format($envFine) . ' PLN.';
 
-        $this->db->beginTransaction();
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
  // Odwiert przechodzi w tryb blowout tylko gdy jest w aktywnym/wstrzymanym/uszkodzonym statusie.
  // Well enters blowout mode only when in active/paused/damaged status.
@@ -283,7 +286,7 @@ trait WellDisastersTrait
             if ($stmt->rowCount() === 0) {
  // Odwiert jest w nieodpowiednim statusie (np. equipment_swap, servicing, contaminated) - blowout nie wystapil.
  // Well is in an incompatible status (e.g. equipment_swap, servicing, contaminated) — blowout did not occur.
-                $this->db->rollBack();
+                if ($ownTx) $this->db->rollBack();
                 GameLog::info('WellService', 'blowout skipped - incompatible status', ['well_id' => $wellId]);
                 return ['disaster' => null];
             }
@@ -314,7 +317,7 @@ trait WellDisastersTrait
 
             $this->applyDisasterRiskBoost($wellId, $playerId);
 
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
 
             $this->notifyDirectorDisaster($playerId, 'blowout', $hseActive, [
                 'well' => $wellId, 'fine' => number_format($envFine),
@@ -335,9 +338,9 @@ trait WellDisastersTrait
                 'desc'     => $desc,
             ];
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('WellService', 'triggerBlowout FAILED', $e, ['well_id' => $wellId]);
-            return ['disaster' => null];
+            throw $e;
         }
     }
  /**
@@ -367,7 +370,8 @@ trait WellDisastersTrait
             'fine' => number_format($envFine),
         ]) . ' | Kara: ' . number_format($envFine) . ' PLN.';
 
-        $this->db->beginTransaction();
+        $ownTx = !$this->db->inTransaction();
+        if ($ownTx) $this->db->beginTransaction();
         try {
  // Odwiert dziala w ograniczonym trybie 'contaminated'. / Well operates in limited 'contaminated' mode.
             $this->db->prepare("UPDATE wells SET status='contaminated' WHERE id=? AND player_id=? AND status IN ('active','paused_cash','paused_storage')")
@@ -397,7 +401,7 @@ trait WellDisastersTrait
 
             $this->applyDisasterRiskBoost($wellId, $playerId);
 
-            $this->db->commit();
+            if ($ownTx) $this->db->commit();
 
             $this->notifyDirectorDisaster($playerId, 'reservoir_contamination', $hseActive, [
                 'well' => $wellId, 'fine' => number_format($envFine),
@@ -418,9 +422,9 @@ trait WellDisastersTrait
                 'desc'     => $desc,
             ];
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) $this->db->rollBack();
+            if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('WellService', 'triggerReservoirContamination FAILED', $e, ['well_id' => $wellId]);
-            return ['disaster' => null];
+            throw $e;
         }
     }
 

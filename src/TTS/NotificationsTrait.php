@@ -59,7 +59,7 @@ trait TTSNotificationsTrait
                 ->execute([$this->playerId, $wellId, $type, $message]);
         } catch (\Throwable $e) {
             GameLog::error('notifications', 'notify() failed', $e);
-            return;
+            throw $e;
         }
     }
 }

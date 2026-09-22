@@ -150,14 +150,7 @@ class WellHubSection
  // Credit drained oil only if the buffer persisted — otherwise the buffer stays
  // undecremented in DB and the same barrels would be credited again next tick.
                 if (!$this->hubTickSvc->persistTickResult($hub, $result, $this->now)) {
-                    $rolledBackBbl = $this->ctx->rollbackHubInputCredit($hubId, $inputBbl, $this->oilPrice);
-                    GameLog::error('tick', 'hub_persist_failed_skip_credit', ['hub_id' => $hubId]);
-                    GameLog::info('tick', 'hub_persist_failed_input_rolled_back', [
-                        'hub_id' => $hubId,
-                        'player_id' => $playerId,
-                        'rolled_back_bbl' => round($rolledBackBbl, 4),
-                    ]);
-                    continue;
+                    throw new RuntimeException('Hub tick persistence failed: ' . $hubId);
                 }
 
  // M10: Zsynchronizuj condition_pct z wynikiem processTick() zanim trafi do
@@ -326,6 +319,7 @@ class WellHubSection
                     'hub_id'    => $hubId,
                     'player_id' => $playerId,
                 ]);
+                throw $e;
             }
         }
 
@@ -462,7 +456,7 @@ class WellHubSection
                 'hub_id'    => $hubId,
                 'player_id' => $playerId,
             ]);
-            return false;
+            throw $e;
         }
     }
 

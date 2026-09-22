@@ -531,6 +531,7 @@ class WellProductionHandler
                                 'player_id'  => $playerId,
                                 'buffer_bbl' => round($bufferBbl, 3),
                             ]);
+                            throw $e;
  // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
  // Buffer stays non-zero — dispatch will be retried next tick.
                         }
@@ -686,9 +687,7 @@ class WellProductionHandler
                         'player_id' => $playerId,
                         'added_bbl' => round($actual, 3),
                     ]);
- // Bufor pozostaje niezerowany — przy nastepnym ticku kolejna proba wysylki.
- // Buffer stays non-zero — dispatch will be retried next tick.
-                    $dispatchedBbl = 0.0;
+                    throw $e;
                 }
                 }
 

@@ -288,7 +288,7 @@ trait WellTickTrait
 
         } catch (Throwable $e) {
             GameLog::error('WellService', 'processDisasterRoll FAILED', $e, ['well_id' => $wellId]);
-            return ['disaster' => null];
+            throw $e;
         }
     }
 

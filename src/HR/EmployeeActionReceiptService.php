@@ -7,7 +7,10 @@ final class EmployeeActionReceiptService
     {
     }
 
-    /** @return array{id:int,replayed:bool,response:?array<string,mixed>} */
+    /**
+     * @param array<string,mixed> $request
+     * @return array{id:int,replayed:bool,response:?array<string,mixed>}
+     */
     public function claim(int $playerId, string $actionKey, string $token, array $request): array
     {
         $token = trim($token);

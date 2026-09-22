@@ -108,6 +108,7 @@ class FinancialStateSection
 
         } catch (Throwable $e) {
             GameLog::error('tick', 'crisis_detection FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 
@@ -135,13 +136,11 @@ class FinancialStateSection
  */
     public function saveCashAndTick(int $playerId, float $totalCosts): void
     {
-        $this->db->prepare(
-            "UPDATE players SET cash = GREATEST(0, cash - :totalCosts), last_tick_at = :now WHERE id = :pid"
-        )->execute([
-            ':totalCosts' => round($totalCosts, 4),
-            ':now'        => $this->now->format('Y-m-d H:i:s'),
-            ':pid'        => $playerId,
-        ]);
+        (new FinancialTransactionService($this->db))->settleTickCosts(
+            $playerId,
+            $this->now->format('Y-m-d H:i:s'),
+            [FinancialTransactionService::TYPE_TICK_OPEX => $totalCosts]
+        );
     }
 
     private function triggerBankruptcy(int $playerId, int $crisisTicks, int $creditScore): void
@@ -157,6 +156,7 @@ class FinancialStateSection
             ]);
         } catch (Throwable $e) {
             GameLog::error('tick', 'crisis bankruptcy trigger FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 }

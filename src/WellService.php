@@ -115,7 +115,7 @@ class WellService
             }
             $existing = array_map(
                 static fn ($v) => trim($v, "'"),
-                str_getcsv($m[1], ',', "'")
+                str_getcsv($m[1], ',', "'", "\\")
             );
             $needed = array_values(array_diff(['equipment_swap', 'servicing'], $existing));
             if ($needed === []) {

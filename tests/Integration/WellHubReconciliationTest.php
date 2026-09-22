@@ -132,7 +132,7 @@ final class WellHubReconciliationTest extends SqliteIntegrationTestCase
         $this->assertEqualsWithDelta(300.0, $ctx->currentStorage + 100.0 + $ctx->finHubLossBbl, 0.001);
     }
 
-    public function testPersistenceFailureRemovesOptimisticHubCredit(): void
+    public function testPersistenceFailureAbortsTickInsteadOfDestroyingHubInput(): void
     {
         $db = $this->createSqlitePdo();
         $hub = $this->hubRow();
@@ -167,12 +167,15 @@ final class WellHubReconciliationTest extends SqliteIntegrationTestCase
             new OutboundLegService([]),
             null
         );
-        $section->finalize(1, 1.0, []);
-
-        $this->assertEqualsWithDelta(0.0, $ctx->currentStorage, 0.001);
-        $this->assertEqualsWithDelta(0.0, $ctx->finBbl, 0.001);
-        $this->assertEqualsWithDelta(100.0, $ctx->finHubLossBbl, 0.001);
-        $this->assertEqualsWithDelta(0.0, $ctx->hubInputAccum[10], 0.001);
+        try {
+            $section->finalize(1, 1.0, []);
+            $this->fail('A failed hub write must abort the player transaction');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Hub tick persistence failed: 10', $e->getMessage());
+        }
+        $this->assertEqualsWithDelta(100.0, $ctx->currentStorage, 0.001);
+        $this->assertEqualsWithDelta(0.0, $ctx->finHubLossBbl, 0.001);
+        $this->assertEqualsWithDelta(100.0, $ctx->hubInputAccum[10], 0.001);
     }
 
     public function testConditionLossFromDrainedBufferDoesNotDebitExistingStorage(): void

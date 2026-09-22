@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/WalletConfig.php';
 require_once __DIR__ . '/BankAccountService.php';
+require_once __DIR__ . '/FinancialTransaction/TickSettlementTrait.php';
 
 /**
  * FinancialTransactionService - centralne API ruchu srodkow (Etap 3).
@@ -41,6 +42,7 @@ require_once __DIR__ . '/BankAccountService.php';
  */
 class FinancialTransactionService
 {
+    use TickSettlementTrait;
     /**
      * Dozwolone typy operacji (brief, sekcja "Historia operacji").
      * Allowed transaction types (brief, "Transaction history").

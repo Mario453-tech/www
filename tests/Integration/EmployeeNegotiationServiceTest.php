@@ -211,6 +211,7 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $service = new EmployeeNegotiationService($this->db);
         $effects = new StrikeEffectService($this->db, $this->config);
         $this->assertArrayHasKey('technical', $effects->forPlayer(1));
+        $this->db->exec("UPDATE employee_state SET expected_salary=24000, last_morale_cycle_id=77 WHERE player_id=1 AND source_type='technical_staff' AND source_id=1");
 
         $first = $service->submitOffer(1, 1, 30.0, 10000.0, 'same-offer-token', new DateTimeImmutable('2026-07-22 10:00:00'));
         $second = $service->submitOffer(1, 1, 30.0, 10000.0, 'same-offer-token', new DateTimeImmutable('2026-07-22 10:01:00'));
@@ -224,6 +225,10 @@ final class EmployeeNegotiationServiceTest extends SqliteIntegrationTestCase
         $this->assertTrue($second['idempotent']);
         $this->assertSame($first['round_id'], $second['round_id']);
         $this->assertSame(19500.0, $this->salaryOfTechnicalStaff(1));
+        $state = $this->db->query("SELECT salary_satisfaction, morale, last_morale_cycle_id FROM employee_state WHERE player_id=1 AND source_type='technical_staff' AND source_id=1")->fetch();
+        $this->assertSame(81.25, (float)$state['salary_satisfaction']);
+        $this->assertSame(42.0, (float)$state['morale']);
+        $this->assertSame(77, (int)$state['last_morale_cycle_id']);
         $this->assertSame(190000.0, $this->cashOfPlayer(1));
         $this->assertSame(1, $this->countRows('employee_strike_negotiation_rounds'));
         $this->assertSame(1, $this->countRows('bank_transactions'));

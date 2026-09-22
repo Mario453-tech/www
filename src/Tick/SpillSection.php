@@ -74,6 +74,7 @@ class SpillSection
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'surface spill check FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
 
         return $currentStorage;

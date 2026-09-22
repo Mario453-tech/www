@@ -85,12 +85,6 @@ class WellStatusHandler
         // (skazenie czyszczone wylacznie zadaniem reservoir_rehabilitation, nie wznowieniem).
         // Column remembering the status before the staff pause, to avoid losing 'contaminated'
         // (contamination is cleared only by a reservoir_rehabilitation task, not by resuming).
-        static $schemaEnsured = false;
-        if (!$schemaEnsured) {
-            try { Database::addColumnIfMissing('wells', 'paused_staff_prev_status', "VARCHAR(32) NULL DEFAULT NULL"); } catch (Throwable $e) {}
-            $schemaEnsured = true;
-        }
-
         if (!$staffCheck['meets_minimum']) {
             if (in_array($well['status'], ['active','contaminated'])) {
                 $reason = implode(',', $staffCheck['missing']);

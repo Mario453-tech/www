@@ -140,6 +140,7 @@ class WellRoadTripSection
                                 try { $this->db->rollBack(); } catch (Throwable $re) {}
                             }
                             GameLog::error('tick', 'road_trip_overflow_delivered_update FAILED', $e, ['player_id' => $playerId]);
+                            throw $e;
                         }
                     }
                 }
@@ -180,6 +181,7 @@ class WellRoadTripSection
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'WellRoadTripSection::process FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
 
         return $currentStorage;

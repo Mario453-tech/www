@@ -391,6 +391,7 @@ class PipelineSection
             }
         } catch (Throwable $e) {
             GameLog::error('tick', 'pipeline check FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
     }
 

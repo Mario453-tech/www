@@ -407,7 +407,7 @@ class RoadTransportService
             if (class_exists('GameLog', false)) {
                 GameLog::error('RoadTransportService', 'processCompletedTrips recovery fetch FAILED', $e, ['player_id' => $playerId]);
             }
-            $orphans = [];
+            throw $e;
         }
         foreach ($orphans as $orphan) {
             $recBbl = (float)$orphan['delivered_bbl'];
@@ -438,7 +438,7 @@ class RoadTransportService
             }
  // Zwroc to, co odzyskala faza recovery (nie gub odzyskanych kursow).
  // Return what the recovery phase produced (do not drop recovered trips).
-            $trips = [];
+            throw $e;
         }
 
  /** @var array<int, array<string,mixed>|null> well_id => aktywna ochrona / active protection */
@@ -479,6 +479,7 @@ class RoadTransportService
                     if (class_exists('GameLog', false)) {
                         GameLog::error('RoadTransportService', 'processCompletedTrips finalize delayed FAILED', $e, ['trip_id' => $trip['id']]);
                     }
+                    if ($this->db->inTransaction()) throw $e;
                 }
                 continue;
             }
@@ -535,6 +536,7 @@ class RoadTransportService
                     if (class_exists('GameLog', false)) {
                         GameLog::error('RoadTransportService', 'processCompletedTrips defer delayed FAILED', $e, ['trip_id' => $trip['id']]);
                     }
+                    if ($this->db->inTransaction()) throw $e;
                 }
                 // Logi (ochrona + incydenty) tylko po potwierdzonym zapisie — przy bledzie kurs
                 // zostaje in_transit i wszystko zostanie zalogowane raz przy ponownym przetworzeniu.
@@ -577,6 +579,7 @@ class RoadTransportService
                 if (class_exists('GameLog', false)) {
                     GameLog::error('RoadTransportService', 'processCompletedTrips update FAILED', $e, ['trip_id' => $trip['id']]);
                 }
+                if ($this->db->inTransaction()) throw $e;
  // Bug #2: Jesli zapis statusu do DB sie nie udal, kurs pozostaje 'in_transit'
  // i zostanie ponownie przetworzony w nastepnym tiku. Pomijamy akumulacje bbl
  // zeby uniknac podwojnego kredytu dla gracza.

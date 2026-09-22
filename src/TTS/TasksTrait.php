@@ -4,8 +4,13 @@
  * Technical tasks system - assignment, tick, effects, queue, cancellation.
  * System zadan technicznych - zlecanie, tick, efekty, kolejka, anulowanie.
  */
+require_once __DIR__ . '/TaskTransactionTrait.php';
+require_once __DIR__ . '/TaskValidationTrait.php';
+
 trait TTSTasksTrait
 {
+    use TTSTaskTransactionTrait;
+    use TTSTaskValidationTrait;
  // Zadania, ktore fizycznie wstrzymuja odwiert ("W naprawie") na czas pracy serwisanta.
  // Tasks that physically pause the well ("servicing") while the technician works.
     private const WELL_SERVICE_TASKS = ['well_maintenance', 'well_repair', 'blowout_control', 'reservoir_rehabilitation'];
@@ -77,98 +82,30 @@ trait TTSTasksTrait
  */
     public function assignTask(int $staffId, string $taskType, ?int $wellId = null, ?string $moduleType = null, ?int $hubId = null, ?int $pipelineId = null): array
     {
-        $staff = $this->getStaffMember($staffId);
+        return $this->taskTransaction(function () use ($staffId, $taskType, $wellId, $moduleType, $hubId, $pipelineId): array {
+            $this->lockTaskOwner($staffId);
+            return $this->assignTaskLocked($staffId, $taskType, $wellId, $moduleType, $hubId, $pipelineId);
+        });
+    }
+
+    /** @return array<string,mixed> */
+    private function assignTaskLocked(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, ?int $hubId, ?int $pipelineId): array
+    {
+        $staff = $this->getLockedTaskStaff($staffId);
         if (!$staff) return ['success' => false, 'message' => t('technical.task_msg.staff_missing')];
         if ($staff['status'] === 'fired') return ['success' => false, 'message' => t('technical.task_msg.staff_fired')];
-        $blockedRelation = $this->blockedRelationStatus($staffId);
+        $blockedRelation = $this->blockedRelationStatus($staffId, true);
         if ($blockedRelation !== null) {
             return $this->relationBlockedResult($blockedRelation);
         }
 
-        $taskDef = self::getTaskDefinition($taskType);
-        if (!$taskDef) return ['success' => false, 'message' => t('technical.task_msg.task_unknown')];
-
-        if (!in_array($staff['spec_code'], $taskDef['assignable'])) {
-            $allowed = implode(', ', array_map(fn($s) => (self::getSpecDefinition($s, $this->db)['name'] ?? $s), $taskDef['assignable']));
-            return ['success' => false, 'message' => t('technical.task_msg.task_wrong_specialist', [
-                'allowed' => $allowed,
-                'spec' => $staff['spec_name'],
-            ])];
-        }
-
-        if ($taskDef['needs_well'] && !$wellId) {
-            return ['success' => false, 'message' => t('technical.task_msg.task_requires_well')];
-        }
-
-        if (($taskDef['needs_hub'] ?? false) && !$hubId) {
-            return ['success' => false, 'message' => t('technical.task_msg.task_requires_hub')];
-        }
-
-        if (($taskDef['needs_pipeline'] ?? false)) {
-            if (!$pipelineId) {
-                return ['success' => false, 'message' => t('technical.task_msg.task_requires_pipeline')];
-            }
-            $pipeStmt = $this->db->prepare("SELECT status FROM well_pipelines WHERE id = ? AND player_id = ? LIMIT 1");
-            $pipeStmt->execute([$pipelineId, $this->playerId]);
-            $pipeRow = $pipeStmt->fetch();
-            if (!$pipeRow) {
-                return ['success' => false, 'message' => t('technical.task_msg.pipeline_not_owned')];
-            }
-            if ($pipeRow['status'] === 'building') {
-                return ['success' => false, 'message' => t('technical.task_msg.pipeline_unavailable', ['status' => $pipeRow['status']])];
-            }
-        } else {
-            $pipelineId = null; // ignore stray pipeline id for non-pipeline tasks
-        }
-
-        if ($wellId && $taskDef['needs_well']) {
-            $wellStmt = $this->db->prepare("SELECT status, paused_staff_reason FROM wells WHERE id = ? AND player_id = ? LIMIT 1");
-            $wellStmt->execute([$wellId, $this->playerId]);
-            $wellRow = $wellStmt->fetch();
-            if (!$wellRow) {
-                return ['success' => false, 'message' => t('technical.task_msg.well_not_owned')];
-            }
-            if ($wellRow['status'] === 'paused_staff') {
-                $missing = $wellRow['paused_staff_reason'] ?? 'brak personelu';
-                return [
-                    'success' => false,
-                    'message' => t('technical.task_msg.well_paused_staff', ['missing' => $missing]),
-                ];
-            }
-            // seized is always blocked; blowout is blocked EXCEPT for blowout_control
-            // (the task exists specifically to fix a well in blowout state).
-            $blocked = $wellRow['status'] === 'seized'
-                || ($wellRow['status'] === 'blowout' && $taskType !== 'blowout_control');
-            if ($blocked) {
-                return ['success' => false, 'message' => t('technical.task_msg.well_unavailable', ['status' => $wellRow['status']])];
-            }
-        }
-
-        if ($hubId && ($taskDef['needs_hub'] ?? false)) {
-            $hubStmt = $this->db->prepare("
-                SELECT DISTINCT h.id
-                FROM logistics_hubs h
-                JOIN logistics_hub_assignments a ON a.hub_id = h.id AND a.status = 'active'
-                JOIN wells w ON w.id = a.well_id
-                WHERE h.id = ?
-                  AND w.player_id = ?
-                  AND (h.player_id = ? OR h.tenant_player_id = ?)
-                LIMIT 1
-            ");
-            $hubStmt->execute([
-                $hubId,
-                $this->playerId,
-                $this->playerId,
-                $this->playerId,
-            ]);
-            if (!$hubStmt->fetch()) {
-                return ['success' => false, 'message' => t('technical.task_msg.hub_not_used')];
-            }
-        }
+        $validation = $this->validateTaskTarget($staff, $taskType, $wellId, $hubId, $pipelineId);
+        if ($validation !== null) return $validation;
+        if (!(self::getTaskDefinition($taskType)['needs_pipeline'] ?? false)) $pipelineId = null;
 
         // Sprawdz zajetos pracownika tylko w ramach tego gracza — blokada miedzy graczami niedopuszczalna.
         // Check worker busy state only within this player — cross-player blocking is not allowed.
-        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike') LIMIT 1");
+        $busyStmt = $this->db->prepare("SELECT id FROM technical_tasks WHERE staff_id = ? AND player_id = ? AND status IN ('in_progress','paused_strike') LIMIT 1" . $this->taskLockSuffix());
         $busyStmt->execute([$staffId, $this->playerId]);
         if ($busyStmt->fetch()) {
  // Atomowa kontrola duplikatu + wstawienie do kolejki — chroni przed race condition.
@@ -190,7 +127,7 @@ trait TTSTasksTrait
                     }
                 }
                 $dupStmt = $this->db->prepare(
-                    "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1"
+                    "SELECT id FROM technical_task_queue WHERE " . implode(' AND ', $dupConds) . " LIMIT 1" . $this->taskLockSuffix()
                 );
                 $dupStmt->execute($dupParams);
                 if ($dupStmt->fetch()) {
@@ -207,7 +144,7 @@ trait TTSTasksTrait
             } catch (Throwable $e) {
                 if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
                 GameLog::error('TTS', 'assignTask queue FAILED', $e);
-                return ['success' => false, 'message' => t('technical.task_msg.start_failed', ['error' => $e->getMessage()])];
+                throw $e;
             }
         }
 
@@ -215,6 +152,30 @@ trait TTSTasksTrait
     }
 
     private function startTask(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, array $staff, ?int $hubId = null, ?int $pipelineId = null): array
+    {
+        return $this->taskTransaction(function () use ($staffId, $taskType, $wellId, $moduleType, $hubId, $pipelineId): array {
+            $this->lockTaskOwner($staffId);
+            $staff = $this->getLockedTaskStaff($staffId);
+            if (!$staff || !in_array($staff['status'], ['active', 'busy', 'on_leave'], true)) {
+                return ['success' => false, 'message' => t('technical.task_msg.staff_missing')];
+            }
+            $busy = $this->db->prepare("SELECT id FROM technical_tasks WHERE player_id=? AND staff_id=? AND status IN ('in_progress','paused_strike')" . $this->taskLockSuffix());
+            $busy->execute([$this->playerId, $staffId]);
+            if ($busy->fetchColumn() !== false) {
+                return ['success' => false, 'message' => t('technical.task_msg.already_queued')];
+            }
+            $validation = $this->validateTaskTarget($staff, $taskType, $wellId, $hubId, $pipelineId);
+            if ($validation !== null) return $validation;
+            if (!(self::getTaskDefinition($taskType)['needs_pipeline'] ?? false)) $pipelineId = null;
+            return $this->startTaskLocked($staffId, $taskType, $wellId, $moduleType, $staff, $hubId, $pipelineId);
+        });
+    }
+
+    /**
+     * @param array<string,mixed> $staff
+     * @return array<string,mixed>
+     */
+    private function startTaskLocked(int $staffId, string $taskType, ?int $wellId, ?string $moduleType, array $staff, ?int $hubId, ?int $pipelineId): array
     {
         $taskDef = self::getTaskDefinition($taskType);
         $manager = $this->getManager();
@@ -314,14 +275,12 @@ trait TTSTasksTrait
         // Tylko do komunikatu zwrotnego / for the return message only.
         $endTime  = date('Y-m-d H:i:s', time() + $hours * 3600);
 
-        // FTS budowany przed transakcja, by setup schematu nie byl pominiety w otwartej transakcji.
-        // Build FTS before the transaction so schema setup is not skipped inside an open transaction.
+        // FTS skips MySQL schema DDL inside an existing transaction.
+        // FTS pomija DDL schematu MySQL wewnatrz istniejacej transakcji.
         $fts = ($cost > 0) ? new FinancialTransactionService($this->db) : null;
-        $this->db->beginTransaction();
         try {
             $blockedRelation = $this->blockedRelationStatus($staffId, true);
             if ($blockedRelation !== null) {
-                $this->db->rollBack();
                 return $this->relationBlockedResult($blockedRelation);
             }
             if ($cost > 0 && $fts !== null) {
@@ -339,7 +298,6 @@ trait TTSTasksTrait
                 );
                 if (empty($dr['success'])) {
                     if (($dr['error'] ?? '') === 'insufficient_funds') {
-                        $this->db->rollBack();
                         $bank  = $dr['bank_balance'] ?? 0.0;
                         $cash2 = $dr['cash'] ?? 0.0;
                         return ['success' => false, 'message' => t('technical.task_msg.no_funds', [
@@ -385,15 +343,9 @@ trait TTSTasksTrait
                 ")->execute([$pipelineId, $this->playerId]);
             }
 
-            $this->db->commit();
         } catch (Throwable $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
-            }
             GameLog::error('TTS', 'startTask FAILED', $e);
-            return ['success' => false, 'message' => t('technical.task_msg.start_failed', [
-                'error' => $e->getMessage(),
-            ])];
+            throw $e;
         }
 
         // Usun wycene z sesji po udanym zleceniu — kolejne zlecenie dolosuje koszt od nowa.
@@ -417,6 +369,14 @@ trait TTSTasksTrait
  // TICK zakonczenie zadania i efekty
 
     public function processTick(): void
+    {
+        $this->taskTransaction(function (): void {
+            $this->lockTaskOwner();
+            $this->processTasksLocked();
+        });
+    }
+
+    private function processTasksLocked(): void
     {
         $this->cleanupTaskHistoryOlderThanDays(2);
         $this->syncStrikePausedTasks();
@@ -503,6 +463,7 @@ trait TTSTasksTrait
             GameLog::error('TTS', 'Strike task pause synchronization failed', $e, [
                 'player_id' => $this->playerId,
             ]);
+            throw $e;
         }
     }
 
@@ -522,8 +483,9 @@ trait TTSTasksTrait
             return is_string($status) && in_array($status, self::BLOCKED_RELATION_STATUSES, true)
                 ? $status
                 : null;
-        } catch (Throwable) {
-            return null;
+        } catch (Throwable $e) {
+            GameLog::error('TTS', 'Employee relation lookup failed', $e, ['staff_id' => $staffId, 'player_id' => $this->playerId]);
+            throw $e;
         }
     }
 
@@ -550,6 +512,23 @@ trait TTSTasksTrait
  * Apply effects of a completed task.
  */
     public function completeTask(array $task): void
+    {
+        if ((int)$task['player_id'] !== $this->playerId) {
+            return;
+        }
+        $this->taskTransaction(function () use ($task): void {
+            $this->lockTaskOwner((int)$task['staff_id']);
+            $stmt = $this->db->prepare("SELECT tt.*, ts.skill_level FROM technical_tasks tt JOIN technical_staff ts ON ts.id=tt.staff_id AND ts.player_id=tt.player_id WHERE tt.id=? AND tt.player_id=? AND tt.status='in_progress'" . $this->taskLockSuffix());
+            $stmt->execute([(int)$task['id'], $this->playerId]);
+            $current = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($current) {
+                $this->completeTaskLocked($current);
+            }
+        });
+    }
+
+    /** @param array<string,mixed> $task */
+    private function completeTaskLocked(array $task): void
     {
         $taskId  = (int)$task['id'];
         $staffId = (int)$task['staff_id'];
@@ -595,7 +574,7 @@ trait TTSTasksTrait
             }
         } catch (Throwable $e) {
             GameLog::error('TTS', 'completeTask claim FAILED', $e, ['task_id' => $taskId]);
-            return;
+            throw $e;
         }
 
  // Od tego miejsca jestesmy wylacznym wlascicielem zadania; efekty stosujemy bezpiecznie raz.
@@ -768,7 +747,7 @@ trait TTSTasksTrait
                         $boost = 5 + ($skill >= 7 ? min(10, $skill - 5) * 2 : 0);
                         $this->db->prepare("
                             UPDATE wells
-                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100.0),
                                 production_boost_pct = LEAST(50, production_boost_pct + ?)
                             WHERE id = ? AND player_id = ?
                         ")->execute([$boost, $boost, $wellId, $pId]);
@@ -942,7 +921,7 @@ trait TTSTasksTrait
                         $boostPct = 10 + ($skill >= 7 ? 5 : 0);
                         $this->db->prepare("
                             UPDATE wells
-                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100),
+                            SET base_production_per_hour = base_production_per_hour * (1 + ? / 100.0),
                                 status = CASE WHEN status = 'contaminated' THEN 'active' ELSE status END
                             WHERE id = ? AND player_id = ?
                         ")->execute([$boostPct, $wellId, $pId]);
@@ -987,15 +966,15 @@ trait TTSTasksTrait
 
  // Start the next queued task for this worker.
  // Uruchom nastepne zadanie z kolejki dla tego pracownika.
- // startTask() manages its own transaction internally — no double-wrap needed.
+ // Nested starts use a savepoint in this transaction. / Start uzywa savepointu tej transakcji.
             $qStmt = $this->db->prepare("
                 SELECT * FROM technical_task_queue
                 WHERE staff_id = ? AND player_id = ? ORDER BY priority DESC, queued_at ASC LIMIT 1
-            ");
+            " . $this->taskLockSuffix());
             $qStmt->execute([$staffId, $pId]);
             $next = $qStmt->fetch();
             if ($next) {
-                $staffRow = $this->getStaffMember($staffId);
+                $staffRow = $this->getLockedTaskStaff($staffId);
                 if ($staffRow) {
                     $startRes = $this->startTask($staffId, $next['task_type'], $next['well_id'], $next['module_type'], $staffRow, $next['hub_id'] ?? null, $next['pipeline_id'] ?? null);
  // Usun z kolejki dopiero po udanym starcie - inaczej zadanie przepada (brak gotowki, studnia niedostepna).
@@ -1007,13 +986,7 @@ trait TTSTasksTrait
             }
         } catch (Throwable $e) {
             GameLog::error('TTS', 'completeTask FAILED', $e, ['task_id' => $taskId]);
- // Zadanie zostalo juz zajete (status koncowy) - nie zostawiaj pracownika w stanie 'busy'.
- // The task is already claimed (final status) - do not leave the worker stuck as 'busy'.
-            try {
-                $this->db->prepare("UPDATE technical_staff SET status = 'active' WHERE id = ? AND player_id = ?")->execute([$staffId, $pId]);
-            } catch (Throwable $e2) {
- // best-effort
-            }
+            throw $e;
         }
     }
 
@@ -1046,16 +1019,25 @@ trait TTSTasksTrait
 
     public function cancelTask(int $taskId): array
     {
+        return $this->taskTransaction(function () use ($taskId): array {
+            $this->lockTaskOwner();
+            return $this->cancelTaskLocked($taskId);
+        });
+    }
+
+    /** @return array<string,mixed> */
+    private function cancelTaskLocked(int $taskId): array
+    {
         GameLog::step('TTS', 'cancelTask', 1, "task={$taskId}");
         $ownTx = false;
         try {
             $stmt = $this->db->prepare("
                 SELECT t.*, ts.first_name, ts.last_name
                 FROM technical_tasks t
-                JOIN technical_staff ts ON ts.id = t.staff_id
+                JOIN technical_staff ts ON ts.id = t.staff_id AND ts.player_id=t.player_id
                 WHERE t.id = ? AND t.player_id = ? AND t.status IN ('in_progress','paused_strike')
                 LIMIT 1
-            ");
+            " . $this->taskLockSuffix());
             $stmt->execute([$taskId, $this->playerId]);
             $task = $stmt->fetch();
             if (!$task) {
@@ -1116,29 +1098,25 @@ trait TTSTasksTrait
                 }
             }
 
-            // Pobierz nastepne zadanie z kolejki i usun je WEWNATRZ transakcji.
-            // Fetch next queued task and DELETE it INSIDE the transaction.
-            // startTask() otwiera wlasna transakcje — wywolujemy je dopiero PO commit().
-            // startTask() opens its own transaction — call it only AFTER commit().
+            // Keep queued work until its start succeeds. / Zachowaj kolejke do udanego startu.
             $nextStmt = $this->db->prepare("
                 SELECT * FROM technical_task_queue WHERE staff_id = ? AND player_id = ?
                 ORDER BY priority DESC, queued_at ASC LIMIT 1
-            ");
+            " . $this->taskLockSuffix());
             $nextStmt->execute([$task['staff_id'], $this->playerId]);
             $nextTask = $nextStmt->fetch();
-            if ($nextTask) {
-                $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$nextTask['id'], $this->playerId]);
-            }
 
             if ($ownTx) $this->db->commit();
             GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
 
-            // startTask() wywolujemy po commit() — PDO/MySQL nie obsluguje zagniezdzonnych transakcji.
-            // startTask() is called after commit() — PDO/MySQL does not support nested transactions.
+            // The outer task transaction includes promotion. / Transakcja obejmuje awans kolejki.
             if ($nextTask) {
-                $staffRow = $this->getStaffMember((int)$task['staff_id']);
+                $staffRow = $this->getLockedTaskStaff((int)$task['staff_id']);
                 if ($staffRow) {
-                    $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
+                    $started = $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
+                    if (!empty($started['success'])) {
+                        $this->db->prepare("DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?")->execute([$nextTask['id'], $this->playerId]);
+                    }
                 }
             }
 
@@ -1146,7 +1124,7 @@ trait TTSTasksTrait
         } catch (Throwable $e) {
             if ($ownTx && $this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('TTS', 'cancelTask FAILED', $e, ['task_id' => $taskId]);
-            return ['success' => false, 'message' => t('technical.task_msg.cancel_task_failed')];
+            throw $e;
         }
     }
 

@@ -116,6 +116,7 @@ class PortSection
 
         } catch (Throwable $e) {
             GameLog::error('tick', 'PortSection::process FAILED', $e, ['player_id' => $playerId]);
+            throw $e;
         }
 
         return $currentStorage;
@@ -157,8 +158,9 @@ class PortSection
  // Storage could not fit the whole delivery: credit what fits and keep the remainder queued
  // ('waiting') for the next tick - consistent with the loop break on full storage, instead
  // of silently dropping the overflow.
+            $ownTx = !$this->db->inTransaction();
             try {
-                $this->db->beginTransaction();
+                if ($ownTx) $this->db->beginTransaction();
                 $this->db->prepare(
                     "UPDATE port_queue SET volume_bbl = ? WHERE id = ? AND player_id = ?"
                 )->execute([$remainder, $entryId, $playerId]);
@@ -170,15 +172,15 @@ class PortSection
                         SET status = 'waiting_for_port', handling_cost = COALESCE(handling_cost, 0) + ?
                       WHERE id = ? AND player_id = ? AND status NOT IN ('delivered','lost')"
                 )->execute([$handlingCost, $deliveryId, $playerId]);
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
+                if ($ownTx && $this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
                 }
                 GameLog::error('tick', 'port_delivery_partial FAILED — rolled back', $e, [
                     'entry_id' => $entryId, 'delivery_id' => $deliveryId,
                 ]);
-                return $currentStorage;
+                throw $e;
             }
             GameLog::info('tick', 'port_delivery_partial', [
                 'delivery_id' => $deliveryId,
@@ -191,8 +193,9 @@ class PortSection
  // (done w kolejce ale 'waiting_for_port' w deliveries). Transakcja zapobiega sierocie.
  // M2: Mark port_queue + marine_deliveries atomically — crash between them creates split-brain
  // (done in queue but 'waiting_for_port' in deliveries). Transaction prevents orphan state.
+            $ownTx = !$this->db->inTransaction();
             try {
-                $this->db->beginTransaction();
+                if ($ownTx) $this->db->beginTransaction();
                 $this->db->prepare(
                     "UPDATE port_queue
                         SET status = 'done', processed_at = ?
@@ -204,15 +207,15 @@ class PortSection
                             handling_cost = COALESCE(handling_cost, 0) + ?
                       WHERE id = ? AND player_id = ?"
                 )->execute([$nowStr, $handlingCost, $deliveryId, $playerId]);
-                $this->db->commit();
+                if ($ownTx) $this->db->commit();
             } catch (Throwable $e) {
-                if ($this->db->inTransaction()) {
+                if ($ownTx && $this->db->inTransaction()) {
                     try { $this->db->rollBack(); } catch (Throwable $re) {}
                 }
                 GameLog::error('tick', 'port_delivery_done FAILED — rolled back', $e, [
                     'entry_id' => $entryId, 'delivery_id' => $deliveryId,
                 ]);
-                return $currentStorage;
+                throw $e;
             }
             $this->processedCount++;
         }
