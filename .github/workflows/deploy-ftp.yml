@@ -43,7 +43,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring, gd, fileinfo, dom
           coverage: none
 
       - name: Cache Composer
@@ -59,15 +59,16 @@ jobs:
       - name: Uruchom testy Unit + Integration / Run Unit + Integration
         run: php vendor/bin/phpunit --no-coverage --testsuite Unit,Integration
 
+      - name: Upload frontend regression
+        run: node --test tests/Unit/BoardroomUploadFrontend.test.cjs
+
   # -------------------------------------------------------------------
-  # Job 2: testy MySQL — INFORMACYJNE, NIE blokuja deployu.
-  # Job 2: MySQL tests — INFORMATIONAL, do NOT block the deploy.
-  # continue-on-error: czerwony wynik nie wstrzymuje pipeline'u.
+  # MySQL is a release gate for transactional changes.
+  # MySQL jest bramka wydania zmian transakcyjnych.
   # -------------------------------------------------------------------
   mysql-tests:
-    name: Testy MySQL (informacyjne) / MySQL tests (non-blocking)
+    name: Testy MySQL / MySQL gate
     runs-on: ubuntu-latest
-    continue-on-error: true
 
     services:
       mysql:
@@ -93,7 +94,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring
+          extensions: pdo, pdo_mysql, pdo_sqlite, mbstring, gd, fileinfo, dom
           coverage: none
 
       - name: Cache Composer
@@ -108,27 +109,32 @@ jobs:
 
       - name: Zaladuj schemat CI / Load CI schema
         run: |
+          # Test-only fault injection triggers; no production server is changed.
+          mysql -h 127.0.0.1 -u root -pci_root -e "SET GLOBAL log_bin_trust_function_creators = 1;"
           mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
 
       - name: Uruchom testy MySqlIntegration / Run MySqlIntegration
-        run: php vendor/bin/phpunit --no-coverage --testsuite MySqlIntegration
+        run: php vendor/bin/phpunit --no-coverage --testsuite MySqlIntegration --fail-on-skipped
         env:
           DB_HOST:    127.0.0.1
           DB_NAME:    ci_test
           DB_USER:    ci_user
           DB_PASS:    ci_pass
           DB_CHARSET: utf8mb4
+          API_TEST_MYSQL_DSN: 'mysql:host=127.0.0.1;dbname=ci_test;charset=utf8mb4'
+          API_TEST_DB_USER: ci_user
+          API_TEST_DB_PASS: ci_pass
 
   # -------------------------------------------------------------------
   # Job 3: deploy FTP — odpala sie TYLKO gdy bramka (test) przeszla.
   # Job 3: FTP deploy — runs ONLY when the gate (test) passed.
-  # NIE zalezy od mysql-tests, wiec testy MySQL nie blokuja wdrozenia.
-  # Does NOT depend on mysql-tests, so MySQL tests can't block deploy.
+  # Obie bramki musza przejsc / Both gates must pass.
+  # MySQL failures block deployment of transactional changes.
   # -------------------------------------------------------------------
   deploy:
     name: Upload to FTP
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, mysql-tests]
 
     steps:
       - name: Checkout

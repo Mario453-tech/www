@@ -197,7 +197,7 @@ CREATE TABLE `bankruptcy_events` (
   `resolution_note` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `payload_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `bankruptcy_events`
@@ -518,7 +518,7 @@ CREATE TABLE `candidate_reviews` (
   `recommendation` enum('hire','reject') COLLATE utf8mb4_general_ci NOT NULL,
   `comment` text COLLATE utf8mb4_general_ci,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `candidate_reviews`
@@ -645,6 +645,10 @@ CREATE TABLE `director_notifications` (
   `priority` enum('low','medium','high','critical') COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'medium',
   `title` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `message` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `title_key` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `message_key` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `action_label_key` varchar(190) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `message_params` json DEFAULT NULL,
   `icon` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT '?',
   `is_read` tinyint(1) NOT NULL DEFAULT '0',
   `requires_action` tinyint(1) NOT NULL DEFAULT '0',
@@ -1116,7 +1120,7 @@ CREATE TABLE `loan_applications` (
   `decision_at` timestamp NULL DEFAULT NULL COMMENT 'Kiedy bank podejmie decyzje',
   `decided_at` timestamp NULL DEFAULT NULL COMMENT 'Kiedy pojal decyzje',
   `expires_at` timestamp NULL DEFAULT NULL COMMENT 'Oferta wygasa po 48h'
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `loan_applications`
@@ -1602,7 +1606,7 @@ CREATE TABLE `offline_reports` (
   `summary_json` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `shown` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -2032,7 +2036,7 @@ CREATE TABLE `technical_tasks` (
   `result_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin,
   `notified` tinyint(1) NOT NULL DEFAULT '0',
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `technical_tasks`
@@ -2175,7 +2179,7 @@ CREATE TABLE `wells` (
   `sold_at` datetime DEFAULT NULL,
   `marine_buffer_bbl` decimal(12,4) NOT NULL DEFAULT '0.0000' COMMENT 'Bufor tankowca (bbl)',
   `road_buffer_bbl` decimal(12,4) NOT NULL DEFAULT '0.0000' COMMENT 'Bufor ciężarówek (bbl)'
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Dumping data for table `wells`
@@ -3377,6 +3381,7 @@ ALTER TABLE `transport_config`
 --
 ALTER TABLE `wells`
   ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_wells_location_status` (`location_id`,`status`),
   ADD KEY `player_id` (`player_id`),
   ADD KEY `idx_risk_score` (`player_id`,`risk_score`),
   ADD KEY `idx_wells_wear` (`wear_level`),
@@ -4079,6 +4084,13 @@ ALTER TABLE `world_regions`
 
 --
 COMMIT;
+
+CREATE TABLE IF NOT EXISTS api_auth_rate_limits (
+  bucket_key CHAR(64) NOT NULL PRIMARY KEY,
+  attempts TEXT NOT NULL,
+  expires_at BIGINT NULL,
+  KEY idx_api_auth_rate_limits_expiry (expires_at)
+) ENGINE=InnoDB DEFAULT CHARSET=ascii COLLATE=ascii_bin;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;

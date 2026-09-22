@@ -1,5 +1,15 @@
 ## Changelog
 
+### 2026-09-23 - Naprawy po przeglądzie całej gry
+
+- Sprzedaż ropy, anulowanie ofert, spłaty kredytów, pozwolenia i zakup odwiertu ponownie sprawdzają stan pod blokadą i rozliczają pieniądze atomowo.
+- Tick gracza wycofuje cały okres przy błędzie produkcji, transportu, magazynu lub audytu. Koszty zapisują faktyczne obciążenie; schemat jest przygotowywany przed transakcją.
+- Zadania techniczne nie uruchamiają się równolegle dla tego samego pracownika i zachowują kolejkę przy nieudanym starcie. Podwyżki i ugody natychmiast aktualizują satysfakcję z pensji.
+- API ma bazodanowy limiter logowania i bezpieczne błędy PL/EN. Pomoc jest sanitizowana, upload obrazów ograniczony i izolowany, a korekty bankowe mają atomowy audyt administratora.
+- Panele używają PRG, zewnętrznych zasobów i potwierdzeń. Powiadomienia znikają dopiero po poprawnym potwierdzeniu API.
+- MySQL jest obowiązkową bramką wdrożenia. Raport read-only `tools/transaction_race_audit.php` wykrywa rozbieżności bez poprawiania historii. Tick wymaga InnoDB; nie wykonuje automatycznej konwersji silników.
+- Szczegóły weryfikacji i wycofania: `svn_repo/BUGFIX_REVIEW_2026-09-23.md`.
+
 ### 2026-07-29 - HR: naprawa spójności danych i przetwarzania
 
 - Podwyżki i ugody synchronizują pensję źródłową z aktywnym kontraktem, a decyzje, bonusy i odnowienia respektują status relacji pracownika.
