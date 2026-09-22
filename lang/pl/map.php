@@ -119,7 +119,7 @@ return [
     'map_js.taken_badge' => 'Ta lokalizacja jest zajęta',
     'map_js.map_error' => 'Nie można załadować mapy - sprawdź połączenie z internetem.',
     'map_js.map_error_sub' => 'Wymagany dostęp do cdnjs.cloudflare.com',
-    'map.page_title' => 'Mapa Świata — OilCorp',
+    'map.page_title' => 'Mapa świata',
     'map.region_legend' => 'Podatek',
     'map.sidebar_prompt' => 'Kliknij region lub pinezkę na mapie aby zobaczyć szczegóły i kupić odwiert.',
     'map.locations_available' => 'Dostępne lokalizacje',

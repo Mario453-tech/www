@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 
 return [
-    'bank.title' => 'Oil<span>Corp</span> &nbsp;&nbsp; Central Bank',
+    'bank.title' => 'Central Bank',
     'bank.subtitle' => 'Manage loans, submit applications, and negotiate repayment terms.',
     'bank.service_unavailable' => 'Bank service is temporarily unavailable. Try again in a few minutes.',
     'bank.bankruptcy_notice' => 'The company is under restructuring. New loans are blocked. Use rescue options in <a href=":url">recovery mode</a>.',

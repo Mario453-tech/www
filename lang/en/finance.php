@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 
 return [
-    'finance.page_title' => 'OilCorp &nbsp;&nbsp; Finance Department',
+    'finance.page_title' => 'Finance Department',
     'finance.tabs_label' => 'Finance tabs',
     'finance.tab_overview' => 'Overview',
     'finance.tab_budgets' => 'Budgets',

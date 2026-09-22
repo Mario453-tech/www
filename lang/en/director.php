@@ -70,7 +70,7 @@ return [
     'index.bailiff_stage_2' => 'Cash seizure',
     'index.bailiff_stage_3' => 'Oil seizure',
     'index.bailiff_stage_4' => 'Well seizure',
-    'dashboard.page_title' => 'Director Dashboard - Oil Corp',
+    'dashboard.page_title' => 'Director Dashboard',
     'dashboard.topbar_sub' => 'Board',
     'dashboard.badge_pending' => ':count CVs waiting',
     'dashboard.badge_approved' => ':count approved',

@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
 
-    'finance.page_title' => 'OilCorp &nbsp;&nbsp; Dział Finansów',
+    'finance.page_title' => 'Dział Finansów',
     'finance.tabs_label' => 'Zakładki finansów',
     'finance.tab_overview' => 'Przegląd',
     'finance.tab_budgets' => 'Budżety',

@@ -9,7 +9,7 @@ declare(strict_types=1);
 return [
     'pipeline.default_name' => 'Well pipeline #:id',
     'pipeline.default_name_hub' => 'Hub pipeline #:id',
-    'logistics.page_title' => 'OilCorp - Logistics Department',
+    'logistics.page_title' => 'Logistics Department',
     'logistics.kpi_aria' => 'Logistics indicators',
     'logistics.kpi_efficiency' => 'Transport efficiency',
     'logistics.kpi_loss' => 'Transport losses',

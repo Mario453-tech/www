@@ -17,7 +17,7 @@ $controller = new LogisticsPageController($playerId, $db);
 $controller->handlePost();
 $viewData = $controller->buildViewData($staffingFlash);
 
-$pageTitle = t('logistics.page_title') . ' - OilCorp';
+$pageTitle = t('logistics.page_title');
 $gameShellTitle = t('logistics.page_title');
 $gameShellView = __DIR__ . '/../templates/views/logistics/main.php';
 $extraCss = [

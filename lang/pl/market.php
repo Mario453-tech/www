@@ -20,7 +20,7 @@ return [
     'market_offer.msg_created' => 'Wystawiono :amount baryłek ropy na sprzedaż po min. :price zł/bbl!',
     'market_offer.msg_updated' => 'Cena oferty została zaktualizowana.',
     'market_offer.msg_cancelled' => 'Oferta anulowana. Zwrócono :returned bbl (kara: :penalty bbl).',
-    'market.page_title' => 'Oil<span>Corp</span> &nbsp;&nbsp; Rynek ropy',
+    'market.page_title' => 'Rynek ropy',
     'market.heading' => 'Rynek ropy',
     'market.current_price' => 'Aktualna cena',
     'market.your_oil' => 'Twoja ropa',

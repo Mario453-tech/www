@@ -130,7 +130,7 @@ return [
     'index.bailiff_stage_2' => 'Zajęcie gotówki',
     'index.bailiff_stage_3' => 'Zajęcie ropy',
     'index.bailiff_stage_4' => 'Zajęcie odwiertów',
-    'dashboard.page_title' => 'Dashboard Dyrektora – Oil Corp',
+    'dashboard.page_title' => 'Panel dyrektora',
     'dashboard.topbar_sub' => 'Zarząd',
     'dashboard.badge_pending' => ':count CV czeka',
     'dashboard.badge_approved' => ':count zatwierdzone',

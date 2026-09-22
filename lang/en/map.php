@@ -92,7 +92,7 @@ return [
     'map_js.taken_badge' => 'This location is occupied',
     'map_js.map_error' => 'The map could not be loaded. Check your internet connection.',
     'map_js.map_error_sub' => 'Access to cdnjs.cloudflare.com is required',
-    'map.page_title' => 'World Map - OilCorp',
+    'map.page_title' => 'World Map',
     'map.region_legend' => 'Tax',
     'map.sidebar_prompt' => 'Click a region or pin on the map to view details and buy a well.',
     'map.locations_available' => 'Available locations',

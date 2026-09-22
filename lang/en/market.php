@@ -17,7 +17,7 @@ return [
     'market_offer.msg_created' => 'Listed :amount barrels of oil for sale at a minimum of :price USD/bbl.',
     'market_offer.msg_updated' => 'Offer price has been updated.',
     'market_offer.msg_cancelled' => 'Offer cancelled. Returned :returned bbl (penalty: :penalty bbl).',
-    'market.page_title' => 'Oil<span>Corp</span> &nbsp;&nbsp; Oil market',
+    'market.page_title' => 'Oil market',
     'market.heading' => 'Oil market',
     'market.current_price' => 'Current price',
     'market.your_oil' => 'Your oil',

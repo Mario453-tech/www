@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 return [
 
-    'boardroom.page_title' => 'Zarząd - OilCorp ',
+    'boardroom.page_title' => 'Zarząd',
     'boardroom.seats_label' => 'Miejsca:',
     'boardroom.cv_count' => ':count CV',
     'boardroom.link_board' => 'Zarzd',

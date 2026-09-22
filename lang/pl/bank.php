@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
 
-    'bank.title' => 'Oil<span>Corp</span> &nbsp;&nbsp; Centralny Bank',
+    'bank.title' => 'Centralny Bank',
     'bank.subtitle' => 'Zarządzaj kredytami, składaj wnioski i negocjuj warunki spłaty.',
     'bank.service_unavailable' => 'Serwis bankowy jest chwilowo niedostępny. Spróbuj ponownie za kilka minut.',
     'bank.bankruptcy_notice' => 'Firma jest w restrukturyzacji. Nowe kredyty są zablokowane. Użyj opcji ratunkowych w <a href=":url">trybie recovery</a>.',

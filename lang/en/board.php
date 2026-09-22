@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
 
-    'boardroom.page_title' => 'Boardroom - OilCorp',
+    'boardroom.page_title' => 'Boardroom',
     'boardroom.seats_label' => 'Seats:',
     'boardroom.cv_count' => ':count CVs',
     'boardroom.link_board' => 'Boardroom',
