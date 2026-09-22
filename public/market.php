@@ -6,6 +6,7 @@ GameLog::info('public/market.php', 'entry');
 Auth::requireLogin();
 
 require_once __DIR__ . '/../src/B2BContractService.php';
+require_once __DIR__ . '/../src/MarketSaleService.php';
 
 $player      = new Player(Auth::getUserId());
 $storage     = new Storage(Auth::getUserId());
@@ -30,47 +31,16 @@ if ($_POST && isset($_POST['action'])) {
         $action = $_POST['action'];
         
         if ($action === 'sell_instant') {
-            $amount = (int)$_POST['amount'];
-
-            if ($amount <= 0 || $amount > $storageData['used']) {
-                $error = t('market.error_amount');
-            } else {
-                $earnings = $amount * $marketData['current_price'];
-
-                $db = Database::getInstance()->getConnection();
-                $fts = new FinancialTransactionService();
-                $db->beginTransaction();
-
+            $result = (new MarketSaleService())->sellInstant(Auth::getUserId(), (int)($_POST['amount'] ?? 0));
+            if ($result['success']) {
+                $success = $result['message'];
                 try {
-                    $res = $fts->credit(Auth::getUserId(), $earnings, FinancialTransactionService::TYPE_MARKET_SALE, 'Sprzedaz ropy na rynku');
-                    if (!$res['success']) {
-                        throw new RuntimeException($res['error'] ?? t('common.app_error'));
-                    }
-
-                    $db->prepare("
-                        UPDATE storage
-                        SET used = used - :amount
-                        WHERE player_id = :player_id
-                    ")->execute([
-                        ':amount'    => $amount,
-                        ':player_id' => Auth::getUserId(),
-                    ]);
-
-                    $db->commit();
-                    $success = sprintf(t('market.success_sold'), $amount, number_format($earnings));
-
-                    $storageData['used']  -= $amount;
-                    $playerData['cash']   += $earnings;
-
- // Credit score recovery after legal sale
-                    try {
-                        (new BlackMarketService())->applyLegalRecovery(Auth::getUserId());
-                    } catch (\Throwable $e) {}
-
-                } catch (Exception $e) {
-                    $db->rollBack();
-                    $error = tPlain('market.error_sell', ['msg' => $e->getMessage()]);
+                    (new BlackMarketService())->applyLegalRecovery(Auth::getUserId());
+                } catch (Throwable $e) {
+                    GameLog::error('MarketSaleService', 'Legal recovery hook failed', $e);
                 }
+            } else {
+                $error = $result['message'];
             }
 
         } elseif ($action === 'create_offer') {
@@ -121,6 +91,17 @@ if ($_POST && isset($_POST['action'])) {
         }
     }
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['market_flash'] = ['error' => $error, 'success' => $success];
+    $redirectTab = ($_POST['action'] ?? '') === 'accept_b2b_offer' ? '?tab=b2b' : '';
+    header('Location: market.php' . $redirectTab);
+    exit;
+}
+$flash = $_SESSION['market_flash'] ?? [];
+unset($_SESSION['market_flash']);
+$error = (string)($flash['error'] ?? '');
+$success = (string)($flash['success'] ?? '');
 
 $myOffers = $marketOffer->getPlayerOffers(Auth::getUserId());
 $offers   = $myOffers; // alias for backwards compatibility

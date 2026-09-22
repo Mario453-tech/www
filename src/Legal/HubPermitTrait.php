@@ -246,38 +246,48 @@ trait LegalHubPermitTrait
             return ['success' => false, 'code' => 'hub_not_required', 'message' => tPlain('legal.hub.err.hub_not_required')];
         }
 
-        $existing = $this->getHubPermitStatus($playerId, $regionId);
-        $existingStatus = $existing['status'];
-
-        if ($existingStatus === 'granted') {
-            return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.hub.err.already_active')];
-        }
-        if (in_array($existingStatus, ['pending', 'delayed'], true)) {
-            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.hub.err.in_progress')];
-        }
-        if ($existingStatus === 'refused' && !empty($existing['application']['refusal_cooldown_until'])) {
-            $cooldownUntil = new DateTime((string)$existing['application']['refusal_cooldown_until']);
-            if ($cooldownUntil > $now) {
-                $remainMin = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
-                return [
-                    'success' => false,
-                    'code'    => 'cooldown',
-                    'message' => tPlain('legal.hub.err.cooldown', ['time' => self::minutesToHuman($remainMin)]),
-                ];
-            }
-        }
-
-        $applicationCost = (float)$config['hub_permit_cost'];
-        $legalEffects = $this->strikeEffects->forPlayer($playerId);
-        $reviewMinutes = (int)ceil(
-            (int)$config['hub_review_minutes']
-            * (float)($legalEffects['legal']['case_time_mult'] ?? 1.0)
-        );
-
         $fts = new FinancialTransactionService($this->db);
-
         $this->db->beginTransaction();
         try {
+            $lock = $this->driver() === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id = ?{$lock}");
+            $playerLock->execute([$playerId]);
+            if (!$playerLock->fetchColumn()) {
+                return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.hub.err.unknown_player')];
+            }
+            $applicationLock = $this->db->prepare(
+                "SELECT * FROM hub_permit_applications WHERE player_id = ? AND region_id = ?{$lock}"
+            );
+            $applicationLock->execute([$playerId, $regionId]);
+            $application = $applicationLock->fetch(PDO::FETCH_ASSOC) ?: null;
+            $existing = ['status' => $application['status'] ?? 'none', 'application' => $application];
+            $existingStatus = $existing['status'];
+
+            if ($existingStatus === 'granted') {
+                return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.hub.err.already_active')];
+            }
+            if (in_array($existingStatus, ['pending', 'delayed'], true)) {
+                return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.hub.err.in_progress')];
+            }
+            if ($existingStatus === 'refused' && !empty($existing['application']['refusal_cooldown_until'])) {
+                $cooldownUntil = new DateTime((string)$existing['application']['refusal_cooldown_until']);
+                if ($cooldownUntil > $now) {
+                    $remainMin = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
+                    return [
+                        'success' => false,
+                        'code'    => 'cooldown',
+                        'message' => tPlain('legal.hub.err.cooldown', ['time' => self::minutesToHuman($remainMin)]),
+                    ];
+                }
+            }
+
+            $applicationCost = (float)$config['hub_permit_cost'];
+            $legalEffects = $this->strikeEffects->forPlayer($playerId);
+            $reviewMinutes = (int)ceil(
+                (int)$config['hub_review_minutes']
+                * (float)($legalEffects['legal']['case_time_mult'] ?? 1.0)
+            );
+
             // Oplata pobierana lacznie z cash+bank_balance (bank najpierw, reszta z cash).
             // Fee deducted from combined cash+bank_balance (bank first, remainder from cash).
             $cashStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
@@ -354,6 +364,10 @@ trait LegalHubPermitTrait
                 ]);
             }
             return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.hub.err.generic')];
+        } finally {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
         }
 
         // Powiadomienie po transakcji — nigdy nie cofa oplaty.

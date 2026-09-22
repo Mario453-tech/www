@@ -2,6 +2,7 @@
 
 require_once __DIR__ . '/PlayerPaymentService.php';
 require_once __DIR__ . '/WorldLocationCatalogSeeder.php';
+require_once __DIR__ . '/WorldMapSchema.php';
 
 /**
  * WorldMap - world map service.
@@ -176,10 +177,24 @@ class WorldMap
     public function buyWellAtLocation(int $playerId, int $locationId): array
     {
         try {
- // Player validation
-            $player = new Player($playerId);
-            if ($player->isBankrupt()) {
+            WorldMapSchema::ensure($this->db);
+            new LegalService($this->db);
+            $paymentService = new PlayerPaymentService($this->db);
+            $this->db->beginTransaction();
+            $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerStmt = $this->db->prepare("SELECT * FROM players WHERE id = ?{$lock}");
+            $playerStmt->execute([$playerId]);
+            $player = $playerStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$player || $player['status'] === 'bankrupt'
+                || (int)($player['recovery_mode'] ?? 0) === 1
+                || !in_array($player['bankruptcy_status'] ?? 'none', ['none', 'recovered'], true)) {
                 return ['success' => false, 'message' => t('world_map.err_bankrupt')];
+            }
+
+            $locationLock = $this->db->prepare("SELECT id FROM world_locations WHERE id = ? AND available = 1{$lock}");
+            $locationLock->execute([$locationId]);
+            if (!$locationLock->fetchColumn()) {
+                return ['success' => false, 'message' => t('world_map.err_location_unavailable')];
             }
 
  // Fetch location with region data
@@ -190,7 +205,7 @@ class WorldMap
 
  // Check if this location is already occupied by anyone
             $occStmt = $this->db->prepare("
-                SELECT id FROM wells WHERE location_id = ? AND status NOT IN ('seized','sold') LIMIT 1
+                SELECT id FROM wells WHERE location_id = ? AND status NOT IN ('seized','sold') LIMIT 1{$lock}
             ");
             $occStmt->execute([$locationId]);
             if ($occStmt->fetch()) {
@@ -199,7 +214,7 @@ class WorldMap
 
  // Check if the player already has a well at this location
             $ownStmt = $this->db->prepare("
-                SELECT id FROM wells WHERE player_id = ? AND location_id = ? LIMIT 1
+                SELECT id FROM wells WHERE player_id = ? AND location_id = ? AND status != 'sold' LIMIT 1{$lock}
             ");
             $ownStmt->execute([$playerId, $locationId]);
             if ($ownStmt->fetch()) {
@@ -207,16 +222,19 @@ class WorldMap
             }
 
  // Well limit
-            $countStmt = $this->db->prepare("SELECT COUNT(*) FROM wells WHERE player_id = ?");
+            $countStmt = $this->db->prepare("SELECT id FROM wells WHERE player_id = ? AND status != 'sold'{$lock}");
             $countStmt->execute([$playerId]);
-            if ((int)$countStmt->fetchColumn() >= 10) {
+            if (count($countStmt->fetchAll()) >= 10) {
                 return ['success' => false, 'message' => t('world_map.err_well_limit')];
             }
 
  // Dział prawny P1: bez aktywnego zezwolenia na wiercenie w regionie zakup jest zablokowany.
-            $permitBlock = $this->regionPurchaseBlock($playerId, (int)$loc['region_id']);
-            if ($permitBlock !== null) {
-                return $permitBlock;
+            $permit = $this->db->prepare("SELECT id FROM drilling_permit_applications
+                WHERE player_id = ? AND region_id = ? AND status IN ('granted','transitional'){$lock}");
+            $permit->execute([$playerId, (int)$loc['region_id']]);
+            if (!$permit->fetchColumn()) {
+                return ['success' => false, 'message' => t('legal.err_no_drilling_permit', ['region' => $loc['region_name']]),
+                    'no_permit' => true, 'region_id' => (int)$loc['region_id']];
             }
 
  // Cost = effective_entry_cost (override or region) x oil_richness
@@ -224,7 +242,7 @@ class WorldMap
             $richness  = (float)$loc['oil_richness'];
             $totalCost = (int)round($entryBase * max(1.0, $richness * 0.8));
 
-            if (!$player->canAfford($totalCost)) {
+            if ($totalCost <= 0 || (float)$player['cash'] < $totalCost) {
                 return [
                     'success' => false,
                     'message' => t('world_map.err_insufficient_funds', ['cost' => number_format($totalCost, 0, '.', ' ')]),
@@ -250,11 +268,10 @@ class WorldMap
             $transportType = $loc['well_type'] === 'offshore' ? 'tankowiec' : 'nieustawiony';
             $transportProfile = TransportConfigService::getTypeConfig($this->db, $transportType);
 
-            $paymentService = new PlayerPaymentService($this->db);
-
-            $this->db->beginTransaction();
             try {
-                if (!$player->updateCash(-$totalCost, \FinancialTransactionService::TYPE_MAP_PURCHASE, 'Zakup lokalizacji na mapie')) {
+                $payment = $paymentService->charge($playerId, $totalCost, FinancialTransactionService::TYPE_MAP_PURCHASE,
+                    tPlain('bank.tx_map_purchase', ['id' => $locationId]), 'world_location', $locationId);
+                if (empty($payment['success'])) {
                     $this->db->rollBack();
                     return ['success' => false, 'message' => t('world_map.err_insufficient_funds', ['cost' => number_format($totalCost, 0, '.', ' ')])];
                 }
@@ -265,8 +282,8 @@ class WorldMap
                     SELECT reservoir_remaining, reservoir_max
                     FROM wells
                     WHERE location_id = ? AND status = 'sold'
-                    ORDER BY sold_at DESC
-                    LIMIT 1
+                    ORDER BY sold_at DESC, id DESC
+                    LIMIT 1{$lock}
                 ");
                 $prevStmt->execute([$locationId]);
                 $prevWell = $prevStmt->fetch();
@@ -346,7 +363,7 @@ class WorldMap
                     'player_id'   => $playerId,
                     'location_id' => $locationId,
                 ]);
-                return ['success' => false, 'message' => t('world_map.err_tx_failed', ['msg' => $e->getMessage()])];
+                return ['success' => false, 'message' => t('world_map.err_system')];
             }
 
         } catch (Throwable $e) {
@@ -355,6 +372,8 @@ class WorldMap
                 'location_id' => $locationId,
             ]);
             return ['success' => false, 'message' => t('world_map.err_system')];
+        } finally {
+            if ($this->db->inTransaction()) $this->db->rollBack();
         }
     }
 

@@ -10,10 +10,30 @@ class MarketOffer
  // Tworzy tabele market_sale_history jesli nie istnieje (raz na polaczenie).
     private static bool $schemaEnsured = false;
 
-    public function __construct()
+    public function __construct(?PDO $db = null)
     {
-        $this->db = Database::getInstance()->getConnection();
+        $this->db = $db ?? Database::getInstance()->getConnection();
         $this->ensureSchema();
+    }
+
+    private function lockPlayer(int $playerId): void
+    {
+        $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ?{$lock}");
+        $stmt->execute([$playerId]);
+        if (!$stmt->fetchColumn()) {
+            throw new RuntimeException('Market player not found.');
+        }
+    }
+
+    /** @return array<string,mixed>|null */
+    private function lockOffer(int $offerId, int $playerId): ?array
+    {
+        $this->lockPlayer($playerId);
+        $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+        $stmt = $this->db->prepare("SELECT * FROM market_offers WHERE id = ? AND player_id = ?{$lock}");
+        $stmt->execute([$offerId, $playerId]);
+        return $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
     }
 
     private function ensureSchema(): void
@@ -73,6 +93,7 @@ class MarketOffer
             }
 
             $this->db->beginTransaction();
+            $this->lockPlayer($playerId);
 
  // Lock oil in storage
             GameLog::step('MarketOffer', 'createOffer', 2, 'UPDATE storage');
@@ -175,29 +196,31 @@ class MarketOffer
     public function updateOffer(int $offerId, int $playerId, float $newLimitPrice): array
     {
         try {
-            $offer = $this->getOffer($offerId, $playerId);
+            $this->db->beginTransaction();
+            $offer = $this->lockOffer($offerId, $playerId);
 
             if (!$offer) {
                 return ['success' => false, 'message' => t('market_offer.err_not_found')];
             }
 
-            if (empty($offer['editable'])) {
+            if ($offer['status'] !== 'pending' || empty($offer['editable'])) {
                 return ['success' => false, 'message' => t('market_offer.err_not_editable')];
             }
 
-            if ($newLimitPrice < 30) {
+            if (!is_finite($newLimitPrice) || $newLimitPrice < 30) {
                 return ['success' => false, 'message' => t('market_offer.err_price_too_low')];
             }
 
             $this->db->prepare("
                 UPDATE market_offers
                 SET limit_price = :limit_price
-                WHERE id = :id AND player_id = :player_id
+                WHERE id = :id AND player_id = :player_id AND status = 'pending' AND editable = TRUE
             ")->execute([
                 ':limit_price' => $newLimitPrice,
                 ':id'          => $offerId,
                 ':player_id'   => $playerId,
             ]);
+            $this->db->commit();
 
             GameLog::info('MarketOffer', 'updateOffer', [
                 'offer_id'       => $offerId,
@@ -209,6 +232,8 @@ class MarketOffer
         } catch (Throwable $e) {
             GameLog::error('MarketOffer', 'updateOffer FAILED', $e, ['offer_id' => $offerId]);
             return ['success' => false, 'message' => t('common.app_error')];
+        } finally {
+            if ($this->db->inTransaction()) $this->db->rollBack();
         }
     }
 
@@ -222,7 +247,8 @@ class MarketOffer
         ]);
 
         try {
-            $offer = $this->getOffer($offerId, $playerId);
+            $this->db->beginTransaction();
+            $offer = $this->lockOffer($offerId, $playerId);
 
             if (!$offer) {
                 return ['success' => false, 'message' => t('market_offer.err_not_found')];
@@ -231,8 +257,6 @@ class MarketOffer
             if ($offer['status'] !== 'pending') {
                 return ['success' => false, 'message' => t('market_offer.err_cancel_status')];
             }
-
-            $this->db->beginTransaction();
 
  // Calculate penalty and return oil
             $cancellationFee  = (float)($offer['cancellation_fee'] ?? 0.10);
@@ -245,14 +269,32 @@ class MarketOffer
                 'returned' => $returnedAmount,
             ]);
 
-            $storage = new Storage($playerId);
-            $storage->addOil($returnedAmount);
-
-            $this->db->prepare("
+            if ($returnedAmount < 0 || !is_finite((float)$returnedAmount)) {
+                throw new RuntimeException('Invalid market refund amount.');
+            }
+            $lock = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $storage = $this->db->prepare("SELECT used, capacity FROM storage WHERE player_id = ?{$lock}");
+            $storage->execute([$playerId]);
+            $stock = $storage->fetch(PDO::FETCH_ASSOC);
+            if (!$stock || (float)$stock['used'] + $returnedAmount > (float)$stock['capacity']) {
+                return ['success' => false, 'message' => t('market_offer.err_refund_storage')];
+            }
+            $close = $this->db->prepare("
                 UPDATE market_offers
-                SET status = 'cancelled', completed_at = NOW()
-                WHERE id = :id AND player_id = :player_id
-            ")->execute([':id' => $offerId, ':player_id' => $playerId]);
+                SET status = 'cancelled', locked_amount = 0, completed_at = NOW()
+                WHERE id = :id AND player_id = :player_id AND status = 'pending'
+            ");
+            $close->execute([':id' => $offerId, ':player_id' => $playerId]);
+            if ($close->rowCount() !== 1) {
+                throw new RuntimeException('Market cancellation lost its status guard.');
+            }
+            if ($returnedAmount > 0) {
+                $refund = $this->db->prepare('UPDATE storage SET used = used + ? WHERE player_id = ? AND used + ? <= capacity');
+                $refund->execute([$returnedAmount, $playerId, $returnedAmount]);
+                if ($refund->rowCount() !== 1) {
+                    throw new RuntimeException('Market oil refund failed.');
+                }
+            }
 
             $this->db->commit();
 
@@ -271,6 +313,8 @@ class MarketOffer
             if ($this->db->inTransaction()) $this->db->rollBack();
             GameLog::error('MarketOffer', 'cancelOffer FAILED', $e, ['offer_id' => $offerId]);
             return ['success' => false, 'message' => t('common.app_error')];
+        } finally {
+            if ($this->db->inTransaction()) $this->db->rollBack();
         }
     }
 
@@ -318,7 +362,9 @@ class MarketOffer
         ]);
 
         try {
+            $fts = new FinancialTransactionService($this->db);
             $this->db->beginTransaction();
+            $this->lockPlayer((int)$offer['player_id']);
 
             // Lock and revalidate ownership/status before crediting the seller.
             // Zablokuj i ponownie sprawdz wlasciciela oraz status przed wyplata.
@@ -338,7 +384,7 @@ class MarketOffer
                 ':player_id' => (int)$offer['player_id'],
             ]);
             $lockedOffer = $lockStmt->fetch(PDO::FETCH_ASSOC);
-            if (!$lockedOffer) {
+            if (!$lockedOffer || (float)$lockedOffer['limit_price'] > $currentPrice) {
                 $this->db->rollBack();
                 return;
             }
@@ -347,7 +393,7 @@ class MarketOffer
             $earnings = (float)$offer['amount'] * $currentPrice;
 
             // Zasil konto gracza przez centralne API finansowe / Credit player via central financial API.
-            $creditResult = (new FinancialTransactionService($this->db))->credit(
+            $creditResult = $fts->credit(
                 (int)$offer['player_id'],
                 $earnings,
                 FinancialTransactionService::TYPE_MARKET_SALE,
@@ -369,6 +415,7 @@ class MarketOffer
             $completeStmt = $this->db->prepare("
                 UPDATE market_offers
                 SET status       = 'completed',
+                    locked_amount = 0,
                     sold_amount  = :amount,
                     sold_price   = :price,
                     completed_at = NOW()

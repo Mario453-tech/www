@@ -40,25 +40,29 @@ trait BankRepaymentTrait
                 (new BankAccountService($db))->ensureSchema();
             }
 
+            $fts = new FinancialTransactionService($db);
+            $db->beginTransaction();
+            $lock = $db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $playerStmt = $db->prepare("SELECT cash FROM players WHERE id = :pid{$lock}");
+            $playerStmt->execute([':pid' => $playerId]);
+            $player = $playerStmt->fetch();
+            $cash = (float)($player['cash'] ?? 0);
+
             $stmt = $db->prepare("
                 SELECT * FROM loans
                 WHERE id = :lid AND player_id = :pid
-                  AND status IN ('active','late')
+                  AND status IN ('active','late'){$lock}
             ");
             $stmt->execute([':lid' => $loanId, ':pid' => $playerId]);
             $loan = $stmt->fetch();
 
             if (!$loan) {
+                $db->rollBack();
                 return ['success' => false, 'message' => t('bank.err_loan_not_found')];
             }
 
             $installment = (float)$loan['installment_amount'];
             $remaining = (float)$loan['remaining_amount'];
-
-            $playerStmt = $db->prepare("SELECT cash FROM players WHERE id = :pid");
-            $playerStmt->execute([':pid' => $playerId]);
-            $player = $playerStmt->fetch();
-            $cash = (float)($player['cash'] ?? 0);
 
             if ($mode === 'full') {
                 $toPay = $remaining;
@@ -70,10 +74,12 @@ trait BankRepaymentTrait
             }
 
             if ($toPay <= 0) {
+                $db->rollBack();
                 return ['success' => false, 'message' => t('bank.err_no_amount')];
             }
 
             if ($cash < $toPay) {
+                $db->rollBack();
                 return [
                     'success' => false,
                     'message' => t('bank.err_repay_no_funds', [
@@ -83,12 +89,10 @@ trait BankRepaymentTrait
                 ];
             }
 
-            $db->beginTransaction();
-
             $newRemaining = round($remaining - $toPay, 2);
             $isPaidOff = $newRemaining <= 0;
 
-            $debitResult = (new FinancialTransactionService($db))->debit(
+            $debitResult = $fts->debit(
                 $playerId,
                 $toPay,
                 FinancialTransactionService::TYPE_LOAN_PAYMENT,
@@ -118,7 +122,7 @@ trait BankRepaymentTrait
                 $db->prepare("
                     UPDATE loans SET remaining_amount = 0, status = 'paid_off',
                         paid_off_at = NOW(), late_since = NULL
-                    WHERE id = :id AND player_id = :player_id
+                    WHERE id = :id AND player_id = :player_id AND status IN ('active','late')
                 ")->execute([':id' => $loanId, ':player_id' => $playerId]);
 
  // Close active negotiations linked to the paid-off loan.
@@ -138,7 +142,7 @@ trait BankRepaymentTrait
                         late_since = NULL,
                         next_installment_at = DATE_ADD(NOW(), INTERVAL installment_frequency HOUR),
                         last_interest_calc_at = NOW()
-                    WHERE id = :id AND player_id = :player_id
+                    WHERE id = :id AND player_id = :player_id AND status IN ('active','late')
                 ")->execute([
                     ':rem' => $newRemaining,
                     ':id' => $loanId,
@@ -222,7 +226,7 @@ trait BankRepaymentTrait
             if ($this->db->inTransaction()) {
                 $this->db->rollBack();
             }
-            GameLog::error('BankService', 'repay failed', [
+            GameLog::error('BankService', 'repay failed', $e, [
                 'loan_id' => $loanId,
                 'player_id' => $playerId,
                 'mode' => $mode,

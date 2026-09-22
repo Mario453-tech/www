@@ -472,61 +472,71 @@ class LegalService
             return ['success' => false, 'code' => 'region_disabled', 'message' => tPlain('legal.err.region_disabled')];
         }
 
-        $existing = $this->getPermitStatus($playerId, $regionId)['application'];
-        $existingStatus = $existing['status'] ?? 'none';
-
-        // Transitional zezwala na zlozenie wniosku o pelne zezwolenie; tylko 'granted' blokuje.
-        // Transitional allows re-application for a full permit; only 'granted' blocks.
-        if ($existingStatus === self::STATUS_GRANTED) {
-            return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
-        }
-        // Jesli upgrade jest juz w toku (upgrade_pending=1) — blokuj ponowne zlozenie.
-        // If an upgrade is already in progress (upgrade_pending=1) — block resubmission.
-        if ($existingStatus === self::STATUS_TRANSITIONAL && !empty($existing['upgrade_pending'])) {
-            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
-        }
-        if (in_array($existingStatus, self::PENDING_STATUSES, true)) {
-            return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
-        }
-        if ($existingStatus === self::STATUS_REFUSED && !empty($existing['refusal_cooldown_until'])) {
-            $cooldownUntil = new DateTime((string)$existing['refusal_cooldown_until']);
-            if ($cooldownUntil > $now) {
-                $remainingMin = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
-                return [
-                    'success' => false,
-                    'code'    => 'cooldown',
-                    'message' => tPlain('legal.err.cooldown', ['time' => self::minutesToHuman($remainingMin)]),
-                ];
-            }
-        }
-
-        $requiredCapital = (float)$config['required_capital'];
-        $applicationCost = (float)$config['application_cost'];
-        $requiredLegalLevel = (int)($config['required_legal_level'] ?? 0);
-        $riskLevel = (string)($config['risk_level'] ?? 'low');
-
-        // Wiarygodnosc firmy blokuje wnioski w regionach high/critical.
-        // Company credibility blocks applications in high/critical-risk regions.
-        if (self::requiresCompanyCredibility($riskLevel)) {
-            $credibilityScore = (new CompanyCredibilityService($this->db))->getScore($playerId);
-            if ($credibilityScore < self::HIGH_RISK_CREDIBILITY_MIN) {
-                return [
-                    'success'                      => false,
-                    'code'                         => 'credibility_locked',
-                    'message'                      => tPlain('legal.err.credibility_locked', [
-                        'min'     => self::HIGH_RISK_CREDIBILITY_MIN,
-                        'current' => $credibilityScore,
-                    ]),
-                    'required_company_credibility' => self::HIGH_RISK_CREDIBILITY_MIN,
-                    'company_credibility'          => $credibilityScore,
-                ];
-            }
-        }
-
         $fts = new FinancialTransactionService($this->db);
-
+        $credibility = new CompanyCredibilityService($this->db);
         $this->db->beginTransaction();
         try {
+            $lock = $this->driver() === 'mysql' ? ' FOR UPDATE' : '';
+            $playerLock = $this->db->prepare("SELECT id FROM players WHERE id = ?{$lock}");
+            $playerLock->execute([$playerId]);
+            if (!$playerLock->fetchColumn()) {
+                return ['success' => false, 'code' => 'unknown_player', 'message' => tPlain('legal.err.unknown_player')];
+            }
+            $applicationLock = $this->db->prepare(
+                "SELECT * FROM drilling_permit_applications WHERE player_id = ? AND region_id = ?{$lock}"
+            );
+            $applicationLock->execute([$playerId, $regionId]);
+            $existing = $applicationLock->fetch(PDO::FETCH_ASSOC) ?: null;
+            $existingStatus = $existing['status'] ?? 'none';
+
+            // Transitional zezwala na zlozenie wniosku o pelne zezwolenie; tylko 'granted' blokuje.
+            // Transitional allows re-application for a full permit; only 'granted' blocks.
+            if ($existingStatus === self::STATUS_GRANTED) {
+                return ['success' => false, 'code' => 'already_active', 'message' => tPlain('legal.err.already_active')];
+            }
+            // Jesli upgrade jest juz w toku (upgrade_pending=1) — blokuj ponowne zlozenie.
+            // If an upgrade is already in progress (upgrade_pending=1) — block resubmission.
+            if ($existingStatus === self::STATUS_TRANSITIONAL && !empty($existing['upgrade_pending'])) {
+                return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
+            }
+            if (in_array($existingStatus, self::PENDING_STATUSES, true)) {
+                return ['success' => false, 'code' => 'in_progress', 'message' => tPlain('legal.err.in_progress')];
+            }
+            if ($existingStatus === self::STATUS_REFUSED && !empty($existing['refusal_cooldown_until'])) {
+                $cooldownUntil = new DateTime((string)$existing['refusal_cooldown_until']);
+                if ($cooldownUntil > $now) {
+                    $remainingMin = (int)ceil(($cooldownUntil->getTimestamp() - $now->getTimestamp()) / 60);
+                    return [
+                        'success' => false,
+                        'code'    => 'cooldown',
+                        'message' => tPlain('legal.err.cooldown', ['time' => self::minutesToHuman($remainingMin)]),
+                    ];
+                }
+            }
+
+            $requiredCapital = (float)$config['required_capital'];
+            $applicationCost = (float)$config['application_cost'];
+            $requiredLegalLevel = (int)($config['required_legal_level'] ?? 0);
+            $riskLevel = (string)($config['risk_level'] ?? 'low');
+
+            // Wiarygodnosc firmy blokuje wnioski w regionach high/critical.
+            // Company credibility blocks applications in high/critical-risk regions.
+            if (self::requiresCompanyCredibility($riskLevel)) {
+                $credibilityScore = $credibility->getScore($playerId);
+                if ($credibilityScore < self::HIGH_RISK_CREDIBILITY_MIN) {
+                    return [
+                        'success'                      => false,
+                        'code'                         => 'credibility_locked',
+                        'message'                      => tPlain('legal.err.credibility_locked', [
+                            'min'     => self::HIGH_RISK_CREDIBILITY_MIN,
+                            'current' => $credibilityScore,
+                        ]),
+                        'required_company_credibility' => self::HIGH_RISK_CREDIBILITY_MIN,
+                        'company_credibility'          => $credibilityScore,
+                    ];
+                }
+            }
+
             // Oplata pobierana lacznie z cash+bank_balance (bank najpierw, reszta z cash).
             // Fee deducted from combined cash+bank_balance (bank first, remainder from cash).
             $cashStmt = $this->db->prepare("SELECT cash, bank_balance FROM players WHERE id = ? LIMIT 1");
@@ -658,6 +668,10 @@ class LegalService
                 ]);
             }
             return ['success' => false, 'code' => 'error', 'message' => tPlain('legal.err.generic')];
+        } finally {
+            if ($this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
         }
 
         // Brief §13: powiadomienie dyrektora o złożeniu wniosku (po commit, poza

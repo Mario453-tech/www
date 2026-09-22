@@ -6,6 +6,8 @@ declare(strict_types=1);
  */
 
 return [
+    'market.tx_instant_sale' => 'Instant oil sale on the market',
+    'market_offer.err_refund_storage' => 'Storage cannot accept the oil refund. Free up space and try again.',
     'market_offer.err_no_storage' => 'No storage available. Contact administration.',
     'market_offer.err_not_enough_oil' => 'You do not have enough oil in storage.',
     'market_offer.err_price_too_low' => 'The limit price cannot be lower than 30 USD/bbl.',

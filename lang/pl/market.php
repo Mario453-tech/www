@@ -9,6 +9,8 @@ declare(strict_types=1);
 
 return [
 
+    'market.tx_instant_sale' => 'Natychmiastowa sprzedaż ropy na rynku',
+    'market_offer.err_refund_storage' => 'Brak miejsca na zwrot ropy w magazynie. Zwolnij miejsce i spróbuj ponownie.',
     'market_offer.err_no_storage' => 'Brak magazynu. Skontaktuj się z administracją.',
     'market_offer.err_not_enough_oil' => 'Nie masz wystarczającej ilości ropy w magazynie!',
     'market_offer.err_price_too_low' => 'Cena limitu nie może być niższa niż 30 zł/bbl!',
