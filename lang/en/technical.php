@@ -13,7 +13,7 @@ return [
     'technical.no_disasters' => 'No failure or disaster history. Good work.',
     'technical.col_status' => 'Status',
     'technical.well_task_badge' => 'tasks',
-    'technical.page_title' => 'Technical Department - OilCorp',
+    'technical.page_title' => 'Technical Department',
     'technical.section_title' => 'Technical department',
     'technical.section_operators' => 'Well operators',
     'technical.section_engineers' => 'Engineering team',

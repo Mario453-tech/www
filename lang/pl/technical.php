@@ -15,7 +15,7 @@ return [
     'technical.no_disasters' => 'Brak historii awarii ani katastrof. Dobra robota.',
     'technical.col_status' => 'Status',
     'technical.well_task_badge' => 'zadania',
-    'technical.page_title' => 'Dział techniczny — OilCorp',
+    'technical.page_title' => 'Dział techniczny',
     'technical.section_title' => 'Dział techniczny',
     'technical.section_operators' => 'Operatorzy odwiertów',
     'technical.section_engineers' => 'Zespół inżynierów',

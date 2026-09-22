@@ -99,7 +99,7 @@ $otherTasks = array_filter($allTasks, fn($t) => !in_array($t['status'], ['in_pro
 $cancelledTasks = array_filter($allTasks, fn($t) => $t['status'] === 'cancelled');
 if (!empty($otherTasks)):
 ?>
-<div class="section-h"><?= t('technical.tasks_history') ?></div>
+<div class="section-h section-h--history"><?= t('technical.tasks_history') ?></div>
 <?php foreach (array_slice(array_values($otherTasks), 0, 20) as $t):
     $taskDef = TechnicalTeamService::getTaskDefinition($t['task_type']) ?? ['icon' => '?', 'label' => $t['task_type']];
     $cls = $t['status'] === 'completed' ? 'completed' : 'failed';

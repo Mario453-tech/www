@@ -562,7 +562,7 @@
     background: rgba(255,255,255,.025);
     border: 1px solid rgba(255,255,255,.07);
     border-radius: 10px;
-    margin-bottom: 6px;
+    margin-bottom: 14px;
     transition: border-color .15s;
 }
 
@@ -621,6 +621,15 @@
 }
 
 .section-h-note { font-size: 11px; font-weight: 400; color: rgba(232,232,240,.35); margin-left: 8px; }
+
+.section-h--history {
+    margin-top: 22px;
+    padding: 10px 0 8px 12px;
+    border-left: 3px solid #4ec97a;
+    border-bottom-color: rgba(78,201,122,.28);
+    color: #e8e8f0;
+    font-size: 14px;
+}
 
 .queue-list { margin-bottom: 16px; }
 

@@ -55,6 +55,20 @@ trait TTSTasksTrait
         return $this->getTasks('active');
     }
 
+    /**
+     * Remove old final task records while keeping recent history visible.
+     * Usuwa stare zakonczone zadania, zachowujac widoczna najnowsza historie.
+     */
+    public function cleanupTaskHistoryOlderThanDays(int $days = 2): int
+    {
+        $days = max(1, min(3650, $days));
+        $cutoff = (new DateTimeImmutable('now'))->modify('-' . $days . ' days')->format('Y-m-d H:i:s');
+        $stmt = $this->db->prepare("DELETE FROM technical_tasks WHERE player_id = ? AND status IN ('completed', 'failed', 'cancelled') AND COALESCE(end_time, created_at) < ?");
+        $stmt->execute([$this->playerId, $cutoff]);
+
+        return $stmt->rowCount();
+    }
+
  // ZLECANIE ZADAN
 
  /**
@@ -404,6 +418,7 @@ trait TTSTasksTrait
 
     public function processTick(): void
     {
+        $this->cleanupTaskHistoryOlderThanDays(2);
         $this->syncStrikePausedTasks();
         $stmt = $this->db->prepare("
             SELECT tt.*, ts.spec_code, ts.skill_level,
