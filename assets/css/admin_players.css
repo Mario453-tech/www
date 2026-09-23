@@ -1,3 +1,4 @@
+/* Deploy sync after skipped CI gate. / Ponowny upload po pominietej bramce CI. */
 .players-grid .list-header { display: none; }
 .players-grid .list-row { grid-template-columns: minmax(0, 1fr); }
 .players-grid .list-row > span { min-width: 0; overflow-wrap: anywhere; }

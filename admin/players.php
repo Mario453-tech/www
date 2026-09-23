@@ -1,4 +1,5 @@
 <?php
+// Deploy sync after skipped CI gate. / Ponowny upload po pominietej bramce CI.
 $_codexGuardStart = class_exists('GameLog', false) ? GameLog::pageStart('admin/players.php') : microtime(true);
 try {
 

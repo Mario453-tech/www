@@ -1,4 +1,5 @@
 <?php
+// Deploy sync after skipped CI gate. / Ponowny upload po pominietej bramce CI.
 declare(strict_types=1);
 
 final class AdminPlayerListQuery

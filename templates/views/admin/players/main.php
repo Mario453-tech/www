@@ -1,4 +1,4 @@
-<?php extract($viewData, EXTR_SKIP); ?>
+<?php /* Deploy sync after skipped CI gate. / Ponowny upload po pominietej bramce CI. */ extract($viewData, EXTR_SKIP); ?>
 
 <h1><?= t('admin.players.title') ?></h1>
 
