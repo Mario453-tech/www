@@ -175,20 +175,21 @@ Security::setHeaders();
 // BANKRUPTCY BOOTSTRAP
 require_once __DIR__ . '/BankruptcyBootstrap.php';
 
-ensureBankruptcyRecoverySchema();
+// Schema migrations belong to CLI, not web requests that may overlap a tick.
+// Migracje schematu uruchamiamy w CLI, nie w zadaniach WWW podczas ticka.
+if (PHP_SAPI === 'cli') {
+    ensureBankruptcyRecoverySchema();
+}
 enforceBankruptcyPostGuards();
 
-// TRANSPORT SCHEMA - ensures 'nieustawiony' enum + marine_buffer_bbl column exist.
-// Uruchamiane raz na proces (flaga statyczna w serwisie); bezpieczne no-op jesli juz istnieje.
-// Runs once per process (static flag in service); safe no-op if already up to date.
-// UWAGA: celowo NIE jest ogranniczone do PHP_SAPI !== 'cli', bo tick cron (CLI) tez potrzebuje
-// kolumny marine_buffer_bbl. Flaga statyczna gwarantuje ze ALTER jest tylko raz per proces.
-// NOTE: intentionally NOT guarded by PHP_SAPI !== 'cli' — tick cron (CLI) also needs
-// marine_buffer_bbl column. Static flag ensures ALTER runs only once per process.
-try {
-    TransportConfigService::ensureTransportSchema(Database::getInstance()->getConnection());
-} catch (Throwable $__tsEx) {
- // Non-fatal - game runs without this migration
+// Transport schema runs in CLI ticks; web requests never alter tables.
+// Schemat transportu uruchamia sie w ticku CLI; zadania WWW nie zmieniaja tabel.
+if (PHP_SAPI === 'cli') {
+    try {
+        TransportConfigService::ensureTransportSchema(Database::getInstance()->getConnection());
+    } catch (Throwable $__tsEx) {
+        // Non-fatal migration failure. / Blad migracji nie blokuje gry.
+    }
 }
 
 // ── SCHEMA BOOTSTRAP — nowe moduly / new modules ──
@@ -197,10 +198,12 @@ try {
 // Wzorzec: src/XxxBootstrap.php, funkcja ensureXxxSchema(), flaga static $done.
 // Pattern: src/XxxBootstrap.php, function ensureXxxSchema(), static $done flag.
 require_once __DIR__ . '/TrainingBootstrap.php';
-try {
-    ensureTrainingSchema();
-} catch (Throwable $__trainEx) {
- // Non-fatal - game runs without this migration
+if (PHP_SAPI === 'cli') {
+    try {
+        ensureTrainingSchema();
+    } catch (Throwable $__trainEx) {
+        // Non-fatal migration failure. / Blad migracji nie blokuje gry.
+    }
 }
 
 // Schema changes must not run during web requests: DDL can wait on a tick's

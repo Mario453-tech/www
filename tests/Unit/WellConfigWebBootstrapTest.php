@@ -16,4 +16,23 @@ final class WellConfigWebBootstrapTest extends TestCase
             $section
         );
     }
+
+    public function testWebStartupDoesNotRunOtherModuleSchemaMigrations(): void
+    {
+        $source = file_get_contents(dirname(__DIR__, 2) . '/src/init.php');
+        self::assertIsString($source);
+
+        self::assertMatchesRegularExpression(
+            '/if \(PHP_SAPI === \'cli\'\) \{\s*ensureBankruptcyRecoverySchema\(\);/',
+            $source
+        );
+        self::assertMatchesRegularExpression(
+            '/if \(PHP_SAPI === \'cli\'\) \{\s*try \{\s*TransportConfigService::ensureTransportSchema\(/',
+            $source
+        );
+        self::assertMatchesRegularExpression(
+            '/if \(PHP_SAPI === \'cli\'\) \{\s*try \{\s*ensureTrainingSchema\(\);/',
+            $source
+        );
+    }
 }
