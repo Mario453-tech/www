@@ -203,17 +203,30 @@ try {
  // Non-fatal - game runs without this migration
 }
 
-// WellConfig schema migration for text keys like cron_secret_key
-// PL: Migracja schematu well_config dla kluczy tekstowych takich jak cron_secret_key
-try {
-    static $__wellConfigSchemaDone = false;
-    if (!$__wellConfigSchemaDone) {
-        $__wellConfigSchemaDone = true;
+// Schema changes must not run during web requests: DDL can wait on a tick's
+// metadata lock and hold every PHP worker. / Zmiany schematu tylko w CLI:
+// DDL moze czekac na blokade ticka i zatrzymac wszystkie strony WWW.
+// WellConfig schema migration for text keys like cron_secret_key.
+if (PHP_SAPI === 'cli') {
+    try {
         $__db = Database::getInstance()->getConnection();
-        $__db->exec("ALTER TABLE well_config MODIFY COLUMN `value` VARCHAR(255) NOT NULL");
-        $__db->exec("ALTER TABLE well_config MODIFY COLUMN `label` VARCHAR(120) NOT NULL DEFAULT ''");
+        $__columns = $__db->query("SELECT COLUMN_NAME, DATA_TYPE, CHARACTER_MAXIMUM_LENGTH
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'well_config'
+              AND COLUMN_NAME IN ('value', 'label')")
+            ->fetchAll(PDO::FETCH_ASSOC);
+        $__columnInfo = array_column($__columns, null, 'COLUMN_NAME');
+        if (($__columnInfo['value']['DATA_TYPE'] ?? '') !== 'varchar'
+            || (int)($__columnInfo['value']['CHARACTER_MAXIMUM_LENGTH'] ?? 0) < 255) {
+            $__db->exec("ALTER TABLE well_config MODIFY COLUMN `value` VARCHAR(255) NOT NULL");
+        }
+        if (($__columnInfo['label']['DATA_TYPE'] ?? '') !== 'varchar'
+            || (int)($__columnInfo['label']['CHARACTER_MAXIMUM_LENGTH'] ?? 0) < 120) {
+            $__db->exec("ALTER TABLE well_config MODIFY COLUMN `label` VARCHAR(120) NOT NULL DEFAULT ''");
+        }
+    } catch (Throwable) {
+        // CLI migration failures remain non-fatal. / Blad migracji CLI nie blokuje aplikacji.
     }
-} catch (Throwable) {
 }
 
 
