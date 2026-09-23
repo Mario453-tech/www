@@ -7,6 +7,17 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.players.login_from' => 'Ostatnie logowanie od',
+    'admin.players.login_to' => 'Ostatnie logowanie do',
+    'admin.players.sort' => 'Sortowanie',
+    'admin.players.sort_login_desc' => 'Najnowsze logowanie',
+    'admin.players.sort_login_asc' => 'Najstarsze logowanie',
+    'admin.players.sort_id' => 'ID gracza',
+    'admin.players.apply' => 'Filtruj',
+    'admin.players.reset' => 'Wyczyść filtry',
+    'admin.players.login_help' => 'Zakres obejmuje pełne dni i dotyczy ostatniego logowania, nie historii wszystkich wejść.',
+    'admin.players.invalid_dates' => 'Podaj poprawne daty: data „od” nie może być późniejsza niż „do”.',
+
     'admin.players.btn_details' => 'Szczegóły',
     'admin.players.bulk_delete' => 'Usuń zaznaczonych',
     'admin.players.col_actions' => 'Akcje',

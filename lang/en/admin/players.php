@@ -7,6 +7,17 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.players.login_from' => 'Last login from',
+    'admin.players.login_to' => 'Last login to',
+    'admin.players.sort' => 'Sort by',
+    'admin.players.sort_login_desc' => 'Newest login',
+    'admin.players.sort_login_asc' => 'Oldest login',
+    'admin.players.sort_id' => 'Player ID',
+    'admin.players.apply' => 'Apply',
+    'admin.players.reset' => 'Clear filters',
+    'admin.players.login_help' => 'The range includes full days and filters the last login, not the complete login history.',
+    'admin.players.invalid_dates' => 'Enter valid dates: the start date cannot be later than the end date.',
+
     'admin.players.btn_details' => 'Details',
     'admin.players.bulk_delete' => 'Delete selected',
     'admin.players.col_actions' => 'Actions',

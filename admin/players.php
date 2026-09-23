@@ -6,7 +6,7 @@ require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 
 $db     = Database::getInstance()->getConnection();
-$filter = $_GET['filter'] ?? '';
+$filter = '';
 $msg    = '';
 $error  = '';
 
@@ -42,25 +42,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$where = match($filter) {
-    'active'        => "WHERE p.status = 'active'",
-    'bankrupt'      => "WHERE p.status = 'bankrupt'",
-    'financial_risk'=> "WHERE p.status = 'financial_risk'",
-    'under_bailiff' => "WHERE p.status = 'under_bailiff'",
-    default         => '',
-};
-
-$players = $db->query("
-    SELECT
-        p.id, p.email, p.cash, p.status, p.last_login_at,
-        s.used AS storage_used,
-        s.capacity AS storage_capacity,
-        (SELECT COUNT(*) FROM wells w WHERE w.player_id = p.id) AS well_count
-    FROM players p
-    LEFT JOIN storage s ON p.id = s.player_id
-    {$where}
-    ORDER BY p.id ASC
-")->fetchAll();
+$listFilters = AdminPlayerListQuery::filters([]);
+try {
+    $listFilters = AdminPlayerListQuery::filters($_GET);
+    $players = AdminPlayerListQuery::fetch($db, $listFilters);
+} catch (InvalidArgumentException $e) {
+    $players = [];
+    $error = t('admin.players.invalid_dates');
+}
+$filter = $listFilters['filter'];
 
 if (!function_exists('badgeClass')) {
     function badgeClass(string $status): string {
@@ -77,6 +67,7 @@ if (!function_exists('badgeClass')) {
 $viewData = [
     'players' => $players,
     'filter'  => $filter,
+    'listFilters' => $listFilters,
     'msg'     => $msg,
     'error'   => $error,
 ];

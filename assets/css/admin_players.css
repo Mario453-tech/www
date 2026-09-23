@@ -1,22 +1,51 @@
-.players-grid .list-header
-.players-grid .list-row {
-    grid-template-columns: 36px 1fr 120px 90px 100px 60px 150px 90px;
+.players-grid .list-header { display: none; }
+.players-grid .list-row { grid-template-columns: minmax(0, 1fr); }
+.players-grid .list-row > span { min-width: 0; overflow-wrap: anywhere; }
+.players-grid .list-row > [data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted2);
+    font-size: 10px;
+    margin-bottom: 4px;
 }
-@media (max-width: 1100px) {
-  .players-grid .list-header
-    .players-grid .list-row { grid-template-columns: 36px 1fr 110px 90px 90px 90px; }
+.players-grid .col-select { display: flex; align-items: center; justify-content: center; min-height: 44px; width: 44px; margin: 0; cursor: pointer; }
+.players-grid input[type="checkbox"] { width: 16px; height: 16px; margin: 0; }
+.players-grid .btn, .players-login-filters .btn, .players-status-filters .btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
 }
-@media (max-width: 1100px) {
-  .players-grid .col-wells
-    .players-grid .col-lasttick { display: none; }
+.players-login-filters, .players-bulk-toolbar, .players-bulk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px;
+    margin-bottom: 14px;
 }
-@media (max-width: 700px) {
-  .players-grid .list-header
-    .players-grid .list-row { grid-template-columns: 1fr 100px 80px; }
+.players-bulk-actions { margin-bottom: 0; }
+.players-login-filters label { display: grid; gap: 6px; min-width: 0; flex: 1 1 180px; }
+.players-login-filters input, .players-login-filters select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    color-scheme: dark;
 }
-@media (max-width: 700px) {
-  .players-grid .col-id
-    .players-grid .col-storage { display: none; }
+.players-login-help { margin-bottom: 14px; }
+@media (min-width: 700px) {
+    .players-grid .list-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (min-width: 1400px) {
+    .players-grid .list-header,
+    .players-grid .list-row {
+        grid-template-columns: 44px 48px minmax(0, 1fr) 110px 110px 90px 60px 150px 90px;
+        gap: 8px;
+        padding: 8px;
+    }
+    .players-grid .list-header { display: grid; align-items: center; }
+    .players-grid .list-row > [data-label]::before { display: none; }
 }
 .gm-players-list {
     display: grid;
