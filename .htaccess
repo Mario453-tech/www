@@ -32,6 +32,7 @@ Options -Indexes
     RewriteRule ^login\.php$ /login [R=301,L]
     RewriteRule ^reset_password\.php$ /reset-password [R=301,L]
     RewriteRule ^logistics\.php$ /logistics [R=301,L]
+    RewriteRule ^market\.php$ /market [R=301,L]
     RewriteRule ^loans\.php$ /bank [R=301,L]
     RewriteRule ^change_password\.php$ /profile [R=301,L]
     RewriteRule ^(index|technical_check|diag|reset_db|tick|cron-5min|diag_upload|mail_test|db_connection_check)\.php$ - [F,L]

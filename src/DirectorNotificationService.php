@@ -146,7 +146,7 @@ class DirectorNotificationService
             'title_key' => 'director.market_price_drop.title',
             'message_key' => 'director.market_price_drop.message',
             'requires_action' => true,
-            'action_url' => 'market.php',
+            'action_url' => '/market',
             'action_label_key' => 'director.market_price_drop.action'
         ],
         'market_price_surge' => [
@@ -156,7 +156,7 @@ class DirectorNotificationService
             'title_key' => 'director.market_price_surge.title',
             'message_key' => 'director.market_price_surge.message',
             'requires_action' => true,
-            'action_url' => 'market.php',
+            'action_url' => '/market',
             'action_label_key' => 'director.market_price_surge.action'
         ],
         'market_new_trend' => [
@@ -174,7 +174,7 @@ class DirectorNotificationService
             'title_key' => 'director.storage_full.title',
             'message_key' => 'director.storage_full.message',
             'requires_action' => true,
-            'action_url' => 'market.php',
+            'action_url' => '/market',
             'action_label_key' => 'director.storage_full.action'
         ],
         'storage_empty' => [
