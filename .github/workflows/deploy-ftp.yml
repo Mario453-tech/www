@@ -146,9 +146,17 @@ jobs:
           fetch-depth: 0
 
       - name: Write .env from secret
-        run: printf '%s' "$ENV_FILE" > .env
+        run: |
+          printf '%s' "$ENV_FILE" > .env
+          if [ -z "$OPCACHE_RESET_TOKEN" ]; then
+            echo "OPcache reset token is not configured"
+            exit 1
+          fi
+          sed -i '/^[[:space:]]*OPCACHE_RESET_TOKEN[[:space:]]*=/d' .env
+          printf '\nOPCACHE_RESET_TOKEN=%s\n' "$OPCACHE_RESET_TOKEN" >> .env
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
+          OPCACHE_RESET_TOKEN: ${{ secrets.OPCACHE_RESET_TOKEN }}
 
       # Instalacja lftp — uzywa OpenSSL i POPRAWNIE wznawia sesje TLS na kanale
       # danych (jak WinSCP). basic-ftp w Node tego nie potrafi -> "data socket" TLS reset.
@@ -283,21 +291,22 @@ jobs:
             || echo "OPcache reset nieudany — sprawdz SITE_URL / OPCACHE_RESET_TOKEN (deploy kontynuowany)"
 
       # Smoke-test produkcji: sprawdza czy PHP dziala, baza dostepna i tabele istnieja.
-      # Nieblokujacy — czerwony wynik nie cofa deployu, ale jest widoczny w CI.
+      # Nieudany healthcheck oznacza nieudane wdrozenie w CI.
       # Production smoke-test: checks PHP works, DB reachable, and required tables exist.
-      # Non-blocking — a red result does not revert the deploy, but is visible in CI.
+      # Failed healthcheck marks the deployment as failed in CI.
       - name: Smoke-test produkcji / Production smoke-test
         run: |
           SITE="${{ secrets.SITE_URL }}"
           echo "=== Healthcheck: $SITE/api/v1/healthcheck.php ==="
           HC=$(curl -fsS --max-time 30 "$SITE/api/v1/healthcheck.php" 2>&1) || {
             echo "FAIL: healthcheck nieosiagalny (HTTP error lub timeout)"
-            exit 0
+            exit 1
           }
           echo "$HC"
           if echo "$HC" | grep -q '\[ FAIL \]'; then
             echo ""
-            echo "UWAGA: healthcheck zglosil bledy powyzej (deploy kontynuowany)"
+            echo "FAIL: healthcheck zglosil bledy"
+            exit 1
           else
             echo ""
             echo "Healthcheck OK — brak bledow"
