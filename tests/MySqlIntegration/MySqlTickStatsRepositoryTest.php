@@ -92,6 +92,34 @@ final class MySqlTickStatsRepositoryTest extends MySqlIntegrationTestCase
             'C12: idx_ran_at musi byc UNIQUE (Non_unique=0) po ensureSchema()');
     }
 
+    /**
+     * Reopening an already migrated schema must not rebuild tick_stats.
+     * Ponowne otwarcie gotowego schematu nie moze przebudowywac tick_stats.
+     */
+    public function testEnsureSchemaSkipsAlterWhenTickSequenceAlreadyNormalized(): void
+    {
+        $this->makeRepo();
+
+        $column = $this->db->query(
+            "SELECT DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+               FROM information_schema.COLUMNS
+              WHERE TABLE_SCHEMA = DATABASE()
+                AND TABLE_NAME = 'tick_stats'
+                AND COLUMN_NAME = 'tick_sequence'"
+        )->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($column);
+        $this->assertSame('bigint', strtolower((string)$column['DATA_TYPE']));
+        $this->assertStringContainsString('unsigned', strtolower((string)$column['COLUMN_TYPE']));
+        $this->assertSame('NO', (string)$column['IS_NULLABLE']);
+
+        $before = $this->db->query("SHOW SESSION STATUS LIKE 'Com_alter_table'")->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($before);
+        new TickStatsRepository($this->db);
+        $after = $this->db->query("SHOW SESSION STATUS LIKE 'Com_alter_table'")->fetch(PDO::FETCH_ASSOC);
+        $this->assertIsArray($after);
+        $this->assertSame((int)$before['Value'], (int)$after['Value']);
+    }
+
     // =========================================================================
     // Podstawowy zapis / Basic save
     // =========================================================================

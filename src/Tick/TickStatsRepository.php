@@ -268,7 +268,7 @@ class TickStatsRepository
     private function hasExpectedUniqueIndex(): bool
     {
         $stmt = $this->db->prepare(
-            "SELECT COLUMN_NAME, Non_unique, SEQ_IN_INDEX
+            "SELECT COLUMN_NAME AS column_name, NON_UNIQUE AS is_non_unique
                FROM information_schema.STATISTICS
               WHERE TABLE_SCHEMA = DATABASE()
                 AND TABLE_NAME = 'tick_stats'
@@ -280,10 +280,10 @@ class TickStatsRepository
         if (count($rows) !== 2) {
             return false;
         }
-        return (int)$rows[0]['Non_unique'] === 0
-            && (int)$rows[1]['Non_unique'] === 0
-            && (string)$rows[0]['COLUMN_NAME'] === 'ran_at'
-            && (string)$rows[1]['COLUMN_NAME'] === 'tick_sequence';
+        return (int)$rows[0]['is_non_unique'] === 0
+            && (int)$rows[1]['is_non_unique'] === 0
+            && (string)$rows[0]['column_name'] === 'ran_at'
+            && (string)$rows[1]['column_name'] === 'tick_sequence';
     }
 
     private function indexExists(string $indexName): bool
@@ -302,6 +302,27 @@ class TickStatsRepository
     private function normalizeTickSequenceColumn(): void
     {
         try {
+            // Inspect metadata before DDL; an unconditional ALTER can block live requests.
+            // Sprawdz metadane przed DDL; bezwarunkowy ALTER moze blokowac zadania WWW.
+            $stmt = $this->db->query(
+                "SELECT DATA_TYPE, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT
+                   FROM information_schema.COLUMNS
+                  WHERE TABLE_SCHEMA = DATABASE()
+                    AND TABLE_NAME = 'tick_stats'
+                    AND COLUMN_NAME = 'tick_sequence'"
+            );
+            $column = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!is_array($column)) {
+                return;
+            }
+            $normalized = strtolower((string)$column['DATA_TYPE']) === 'bigint'
+                && str_contains(strtolower((string)$column['COLUMN_TYPE']), 'unsigned')
+                && (string)$column['IS_NULLABLE'] === 'NO'
+                && (string)$column['COLUMN_DEFAULT'] === '0';
+            if ($normalized) {
+                return;
+            }
+
             $this->db->exec('UPDATE tick_stats SET tick_sequence = 0 WHERE tick_sequence IS NULL');
             $this->db->exec('ALTER TABLE tick_stats MODIFY COLUMN tick_sequence BIGINT UNSIGNED NOT NULL DEFAULT 0');
         } catch (Throwable $e) {
