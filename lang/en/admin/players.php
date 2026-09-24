@@ -18,7 +18,8 @@ return [
     'admin.players.sort_id' => 'Player ID',
     'admin.players.apply' => 'Apply',
     'admin.players.reset' => 'Clear filters',
-    'admin.players.login_help' => 'Both ranges include full days. The login date is the last login, not the complete login history.',
+    'admin.players.login_help' => 'The range includes full days and filters the last login, not the complete login history.',
+    'admin.players.registration_help' => 'The range includes full registration days, including accounts that have never logged in.',
     'admin.players.invalid_dates' => 'Enter valid dates: the start date cannot be later than the end date.',
 
     'admin.players.btn_details' => 'Details',

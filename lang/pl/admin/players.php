@@ -18,7 +18,8 @@ return [
     'admin.players.sort_id' => 'ID gracza',
     'admin.players.apply' => 'Filtruj',
     'admin.players.reset' => 'Wyczyść filtry',
-    'admin.players.login_help' => 'Oba zakresy obejmują pełne dni. Data logowania dotyczy ostatniego logowania, nie historii wszystkich wejść.',
+    'admin.players.login_help' => 'Zakres obejmuje pełne dni i dotyczy ostatniego logowania, nie historii wszystkich wejść.',
+    'admin.players.registration_help' => 'Zakres obejmuje pełne dni rejestracji, także dla kont bez logowania.',
     'admin.players.invalid_dates' => 'Podaj poprawne daty: data „od” nie może być późniejsza niż „do”.',
 
     'admin.players.btn_details' => 'Szczegóły',

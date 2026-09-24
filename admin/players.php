@@ -52,6 +52,11 @@ try {
     $error = t('admin.players.invalid_dates');
 }
 $filter = $listFilters['filter'];
+$registrationPanelFlag = $_GET['registration_filter'] ?? null;
+$showRegistrationFilter = $registrationPanelFlag === '1'
+    || ($registrationPanelFlag !== '0' && (isset($_GET['registered_from']) || isset($_GET['registered_to'])));
+$registrationFilterActive = $listFilters['registered_from'] !== '' || $listFilters['registered_to'] !== '';
+$listFilters['registration_filter'] = $showRegistrationFilter ? '1' : '0';
 
 if (!function_exists('badgeClass')) {
     function badgeClass(string $status): string {
@@ -69,6 +74,8 @@ $viewData = [
     'players' => $players,
     'filter'  => $filter,
     'listFilters' => $listFilters,
+    'showRegistrationFilter' => $showRegistrationFilter,
+    'registrationFilterActive' => $registrationFilterActive,
     'msg'     => $msg,
     'error'   => $error,
 ];

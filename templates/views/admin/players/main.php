@@ -31,22 +31,42 @@
        class="btn btn-sm <?= $filter === 'bankrupt' ? 'btn-primary' : 'btn-secondary' ?>">
         <?= t('player.status.bankrupt') ?>
     </a>
+    <a href="/admin/players.php?<?= htmlspecialchars(http_build_query(array_replace($listFilters, $showRegistrationFilter ? ['registration_filter' => '0'] : ['registration_filter' => '1', 'login_from' => '', 'login_to' => ''])), ENT_QUOTES, 'UTF-8') ?>"
+       class="btn btn-sm <?= $showRegistrationFilter || $registrationFilterActive ? 'btn-primary' : 'btn-secondary' ?>"
+       aria-expanded="<?= $showRegistrationFilter ? 'true' : 'false' ?>">
+        <?= t('admin.players.col_registered') ?>
+    </a>
     <span class="muted"><?= t('admin.players.found', ['count' => count($players)]) ?></span>
 </div>
 
-<form method="get" action="/admin/players.php" class="players-login-filters" aria-describedby="players-login-help">
+<?php if ($showRegistrationFilter): ?>
+<form method="get" action="/admin/players.php" class="players-registration-filters" aria-describedby="players-registration-help">
     <input type="hidden" name="filter" value="<?= htmlspecialchars($filter, ENT_QUOTES, 'UTF-8') ?>">
-    <label><?= t('admin.players.login_from') ?>
-        <input type="date" name="login_from" value="<?= htmlspecialchars($listFilters['login_from'], ENT_QUOTES, 'UTF-8') ?>">
-    </label>
-    <label><?= t('admin.players.login_to') ?>
-        <input type="date" name="login_to" value="<?= htmlspecialchars($listFilters['login_to'], ENT_QUOTES, 'UTF-8') ?>">
-    </label>
+    <input type="hidden" name="login_from" value="<?= htmlspecialchars($listFilters['login_from'], ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="login_to" value="<?= htmlspecialchars($listFilters['login_to'], ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="sort" value="<?= htmlspecialchars($listFilters['sort'], ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="registration_filter" value="1">
     <label><?= t('admin.players.registered_from') ?>
         <input type="date" name="registered_from" value="<?= htmlspecialchars($listFilters['registered_from'], ENT_QUOTES, 'UTF-8') ?>">
     </label>
     <label><?= t('admin.players.registered_to') ?>
         <input type="date" name="registered_to" value="<?= htmlspecialchars($listFilters['registered_to'], ENT_QUOTES, 'UTF-8') ?>">
+    </label>
+    <button type="submit" class="btn btn-primary"><?= t('admin.players.apply') ?></button>
+</form>
+<p class="muted players-registration-help" id="players-registration-help"><?= t('admin.players.registration_help') ?></p>
+<?php endif ?>
+
+<form method="get" action="/admin/players.php" class="players-login-filters" aria-describedby="players-login-help">
+    <input type="hidden" name="filter" value="<?= htmlspecialchars($filter, ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="registered_from" value="<?= htmlspecialchars($listFilters['registered_from'], ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="registered_to" value="<?= htmlspecialchars($listFilters['registered_to'], ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="registration_filter" value="<?= $showRegistrationFilter ? '1' : '0' ?>">
+    <label><?= t('admin.players.login_from') ?>
+        <input type="date" name="login_from" value="<?= htmlspecialchars($listFilters['login_from'], ENT_QUOTES, 'UTF-8') ?>">
+    </label>
+    <label><?= t('admin.players.login_to') ?>
+        <input type="date" name="login_to" value="<?= htmlspecialchars($listFilters['login_to'], ENT_QUOTES, 'UTF-8') ?>">
     </label>
     <label><?= t('admin.players.sort') ?>
         <select name="sort">

@@ -34,7 +34,7 @@ final class AdminPlayerListQueryTest extends TestCase
     {
         foreach (['pl', 'en'] as $language) {
             $translations = require dirname(__DIR__, 2) . '/lang/' . $language . '/admin/players.php';
-            foreach (['login_from', 'login_to', 'registered_from', 'registered_to', 'col_registered', 'sort', 'sort_id', 'sort_login_asc', 'sort_login_desc', 'apply', 'reset', 'login_help', 'invalid_dates'] as $key) {
+            foreach (['login_from', 'login_to', 'registered_from', 'registered_to', 'col_registered', 'sort', 'sort_id', 'sort_login_asc', 'sort_login_desc', 'apply', 'reset', 'login_help', 'registration_help', 'invalid_dates'] as $key) {
                 self::assertNotEmpty($translations['admin.players.' . $key]);
             }
         }
