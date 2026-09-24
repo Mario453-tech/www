@@ -42,6 +42,12 @@
     <label><?= t('admin.players.login_to') ?>
         <input type="date" name="login_to" value="<?= htmlspecialchars($listFilters['login_to'], ENT_QUOTES, 'UTF-8') ?>">
     </label>
+    <label><?= t('admin.players.registered_from') ?>
+        <input type="date" name="registered_from" value="<?= htmlspecialchars($listFilters['registered_from'], ENT_QUOTES, 'UTF-8') ?>">
+    </label>
+    <label><?= t('admin.players.registered_to') ?>
+        <input type="date" name="registered_to" value="<?= htmlspecialchars($listFilters['registered_to'], ENT_QUOTES, 'UTF-8') ?>">
+    </label>
     <label><?= t('admin.players.sort') ?>
         <select name="sort">
             <?php foreach (['login_desc', 'login_asc', 'id'] as $sortOption): ?>
@@ -89,6 +95,7 @@
         <span><?= t('admin.players.col_status') ?></span>
         <span class="col-storage"><?= t('admin.players.col_storage') ?></span>
         <span class="col-wells"><?= t('admin.players.col_wells') ?></span>
+        <span class="col-registered"><?= t('admin.players.col_registered') ?></span>
         <span class="col-lasttick"><?= t('admin.players.col_lasttick') ?></span>
         <span><?= t('admin.players.col_actions') ?></span>
     </div>
@@ -118,6 +125,7 @@
                 <?= $p['storage_capacity'] ? (int)$p['storage_used'] . ' / ' . (int)$p['storage_capacity'] : '-' ?>
             </span>
             <span data-label="<?= t('admin.players.col_wells') ?>" class="col-wells"><?= (int)$p['well_count'] ?></span>
+            <span data-label="<?= t('admin.players.col_registered') ?>" class="col-registered muted"><?= htmlspecialchars($p['created_at'] ?? '-', ENT_QUOTES, 'UTF-8') ?></span>
             <span data-label="<?= t('admin.players.col_lasttick') ?>" class="col-lasttick muted"><?= htmlspecialchars($p['last_login_at'] ?? '-') ?></span>
             <span data-label="<?= t('admin.players.col_actions') ?>">
                 <a href="/admin/player_clean.php?id=<?= (int)$p['id'] ?>" class="btn btn-sm btn-secondary">
