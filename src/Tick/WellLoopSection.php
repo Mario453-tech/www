@@ -630,6 +630,7 @@ class WellLoopSection
  // 3. Inicjalizuj serwisy raz per gracz / Initialize services once per player
         $this->geoSvc      = class_exists('GeologicalLayerService') ? new GeologicalLayerService() : null;
         $this->incidentSvc = class_exists('IncidentService')         ? new IncidentService()        : null;
+        $this->incidentSvc?->preloadCooldowns($playerId);
 
  // 4. Batch-load przypisan hubow dla odwiertow gracza (1 query na gracza). / Batch-load hub assignments for all player wells (1 query per player).
         $this->wellHubMap    = [];

@@ -201,9 +201,9 @@ return [
 
     'admin.incidents.tab_cooldown' => 'Cooldown',
     'admin.incidents.cooldown_title' => 'Immunitet i presja po incydencie',
-    'admin.incidents.cooldown_hint' => 'Po incydencie odwiert jest chroniony przez X cykli (immunitet). Po tym czasie, z każdym kolejnym cyklem bez nowego incydentu, szansa bazowa jest mnożona przez rosnącą presję (aż do maksymalnie Y%). Presja resetuje się po następnym incydencie.',
+    'admin.incidents.cooldown_hint' => 'Cooldown dotyczy osobno każdego odwiertu i poziomów minor, medium oraz major. Mikroincydenty mogą występować podczas ochrony i nie resetują jej ani presji. Po ochronie presja zwiększa bazową szansę, aż do ustawionego limitu. Katastrofy, transport i zdarzenia wymuszone przez administratora mają osobne zasady.',
     'admin.incidents.immunity_ticks_label' => 'Immunitet (cykle)',
-    'admin.incidents.immunity_ticks_hint' => 'Liczba cykli (ticków) po incydencie, w których nowe incydenty są niemożliwe. Jeden tick = 5 minut, więc 6 cykli = 30 minut.',
+    'admin.incidents.immunity_ticks_hint' => 'Czas ochrony od ostatniego incydentu minor, medium lub major, a dla nowego odwiertu od jego utworzenia. Jeden cykl = 5 rzeczywistych minut: 6 cykli = 30 minut, niezależnie od częstotliwości ticka. Wartość 0 wyłącza ochronę. Mikroincydenty są wyjątkiem.',
     'admin.incidents.pressure_growth_label' => 'Wzrost presji (%/cykl)',
     'admin.incidents.pressure_growth_hint' => 'O ile rośnie mnożnik szansy bazowej z każdym cyklem po zakończeniu immunitetu. Przykład: 0,5 = +0,5%/tick -> po 10 cyklach szansa bazowa wynosi x1,05.',
     'admin.incidents.pressure_cap_label' => 'Max presja (%)',

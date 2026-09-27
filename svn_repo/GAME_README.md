@@ -1091,3 +1091,34 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - QA: 15 testow PHP, 82 asercje (w tym izolowany MySQL 8.4 strict); PHPStan zmienionych serwisow, lint PHP/JS i kontrola kodowania. Przegladarka: nowy kontekst bez PHPSESSID, wejscie z innej witryny (Strict odtwarza blad, Lax przywraca login), odnowienie cookie, TinyMCE, wysylka, walidacja pustej tresci, potwierdzenie bana i formatowanie w czacie. Widoki 320/360/390/768/1024/1440 bez poziomego overflow.
 - Test przegladarkowy uzywa lokalnego fixture z docelowym widokiem i rzeczywistymi serwisami, nie konta produkcyjnego. Nie potwierdza konfiguracji przegladarki uzytkownika ani wdrozenia na hostingu.
 - Rollback: przywrocic komplet plikow z rewizji przed poprawka; brak zmiany schematu. Nowe wiadomosci pozostaja zwyklym HTML z malej allowlisty.
+## Cooldown incydentow odwiertu (2026-09-28)
+
+Cel: ustawienie w admin/incidents.php ma oznaczac rzeczywisty czas ochrony.
+Zakres: IncidentService, Incident/CooldownTrait, Incident/TickTrait, zapis historii,
+bootstrap WellService, preload WellLoopSection i opisy PL/EN.
+
+- Minor, medium i major korzystaja ze wspolnego cooldownu per odwiert.
+  Mikroincydenty omijaja ochrone i nie resetuja jej ani presji.
+- Jeden cykl oznacza 300 sekund. Czeste wywolania nie skracaja okresu.
+  Losowanie catch-up obejmuje tylko czas po koncu ochrony. Zero wylacza ochrone.
+- wells.incident_cooldown_started_at (DATETIME NULL) jest trwalym zegarem.
+  Bootstrap dodaje kolumne przed transakcja gracza, nigdy przez DDL w jej srodku.
+  Pierwszy preload inicjalizuje rowniez nieaktywne odwierty zbiorczym UPDATE.
+  Zrodlem inicjalizacji jest ostatni nonmicro; bez dostepnej historii uzywany jest
+  stary licznik 1..998 i players.last_tick_at, a dla nowego/sentinela data utworzenia.
+  Dla utraconej historii start jest wiec rekonstrukcja dostepnego starego stanu.
+  Dalsze usuwanie historii nie zmienia zegara.
+- ticks_since_incident pozostaje kompatybilnym, pochodnym licznikiem (max 9999);
+  presja jest liczona z pelnego czasu i limitowana konfiguracja panelu.
+- Nie zmieniono kolejnosci ticka, locka oilcorp_tick, raportow tick_stats, autoryzacji,
+  ani zasad katastrof, transportu i zdarzen wymuszonych przez administratora.
+  Bledy zapisu historii/resetu sa propagowane do transakcji gracza.
+- Brak destrukcyjnych migracji i zmian widocznosci danych. Kod wymaga uprawnienia
+  ALTER tylko przy pierwszym dodaniu kolumny; testy CI zawieraja gotowa kolumne.
+- Testy: regresje MySQL czasu, granicy ochrony, micro, konfiguracji, izolacji,
+  usuniecia historii, nowego odwiertu, bledow zapisu i bezpiecznego DDL;
+  dotychczasowe testy deltaHours zachowuja oczekiwane wyniki 58 oraz 1.
+- Wycofanie: przywrocic poprzedni kod; dodatkowa nullable kolumna moze pozostac.
+  Nie usuwac historii ani nowej kolumny przy rollbacku.
+
+Walidacja lokalna: Unit+Integration 836 testow / 8356 asercji OK. MySQL: 317 testow / 5888 asercji, bez bledow, 35 pominietych przez istniejace blokady nazwy bazy i hosta (izolowana instancja na porcie 13367). Wszystkie 13 nowych przypadkow cooldownu wykonane. Targeted PHPStan poziom 6, lint 10 plikow, encoding i niezalezny review OK. Poprawka przygotowana lokalnie; paczka zawiera osiem zmienionych plikow aplikacji.

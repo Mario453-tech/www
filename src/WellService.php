@@ -75,6 +75,7 @@ class WellService
         if (isset(self::$schemaEnsured[$connId])) {
             return;
         }
+        IncidentService::ensureCooldownSchema($this->db);
         self::$schemaEnsured[$connId] = true;
 
         try {

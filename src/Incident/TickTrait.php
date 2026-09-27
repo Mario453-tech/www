@@ -46,67 +46,24 @@ trait IncidentTickTrait
             : (1.0 + $spiralBoost / 100.0);
         $wearMult = (float) ($staffData['wear_mult'] ?? 1.0);
 
- // Immunity + pressure system.
- // System odpornosci + rosnaca presja.
-        $ticksSince = (int) ($wellData['ticks_since_incident'] ?? 999);
- // Fallback: jezeli kolumna brakuje lub ma domyslna (999), wylicz z tabeli well_incidents.
- // Fallback: if column missing or still at default (999), derive from well_incidents table.
-        if ($ticksSince >= 999) {
-            try {
-                // Filtruj po player_id — unika uzywania historii poprzedniego wlasciciela odwiertu (Rule 1).
-                // Filter by player_id — avoids using previous owner's incident history (Rule 1).
-                // Pomijamy micro — tylko incydenty powazniejsze niz micro resetuja licznik odpornosci,
-                // wiec fallback musi liczyc od ostatniego incydentu != micro (inaczej czeste micro
-                // trzymalyby dojrzale odwierty w wiecznej odpornosci na minor/medium/major).
-                // Exclude micro — only non-micro incidents reset the immunity counter, so the fallback
-                // must measure from the last non-micro incident (else frequent micro would keep mature
-                // wells permanently immune to minor/medium/major).
-                // Jedno zapytanie zamiast dwoch: COALESCE bierze czas ostatniego incydentu != micro,
-                // a przy jego braku — moment zalozenia odwiertu (presja liczy sie od zalozenia, NIE od
-                // sentinela 999; nowy odwiert startowal z maksymalna presja = podwojona szansa incydentu).
-                // Porownanie po stronie SQL (NOW()) unika skew stref czasowych PHP/MySQL (jak w rundzie 3).
-                // One query instead of two: COALESCE takes the last non-micro incident time, or the well's
-                // creation when none exists (pressure builds from creation, NOT from the 999 sentinel; a
-                // fresh well used to start at the pressure cap = doubled incident chance). SQL-side NOW()
-                // comparison avoids PHP/MySQL timezone skew (as in round 3).
-                $stmt = $this->db->prepare(
-                    "SELECT TIMESTAMPDIFF(SECOND, COALESCE(
-                                (SELECT MAX(wi.created_at) FROM well_incidents wi
-                                  WHERE wi.well_id = w.id AND wi.player_id = w.player_id AND wi.level <> 'micro'),
-                                w.created_at
-                            ), NOW()) AS secs
-                       FROM wells w
-                      WHERE w.id = ? AND w.player_id = ?"
-                );
-                $stmt->execute([$wellId, $playerId]);
-                $row = $stmt->fetch(\PDO::FETCH_ASSOC);
-                $ticksSince = ($row && $row['secs'] !== null)
-                    ? max(0, (int)((int)$row['secs'] / 300))
-                    : 0;
-            } catch (\Throwable $e) {
-                GameLog::error('IncidentService', 'immunity_fallback FAILED', $e, ['well_id' => $wellId]);
-            }
+ // Derive elapsed time from persisted dates, never from the number of cron runs.
+ // Czas liczymy z zapisanych dat, nigdy z liczby uruchomien crona.
+        if ($deltaHours <= 0.0) {
+            return ['incident' => null];
         }
+        $ageSeconds = $this->cooldownAgeSeconds($wellId, $playerId);
+        if ($ageSeconds === null) {
+            return ['incident' => null];
+        }
+        $ticksSince = intdiv($ageSeconds, 300);
+        $this->db->prepare('UPDATE wells SET ticks_since_incident = ? WHERE id = ? AND player_id = ?')
+            ->execute([min(9999, $ticksSince), $wellId, $playerId]);
 
- // Licznik rosnie proporcjonalnie do realnego czasu, nie o stale +1 na uruchomienie crona.
- // 1 "tick" = 5 min = deltaHours/12 (spojnie z fallbackiem secs/300 powyzej). Na normalnym
- // ticku (deltaHours~0.083) daje +1; na catch-up ticku (po przerwie crona) skaluje sie, wiec
- // odpornosc i presja odzwierciedlaja czas, a nie liczbe przebiegow — wczesniej pojedynczy
- // catch-up tick dawal odwiertowi "darmowa" odpornosc na najwyzej-deltaHours ticku.
- // Counter grows proportionally to real time, not a flat +1 per cron run. 1 "tick" = 5 min =
- // deltaHours/12 (consistent with the secs/300 fallback above). On a normal tick (deltaHours~0.083)
- // it is +1; on a catch-up tick it scales, so immunity and pressure reflect elapsed time rather
- // than the number of runs — previously one catch-up tick granted "free" immunity on the
- // highest-deltaHours tick.
-        $ticksElapsed = max(1, (int) round($deltaHours * 12.0));
-        try {
-            // Filtruj po player_id — izolacja gracza przy UPDATE wells (Rule 1).
-            // Filter by player_id — player isolation on UPDATE wells (Rule 1).
-            $this->db->prepare("UPDATE wells SET ticks_since_incident = LEAST(9999, ticks_since_incident + ?) WHERE id = ? AND player_id = ?")
-                ->execute([$ticksElapsed, $wellId, $playerId]);
-        } catch (\Throwable $e) {}
-        $ticksSince += $ticksElapsed;
-
+ // A catch-up roll covers only the part of its interval after immunity ends.
+ // Losowanie po przerwie obejmuje tylko czesc okresu po zakonczeniu odpornosci.
+        $exposedHours = $this->immunityTicks === 0
+            ? $deltaHours
+            : min($deltaHours, max(0, $ageSeconds - $this->immunityTicks * 300) / 3600);
         $pressureTicks = max(0, $ticksSince - $this->immunityTicks);
         $pressureMult  = 1.0 + min($this->pressureCapPct, $pressureTicks * $this->pressureGrowthPct) / 100.0;
 
@@ -183,7 +140,7 @@ trait IncidentTickTrait
         foreach (array_reverse($this->levelCfg, true) as $level => $cfg) {
  // Micro omija immunitet — to szum (auto-naprawa, koszt $0), nie resetuje licznika.
  // Micro bypasses immunity — it is noise (auto-repair, $0 cost) and does not reset the counter.
-            if ($level !== 'micro' && $ticksSince <= $this->immunityTicks) {
+            if ($level !== 'micro' && $exposedHours <= 0.0) {
                 if ($level === 'minor') {
                     GameLog::step('IncidentService', 'processTick', 2, 'immunity_active', [
                         'well_id' => $wellId, 'ticks_since' => $ticksSince, 'immunity_ticks' => $this->immunityTicks,
@@ -192,7 +149,7 @@ trait IncidentTickTrait
                 continue;
             }
 
-            $baseChance = $this->baseChance[$level] * $deltaHours;
+            $baseChance = $this->baseChance[$level] * ($level === 'micro' ? $deltaHours : $exposedHours);
 
  // Apply condition, risk, wear, spiral, equipment, layer, and transport modifiers.
  // Zastosuj modyfikatory: stan, risk, wear, spirala, sprzet, warstwa i transport.
@@ -246,6 +203,7 @@ trait IncidentTickTrait
  // Resetuj licznik i dodaj spiral boost tylko dla awarii powazniejszych niz micro.
  // Reset counter and add spiral boost only for failures more serious than micro.
             if ($level !== 'micro') {
+                $this->cooldownAges[$wellId] = 0;
                 $boostMap  = ['minor' => 1.0, 'medium' => 6.0, 'major' => 15.0];
                 $spiralAdd = (float) ($boostMap[$level] ?? 0.0);
                 $returnReduction = max(0.0, min(1.0, (float)($staffData['perk_incident_return_reduction'] ?? 0.0)));
@@ -255,14 +213,15 @@ trait IncidentTickTrait
                     // Filter by player_id — player isolation on spiral UPDATE wells (Rule 1).
                     if ($spiralAdd > 0.0) {
                         $this->db->prepare(
-                            "UPDATE wells SET ticks_since_incident = 0, post_incident_risk_boost = LEAST(50.0, post_incident_risk_boost + ?) WHERE id = ? AND player_id = ?"
+                            "UPDATE wells SET ticks_since_incident = 0, incident_cooldown_started_at = NOW(), post_incident_risk_boost = LEAST(50.0, post_incident_risk_boost + ?) WHERE id = ? AND player_id = ?"
                         )->execute([$spiralAdd, $wellId, $playerId]);
                     } else {
-                        $this->db->prepare("UPDATE wells SET ticks_since_incident = 0 WHERE id = ? AND player_id = ?")
+                        $this->db->prepare("UPDATE wells SET ticks_since_incident = 0, incident_cooldown_started_at = NOW() WHERE id = ? AND player_id = ?")
                             ->execute([$wellId, $playerId]);
                     }
                 } catch (\Throwable $e) {
                     GameLog::error('IncidentService', 'reset_immunity FAILED', $e, ['well_id' => $wellId]);
+                    throw $e;
                 }
             }
 

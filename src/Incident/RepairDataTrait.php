@@ -283,6 +283,7 @@ trait IncidentRepairDataTrait
             ]);
         } catch (\Throwable $e) {
             GameLog::error('IncidentService', 'saveIncident FAILED', $e);
+            throw $e;
         }
     }
 

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/Incident/MessagesTrait.php';
 require_once __DIR__ . '/Incident/TickTrait.php';
 require_once __DIR__ . '/Incident/RepairDataTrait.php';
+require_once __DIR__ . '/Incident/CooldownTrait.php';
 
 /**
  * IncidentService micro and minor incident system per well.
@@ -27,6 +28,7 @@ class IncidentService
     use IncidentMessagesTrait;
     use IncidentTickTrait;
     use IncidentRepairDataTrait;
+    use IncidentCooldownTrait;
 
     private \PDO $db;
 

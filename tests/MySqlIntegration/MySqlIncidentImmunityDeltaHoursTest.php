@@ -36,11 +36,13 @@ final class MySqlIncidentImmunityDeltaHoursTest extends MySqlIntegrationTestCase
         ];
     }
 
-    private function seedWellWithTicks(int $wellId, int $playerId, int $ticks): void
+    private function seedWellWithTicks(int $wellId, int $playerId, int $ticks, int $elapsedSeconds): void
     {
         $this->seedWell($playerId, $wellId, 'active', 77, 'A1', 'rurociag', 100.0, 50.0);
-        $this->db->prepare("UPDATE wells SET ticks_since_incident = ? WHERE id = ?")
-            ->execute([$ticks, $wellId]);
+        // Persist the age at the end of the simulated interval; cron delta is not added twice.
+        // Zapisz wiek na koncu symulowanego okresu; delta crona nie jest dodawana drugi raz.
+        $this->db->prepare("UPDATE wells SET ticks_since_incident = ?, created_at = DATE_SUB(NOW(), INTERVAL ? SECOND) WHERE id = ?")
+            ->execute([$ticks, $ticks * 300 + $elapsedSeconds, $wellId]);
     }
 
     private function ticksInDb(int $wellId): int
@@ -53,7 +55,8 @@ final class MySqlIncidentImmunityDeltaHoursTest extends MySqlIntegrationTestCase
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
         $wellId   = $ids['wellId'];
-        $this->seedWellWithTicks($wellId, $playerId, 10);
+        $this->seedWellWithTicks($wellId, $playerId, 10, 4 * 3600);
+        $this->db->prepare('UPDATE players SET last_tick_at = DATE_SUB(NOW(), INTERVAL 4 HOUR) WHERE id = ?')->execute([$playerId]);
 
         $svc    = new IncidentService();
         // deltaHours = 4h => round(4 * 12) = 48 pieciominutowych tickow.
@@ -69,7 +72,7 @@ final class MySqlIncidentImmunityDeltaHoursTest extends MySqlIntegrationTestCase
         $ids      = $this->getTrackedIds();
         $playerId = $this->seedPlayer();
         $wellId   = $ids['wellId'];
-        $this->seedWellWithTicks($wellId, $playerId, 0);
+        $this->seedWellWithTicks($wellId, $playerId, 0, 300);
 
         $svc = new IncidentService();
         // Normalny tick co 5 min => deltaHours = 5/60 = 0.0833; round(0.0833*12) = round(1.0) = 1.
