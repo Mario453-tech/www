@@ -80,8 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $lastCounter = $_SESSION['admin_pending']['last_totp_counter'] ?? PHP_INT_MIN;
                 if ($matchedCounter !== false && $matchedCounter > $lastCounter) {
                     $_SESSION['admin_pending']['last_totp_counter'] = $matchedCounter;
-                    if (!empty($_POST['remember_device'])) {
-                        AdminAuth::setTrustedDevice($pending['id']);
+                    if (!empty($_POST['remember_device']) && !AdminAuth::setTrustedDevice($pending['id'])) {
+                        $_SESSION['admin_auth_warning'] = 'admin.2fa.remember_device_failed';
                     }
                     AdminAuth::completeLogin();
                     $dest = $_SESSION['admin_redirect'] ?? '/admin/index.php';
@@ -185,7 +185,10 @@ if ($mode === 'setup') {
         </form>
 
         <div class="auth-links">
-            <a href="/admin/logout.php" class="auth-lnk"><?= t('admin.2fa.cancel_link') ?></a>
+            <form method="post" action="/admin/logout.php">
+                <?= CSRF::field() ?>
+                <button type="submit" class="auth-lnk auth-cancel-button"><?= t('admin.2fa.cancel_link') ?></button>
+            </form>
         </div>
     </div>
 </div>

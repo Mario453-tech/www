@@ -43,6 +43,11 @@ $action = $_REQUEST['action']
 
 function chatJson(array $payload): never
 {
+    foreach (['messages', 'pinned'] as $key) {
+        if (isset($payload[$key]) && is_array($payload[$key])) {
+            $payload[$key] = array_map([ChatMessageHtml::class, 'forApi'], $payload[$key]);
+        }
+    }
     echo json_encode($payload, JSON_UNESCAPED_UNICODE);
     exit;
 }

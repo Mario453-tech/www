@@ -1079,3 +1079,15 @@ Zakres MVP: tylko pelna natychmiastowa dostawa z magazynu sprzedajacego. Odlozon
 - Rekurencyjny test standardów HTML HR jest obowiązkowym krokiem obu workflow testowych.
 - Istniejący smoke HTTP uruchamia prawdziwy serwer `php -S`, używa schematu MySQL CI i blokuje workflow przy błędzie endpointu.
 - Nie utworzono pozornej suite przeglądarkowej HR. Dedykowane HTTP/browser E2E wymaga najpierw izolowanego harnessu sesji, CSRF i danych gracza; do tego czasu obowiązkowy jest istniejący smoke API.
+
+### 2026-09-27 - Czat admina i zapamietane urzadzenia
+
+- Formularz send_admin nie pyta o ban; potwierdzenie dotyczy ban_player.
+- TinyMCE korzysta z dotychczasowego CDN panelu. ChatMessageHtml dopuszcza podstawowe formatowanie bez atrybutow, a AdminChatBroadcast waliduje zapis do istniejacego VARCHAR(500), lacznie z formatowaniem. Nie wymaga migracji.
+- ChatApi zwraca oczyszczone message_html tylko dla admina; message pozostaje tekstem dla klientow mobilnych. Wiadomosci graczy nadal sa escapowane.
+- POST komunikatu stosuje PRG (303) i jednorazowy flash; bledny komunikat pozostaje jako szkic.
+- Cookie admin_td ma SameSite=Lax, co pozwala przywrocic zaufane urzadzenie po wejsciu przez zewnetrzny link. Odczyt istniejacej tabeli tokenow nie wymaga ponownego CREATE TABLE. Nieudany zapis urzadzenia daje ostrzezenie zamiast cichego sukcesu.
+- SessionCookie odnawia cookie aktywnej sesji. Timeout admina nie usuwa sesji gracza ani CSRF. Jawne wylogowanie przez POST+CSRF uniewaznia token urzadzenia; login po wylogowaniu nie uruchamia od razu SSO.
+- QA: 15 testow PHP, 82 asercje (w tym izolowany MySQL 8.4 strict); PHPStan zmienionych serwisow, lint PHP/JS i kontrola kodowania. Przegladarka: nowy kontekst bez PHPSESSID, wejscie z innej witryny (Strict odtwarza blad, Lax przywraca login), odnowienie cookie, TinyMCE, wysylka, walidacja pustej tresci, potwierdzenie bana i formatowanie w czacie. Widoki 320/360/390/768/1024/1440 bez poziomego overflow.
+- Test przegladarkowy uzywa lokalnego fixture z docelowym widokiem i rzeczywistymi serwisami, nie konta produkcyjnego. Nie potwierdza konfiguracji przegladarki uzytkownika ani wdrozenia na hostingu.
+- Rollback: przywrocic komplet plikow z rewizji przed poprawka; brak zmiany schematu. Nowe wiadomosci pozostaja zwyklym HTML z malej allowlisty.

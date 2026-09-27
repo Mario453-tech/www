@@ -78,8 +78,15 @@
 
         return '<div class="' + cls + '" data-id="' + parseInt(m.id, 10) + '">' +
             header +
-            '<div class="' + bubbleCls + '">' + parseEmojis(escHtml(m.message)) + '</div>' +
+            '<div class="' + bubbleCls + '">' + messageContent(m) + '</div>' +
             '</div>';
+    }
+
+    // Admin HTML is sanitized by ChatApi. / HTML admina jest oczyszczany przez ChatApi.
+    function messageContent(m) {
+        return parseInt(m.is_admin || 0, 10) === 1 && typeof m.message_html === 'string'
+            ? m.message_html
+            : parseEmojis(escHtml(m.message));
     }
 
     function chatReport(msgId) {
@@ -168,7 +175,7 @@
         pinned.forEach(function (m) {
             html += '<div class="chat-pinned-entry">' +
                 '<span class="chat-pinned-entry-icon"></span>' +
-                '<span class="chat-pinned-entry-text"><strong>' + escHtml(m.username) + ':</strong> ' + parseEmojis(escHtml(m.message)) + '</span>' +
+                '<div class="chat-pinned-entry-text"><strong>' + escHtml(m.username) + ':</strong> ' + messageContent(m) + '</div>' +
                 '</div>';
             if (box) {
                 var existing = box.querySelector('[data-id="' + parseInt(m.id, 10) + '"]');

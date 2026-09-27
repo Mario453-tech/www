@@ -5,7 +5,15 @@
 .chat-list-row     { border-bottom: 1px solid rgba(255,255,255,.04); font-size: .85rem; }
 .chat-list-row--admin   { opacity: .55; }
 .chat-list-row--expired { opacity: .45; background: rgba(255,80,80,.04); }
-.chat-msg-text     { word-break: break-word; }
+.chat-msg-text     { word-break: break-word; min-width: 0; }
+.admin-chat-message-form { display: grid; gap: 12px; min-width: 0; }
+.admin-chat-message-form .form-group { display: grid; gap: 8px; min-width: 0; }
+.admin-chat-message-form textarea { width: 100%; min-height: 200px; box-sizing: border-box; resize: vertical; }
+.admin-chat-message-form .tox-tinymce { max-width: 100%; min-width: 0; }
+.admin-chat-message-form > button { justify-self: start; min-height: 44px; min-width: 80px; }
+.admin-chat-message-form [hidden] { display: none; }
+.chat-msg-text p { margin: 0 0 .5em; }
+.chat-msg-text ul, .chat-msg-text ol { padding-left: 1.5em; }
 .chat-row-actions  { display: flex; gap: .3rem; flex-wrap: wrap; }
 /* admin/chat mobile */@media (max-width: 700px) {
   .chat-list-head,

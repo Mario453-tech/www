@@ -6,6 +6,7 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.2fa.remember_device_failed' => 'You are logged in, but this device could not be remembered. You may need to sign in again after restarting your browser.',
     'admin.2fa.btn_setup' => 'Enable 2FA and login',
     'admin.2fa.btn_verify' => 'Verify and log in',
     'admin.2fa.cancel_link' => 'Cancel / Log out',

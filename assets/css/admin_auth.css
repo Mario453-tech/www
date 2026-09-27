@@ -93,6 +93,7 @@
     text-decoration: none; transition: color .2s; letter-spacing: .3px;
 }
 .auth-lnk:hover { color: #c8a84b; }
+.auth-cancel-button { border: 0; background: transparent; font-family: inherit; min-height: 44px; cursor: pointer; }
 .auth-lnk-center {
     display: block; text-align: center; margin-top: 18px;
     font-size: 11px; color: rgba(255,255,255,.25);

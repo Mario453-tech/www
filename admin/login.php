@@ -28,7 +28,7 @@ if (AdminAuth::hasPending()) {
 
 // SSO: jesli zalogowany gracz ma konto admina, ustaw stan oczekujacy 2FA.
 // SSO: if a logged-in player has an admin account, set the pending 2FA state.
-if (AdminAuth::trySSO()) {
+if (!isset($_GET['logged_out']) && AdminAuth::trySSO()) {
     header('Location: /admin/2fa.php');
     exit();
 }

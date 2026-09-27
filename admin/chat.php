@@ -8,8 +8,11 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 ensureChatSchema();
-$msg = '';
-$err = '';
+$flash = $_SESSION['admin_chat_flash'] ?? [];
+unset($_SESSION['admin_chat_flash']);
+$msg = (string)($flash['msg'] ?? '');
+$err = (string)($flash['err'] ?? '');
+$adminDraft = (string)($flash['draft'] ?? '');
 
 // Moderation POST actions / Akcje moderacji POST
 
@@ -91,14 +94,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
         } elseif ($action === 'send_admin') {
-            $text = trim($_POST['admin_msg'] ?? '');
-            if ($text !== '' && mb_strlen($text) <= 500) {
-                $db->prepare("INSERT INTO chat_messages (sender_id, username, message, channel, is_admin) VALUES (NULL, '[ADMIN]', ?, 'global', 1)")
-                   ->execute([$text]);
-                AdminLog::log('chat_admin_msg', "Sent admin broadcast: {$text}");
+            $input = (string)($_POST['admin_msg'] ?? '');
+            if (AdminChatBroadcast::send($db, $input)) {
+                AdminLog::log('chat_admin_msg', 'Sent admin broadcast');
                 $msg = t('admin.chat.msg_sent');
             } else {
                 $err = t('admin.chat.err_msg_empty_or_long');
+                $adminDraft = strlen($input) <= 16000 ? ChatMessageHtml::sanitize($input) : '';
             }
 
         } elseif ($action === 'pin_msg') {
@@ -178,6 +180,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = t('admin.chat.msg_auto_clear_saved');
         }
     }
+}
+
+// Redirect after POST to prevent duplicate broadcasts. / Przekieruj po POST, aby nie dublowac komunikatow.
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $_SESSION['admin_chat_flash'] = ['msg' => $msg, 'err' => $err, 'draft' => $adminDraft];
+    header('Location: /admin/chat.php', true, 303);
+    exit;
 }
 
 // Auto-clear check on admin page load / Auto-clear przy ladowaniu panelu
@@ -320,7 +329,7 @@ $banDurations = [
 // View data / Dane widoku
 
 $viewData = compact(
-    'msg', 'err', 'stats', 'topSenders',
+    'msg', 'err', 'adminDraft', 'stats', 'topSenders',
     'activeBans', 'playerList', 'messages',
     'filterPlayer', 'page', 'totalPages', 'reports',
     'banDurations', 'blockedWords', 'expiredCutoff',
@@ -329,8 +338,12 @@ $viewData = compact(
 
 $pageTitle = t('admin.chat.page_title');
 $adminExtraCss = ['/assets/css/admin_chat.css'];
+$extraJs = ['/assets/js/admin_chat_editor.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/chat/main.php';
+?>
+<script src="https://cdn.tiny.cloud/1/n2m8igiixgfiasr4l4gha8fjz6hxp12sudqgnecovtt6y2nq/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+<?php
 require_once __DIR__ . '/partials/footer.php';
 
 } catch (Throwable $e) {

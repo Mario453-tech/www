@@ -1800,6 +1800,7 @@ AUTH PAGES  login / forgot / reset
 
 /* Bankrupt list */
 
+.sidebar-logout-button { width: 100%; min-height: 44px; border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; }
 .admin-row {
     display: flex;
     gap: 16px;

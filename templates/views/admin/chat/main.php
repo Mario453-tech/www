@@ -43,16 +43,16 @@
 <div class="admin-row">
     <section class="panel">
         <p class="panel-title"><?= t('admin.chat.admin_msg_title') ?></p>
-        <form method="post" class="form-inline"
-              data-confirm="<?= htmlspecialchars(t('admin.chat.ban_confirm'), ENT_QUOTES) ?>"
-              data-confirm-type="danger"
-              data-confirm-title="<?= htmlspecialchars(t('admin.chat.ban_submit'), ENT_QUOTES) ?>"
-              data-confirm-label="<?= htmlspecialchars(t('admin.chat.ban_submit'), ENT_QUOTES) ?>">
+        <form method="post" id="admin-chat-message-form" class="admin-chat-message-form"
+              data-error="<?= t('admin.chat.err_msg_empty_or_long') ?>">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="send_admin">
             <div class="form-group">
-                <label><?= t('admin.chat.admin_msg_label') ?></label>
-                <textarea name="admin_msg" rows="2" maxlength="500" class="form-control"></textarea>
+                <label for="admin-chat-message"><?= t('admin.chat.admin_msg_label') ?></label>
+                <textarea id="admin-chat-message" name="admin_msg" rows="8" class="form-control"
+                          aria-describedby="admin-chat-message-hint"><?= htmlspecialchars($adminDraft ?? '', ENT_QUOTES, 'UTF-8') ?></textarea>
+                <p id="admin-chat-message-hint" class="muted"><?= t('admin.chat.editor_hint') ?></p>
+                <p id="admin-chat-message-error" class="alert alert-error" role="alert" hidden></p>
             </div>
             <button type="submit" class="btn btn-primary"><?= t('admin.chat.admin_msg_send') ?></button>
         </form>
@@ -187,7 +187,11 @@ document.addEventListener('keydown', function(e) {
 <div class="admin-row">
     <section class="panel">
         <p class="panel-title"><?= t('admin.chat.ban_title') ?></p>
-        <form method="post" class="form-inline">
+        <form method="post" class="form-inline"
+              data-confirm="<?= t('admin.chat.ban_confirm') ?>"
+              data-confirm-type="danger"
+              data-confirm-title="<?= t('admin.chat.ban_submit') ?>"
+              data-confirm-label="<?= t('admin.chat.ban_submit') ?>">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="ban_player">
             <div class="form-row">
@@ -294,7 +298,7 @@ document.addEventListener('keydown', function(e) {
                 <span class="muted font-xs">#<?= (int)$m['player_id'] ?></span>
                 <?php endif ?>
             </span>
-            <span class="chat-msg-text"><?= htmlspecialchars($m['message']) ?></span>
+            <div class="chat-msg-text"><?= $isAdmin ? ChatMessageHtml::sanitize($m['message']) : htmlspecialchars($m['message'], ENT_QUOTES, 'UTF-8') ?></div>
             <span class="chat-row-actions">
                 <?php if ($isAdmin): ?>
                 <?php if ($isPinned): ?>

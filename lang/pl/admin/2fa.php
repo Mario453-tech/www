@@ -6,6 +6,7 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.2fa.remember_device_failed' => 'Zalogowano, ale nie udało się zapamiętać urządzenia. Przy kolejnym uruchomieniu przeglądarki może być wymagane ponowne logowanie.',
     'admin.2fa.btn_setup' => 'Włącz 2FA i zaloguj',
     'admin.2fa.btn_verify' => 'Zweryfikuj i zaloguj',
     'admin.2fa.cancel_link' => 'Anuluj / wyloguj',

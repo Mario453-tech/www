@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.editor_hint' => 'Up to 500 characters including formatting. Bold, italic and lists are supported.',
     'admin.chat.admin_msg_label' => 'Communication',
     'admin.chat.admin_msg_send' => 'Send',
     'admin.chat.admin_msg_title' => 'Send admin message',
@@ -46,7 +47,7 @@ return [
     'admin.chat.delete_msg_confirm' => 'Delete this message"',
     'admin.chat.delete_submit' => 'Delete',
     'admin.chat.err_invalid_player' => 'Invalid player ID.',
-    'admin.chat.err_msg_empty_or_long' => 'Empty or too long message (max. 500 characters).',
+    'admin.chat.err_msg_empty_or_long' => 'Enter a message of up to 500 characters including formatting. Shorten the text or reduce formatting if needed.',
     'admin.chat.err_not_admin_msg' => 'Only admin messages can be pinned.',
     'admin.chat.err_word_empty' => 'The word cannot be empty.',
     'admin.chat.filter_clear' => 'Clear filter',

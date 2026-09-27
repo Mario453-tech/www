@@ -4,14 +4,24 @@ try {
 
 require_once __DIR__ . '/init.php';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Allow: POST');
+    http_response_code(405);
+    exit;
+}
+if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+    http_response_code(403);
+    echo t('common.csrf_error');
+    exit;
+}
+
 // Loguj wylogowanie tylko jeśli sesja była w pełni ustanowiona (nie pending 2FA).
 // Log only if session was fully established (not pending 2FA).
 if (AdminAuth::isLoggedIn()) {
-    AdminLog::log('admin_logout', 'Admin wylogował się', null, 'system');
+    AdminLog::log('admin_logout', 'Admin logged out', null, 'system');
 }
 
-// Wyczyść całą sesję (zarówno pełną jak i pending 2FA) i przekieruj na login.
-// Clear the whole session (both full login and pending 2FA state) and redirect.
+// Clear admin authentication and remembered device. / Wyczysc logowanie admina i zapamietane urzadzenie.
 AdminAuth::logout();
 
 } catch (Throwable $e) {

@@ -370,26 +370,24 @@ class AdminAuth
             return false;
         }
         if (time() - ($_SESSION['admin_last_active'] ?? 0) > self::SESSION_TTL) {
-            self::logout(false);
+            self::logout(false, false);
             return false;
         }
         return true;
     }
 
-    public static function logout(bool $redirect = true): void
+    public static function logout(bool $redirect = true, bool $clearTrustedDevice = true): void
     {
         $user = $_SESSION['admin_user'] ?? '?';
         self::log('LOGOUT', "Logged out: '$user'");
 
- // Destroy the whole session, including the player SSO session.
- // PL: Zniszcz cala sesje, razem z sesja gracza od SSO.
-        session_unset();
-        session_destroy();
-        $_SESSION = [];
-        if (ini_get('session.use_cookies')) {
-            $p = session_get_cookie_params();
-            setcookie(session_name(), '', time() - 3600, $p['path'], $p['domain'], $p['secure'], $p['httponly']);
+        // Keep the independent player session and CSRF token. / Zachowaj sesje gracza i token CSRF.
+        if ($clearTrustedDevice) {
+            self::clearTrustedDevice();
         }
+        unset($_SESSION['admin_logged_in'], $_SESSION['admin_id'], $_SESSION['admin_user'],
+            $_SESSION['admin_email'], $_SESSION['admin_ip'], $_SESSION['admin_login_time'],
+            $_SESSION['admin_last_active'], $_SESSION['admin_pending'], $_SESSION['admin_2fa_setup_secret']);
 
         if ($redirect) {
             header('Location: /admin/login.php?logged_out=1');
@@ -614,8 +612,12 @@ class AdminAuth
 
  // Zapisz token zaufanego urządzenia w DB i ustaw cookie na 30 dni.
  // Save trusted-device token in DB and set a 30-day cookie.
-    public static function setTrustedDevice(int $adminId): void
+    public static function setTrustedDevice(int $adminId): bool
     {
+        if (headers_sent()) {
+            GameLog::warn('AdminAuth', 'Cannot remember device after headers were sent');
+            return false;
+        }
         $token     = bin2hex(random_bytes(32)); // 64-char hex token
         $tokenHash = hash('sha256', $token);
         $expiresAt = date('Y-m-d H:i:s', time() + self::TRUSTED_DEVICE_DAYS * 86400);
@@ -630,18 +632,42 @@ class AdminAuth
             $db->prepare("INSERT INTO admin_trusted_devices (admin_id, token_hash, expires_at, created_ip) VALUES (?,?,?,?)")
                 ->execute([$adminId, $tokenHash, $expiresAt, $ip]);
         } catch (\Throwable $e) {
- // Nie blokuj logowania gdy zapis się nie uda / Don't block login if storage fails.
-            return;
+            GameLog::warn('AdminAuth', 'Trusted-device persistence failed', ['code' => (string)$e->getCode()]);
+            return false;
         }
 
         $secure = Security::isHttpsRequest();
-        setcookie(self::TRUSTED_DEVICE_COOKIE, $token, [
+        $saved = setcookie(self::TRUSTED_DEVICE_COOKIE, $token, [
             'expires'  => time() + self::TRUSTED_DEVICE_DAYS * 86400,
             'path'     => '/admin',
             'secure'   => $secure,
             'httponly' => true,
-            'samesite' => 'Strict',
+            'samesite' => 'Lax',
         ]);
+        if (!$saved) {
+            GameLog::warn('AdminAuth', 'Trusted-device cookie could not be set');
+        }
+        return $saved;
+    }
+
+    // Revoke only on explicit logout. / Uniewaznij tylko przy jawnym wylogowaniu.
+    private static function clearTrustedDevice(): void
+    {
+        $cookie = (string)($_COOKIE[self::TRUSTED_DEVICE_COOKIE] ?? '');
+        if (preg_match('/\A[a-f0-9]{64}\z/', $cookie)) {
+            try {
+                $db = Database::getInstance()->getConnection();
+                $db->prepare('DELETE FROM admin_trusted_devices WHERE token_hash = ?')
+                    ->execute([hash('sha256', $cookie)]);
+            } catch (Throwable $e) {
+                GameLog::warn('AdminAuth', 'Trusted-device revocation failed', ['code' => (string)$e->getCode()]);
+            }
+        }
+        setcookie(self::TRUSTED_DEVICE_COOKIE, '', [
+            'expires' => time() - 3600, 'path' => '/admin',
+            'secure' => Security::isHttpsRequest(), 'httponly' => true, 'samesite' => 'Lax',
+        ]);
+        unset($_COOKIE[self::TRUSTED_DEVICE_COOKIE]);
     }
 
  // Sprawdź cookie zaufanego urządzenia znając admin_id (używane w 2fa.php po haśle).
@@ -689,7 +715,7 @@ class AdminAuth
             $db = Database::getInstance()->getConnection();
             self::ensureTrustedDevicesTable($db);
             $stmt = $db->prepare(
-                "SELECT td.id, a.id AS admin_id, a.username, a.email, a.is_active
+                "SELECT td.id, a.id AS admin_id, a.username, a.email, a.is_active, a.lock_until
                  FROM admin_trusted_devices td
                  JOIN admins a ON a.id = td.admin_id
                  WHERE td.token_hash = ? AND td.expires_at > NOW()
@@ -697,13 +723,14 @@ class AdminAuth
             );
             $stmt->execute([$tokenHash]);
             $row = $stmt->fetch();
-            if (!$row || !(int)$row['is_active']) {
+            if (!$row || !(int)$row['is_active'] || (!empty($row['lock_until']) && strtotime($row['lock_until']) > time())) {
                 return false;
             }
  // Odśwież last_used_at i ustaw pełną sesję adminA / Refresh last_used_at and set full admin session.
             $db->prepare("UPDATE admin_trusted_devices SET last_used_at = NOW() WHERE id = ?")
                 ->execute([$row['id']]);
             self::setSession(['id' => $row['admin_id'], 'username' => $row['username'], 'email' => $row['email']]);
+            self::clearPending();
             try {
                 $db->prepare("UPDATE admins SET last_login_at = NOW(), last_login_ip = ? WHERE id = ?")
                     ->execute([$_SERVER['REMOTE_ADDR'] ?? '', $row['admin_id']]);
@@ -711,6 +738,7 @@ class AdminAuth
             self::log('TRUSTED_DEVICE_AUTO', "Auto-login via trusted device: '{$row['username']}'");
             return true;
         } catch (\Throwable $e) {
+            GameLog::warn('AdminAuth', 'Trusted-device restore failed', ['code' => (string)$e->getCode()]);
             return false;
         }
     }
@@ -722,6 +750,16 @@ class AdminAuth
         static $checked = false;
         if ($checked) {
             return;
+        }
+        // Existing tables need no DDL permission on every login. / Istniejaca tabela nie wymaga DDL przy kazdym logowaniu.
+        try {
+            $db->query('SELECT id FROM admin_trusted_devices LIMIT 0');
+            $checked = true;
+            return;
+        } catch (PDOException $e) {
+            if ((int)($e->errorInfo[1] ?? 0) !== 1146) {
+                throw $e;
+            }
         }
         $db->exec("CREATE TABLE IF NOT EXISTS admin_trusted_devices (
             id            INT          NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -740,6 +778,9 @@ class AdminAuth
 
     public static function log(string $level, string $message): void
     {
+        if (($_SERVER['APP_ENV'] ?? '') === 'testing') {
+            return;
+        }
         $dir = __DIR__ . '/../admin/logs';
         if (!is_dir($dir)) {
             @mkdir($dir, 0755, true);

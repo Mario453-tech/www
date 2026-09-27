@@ -128,10 +128,17 @@ $navSections = [
         <a href="/admin/change_password.php" class="sidebar-link sidebar-link--muted">
             <span class="sidebar-icon"></span><span><?= t('admin.nav.change_password') ?></span>
         </a>
-        <a href="/admin/logout.php" class="sidebar-link sidebar-link--danger">
+        <form method="post" action="/admin/logout.php">
+        <?= CSRF::field() ?>
+        <button type="submit" class="sidebar-link sidebar-link--danger sidebar-logout-button">
             <span class="sidebar-icon"></span><span><?= t('admin.nav.logout') ?></span>
-        </a>
+        </button>
+        </form>
     </div>
 </aside>
 
 <div class="admin-wrap">
+<?php if (!empty($_SESSION['admin_auth_warning'])):
+    unset($_SESSION['admin_auth_warning']); ?>
+    <div class="alert alert-error" role="alert"><?= t('admin.2fa.remember_device_failed') ?></div>
+<?php endif; ?>

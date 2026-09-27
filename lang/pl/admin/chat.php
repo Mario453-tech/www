@@ -7,6 +7,7 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.editor_hint' => 'Maksymalnie 500 znaków wraz z formatowaniem. Dostępne: pogrubienie, kursywa i listy.',
     'admin.chat.admin_msg_label' => 'Komunikat',
     'admin.chat.admin_msg_send' => 'Wyślij',
     'admin.chat.admin_msg_title' => 'Wyślij komunikat admina',
@@ -46,7 +47,7 @@ return [
     'admin.chat.delete_msg_confirm' => 'Usunąć tę wiadomość?',
     'admin.chat.delete_submit' => 'Usuń',
     'admin.chat.err_invalid_player' => 'Nieprawidłowy ID gracza.',
-    'admin.chat.err_msg_empty_or_long' => 'Pusta lub za długa wiadomość (maks. 500 znaków).',
+    'admin.chat.err_msg_empty_or_long' => 'Wpisz komunikat i zmieść się w 500 znakach wraz z formatowaniem. W razie potrzeby skróć treść lub ogranicz formatowanie.',
     'admin.chat.err_not_admin_msg' => 'Można przypinać tylko wiadomości administratora.',
     'admin.chat.err_word_empty' => 'Słowo nie może być puste.',
     'admin.chat.filter_clear' => 'Wyczyść filtr',
