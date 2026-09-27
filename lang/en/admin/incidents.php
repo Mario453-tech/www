@@ -201,7 +201,7 @@ return [
 
     'admin.incidents.tab_cooldown' => 'Cooldown',
     'admin.incidents.cooldown_title' => 'Immunity and pressure after an incident',
-    'admin.incidents.cooldown_hint' => 'Cooldown applies separately to each well and to minor, medium and major incidents. Micro incidents can occur during immunity and do not reset it or pressure. After immunity, pressure increases the base chance up to the configured cap. Disasters, transport and events forced by an administrator follow separate rules.',
+    'admin.incidents.cooldown_hint' => 'After an incident, a well gets time to run without another major breakdown. Small faults can still occur and do not end this protection. Once protection ends, the risk of another major breakdown gradually rises to the limit you set. This rule applies separately to each well; disasters and transport problems follow separate rules.',
     'admin.incidents.immunity_ticks_label' => 'Immunity (cycles)',
     'admin.incidents.immunity_ticks_hint' => 'Protection starts at the last minor, medium or major incident, or at creation for a new well. One cycle = 5 actual minutes: 6 cycles = 30 minutes regardless of tick frequency. Set 0 to disable protection. Micro incidents are exempt.',
     'admin.incidents.pressure_growth_label' => 'Pressure growth (%/cycle)',

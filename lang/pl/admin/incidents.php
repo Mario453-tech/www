@@ -201,7 +201,7 @@ return [
 
     'admin.incidents.tab_cooldown' => 'Cooldown',
     'admin.incidents.cooldown_title' => 'Immunitet i presja po incydencie',
-    'admin.incidents.cooldown_hint' => 'Cooldown dotyczy osobno każdego odwiertu i poziomów minor, medium oraz major. Mikroincydenty mogą występować podczas ochrony i nie resetują jej ani presji. Po ochronie presja zwiększa bazową szansę, aż do ustawionego limitu. Katastrofy, transport i zdarzenia wymuszone przez administratora mają osobne zasady.',
+    'admin.incidents.cooldown_hint' => 'Po awarii odwiert dostaje czas na spokojną pracę. W tym czasie nie pojawi się kolejna większa awaria. Drobne usterki nadal mogą się zdarzyć i nie przerywają ochrony. Gdy ochrona minie, ryzyko większej awarii stopniowo rośnie, aż do ustawionego limitu. Zasada działa osobno dla każdego odwiertu; katastrofy i problemy z transportem mają oddzielne zasady.',
     'admin.incidents.immunity_ticks_label' => 'Immunitet (cykle)',
     'admin.incidents.immunity_ticks_hint' => 'Czas ochrony od ostatniego incydentu minor, medium lub major, a dla nowego odwiertu od jego utworzenia. Jeden cykl = 5 rzeczywistych minut: 6 cykli = 30 minut, niezależnie od częstotliwości ticka. Wartość 0 wyłącza ochronę. Mikroincydenty są wyjątkiem.',
     'admin.incidents.pressure_growth_label' => 'Wzrost presji (%/cykl)',
