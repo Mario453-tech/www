@@ -24,7 +24,11 @@ switch ($surface) {
         break;
     case 'news':
         $editNews = null;
-        $newsList = [['id' => 1, 'is_pinned' => 0, 'created_at' => '2026-09-23', 'title_html' => '<strong>Test</strong>', 'content_plain' => 'Test news', 'created_by' => 'tester']];
+        $newsList = [
+            ['id' => 9, 'is_pinned' => 1, 'created_at' => '2026-09-23 00:28:00', 'title_html' => '<strong>Nowe lokalizacje odwiertów</strong>', 'content_plain' => 'Wdrożyliśmy nowe lokalizacje odwiertów małych i średnich.', 'created_by' => 'admin'],
+            ['id' => 10, 'is_pinned' => 0, 'created_at' => '2026-09-28 00:25:00', 'title_html' => '<strong>Poprawka incydentów</strong>', 'content_plain' => 'Poprawiliśmy przerwę między większymi awariami odwiertu. Po awarii odwiert ma teraz czas, żeby spokojnie wrócić do pracy.', 'created_by' => 'admin'],
+            ['id' => 8, 'is_pinned' => 0, 'created_at' => '2026-06-05 02:30:00', 'title_html' => 'Wiarygodność firmy', 'content_plain' => 'Do gry trafia nowy wskaźnik firmy.', 'created_by' => 'admin'],
+        ];
         break;
     case 'tech':
         $techNotifications = [['id' => 1, 'type' => 'failure', 'well_id' => 2, 'created_at' => date('Y-m-d H:i:s'), 'message' => 'Test notification'], ['id' => 2, 'type' => 'pressure', 'well_id' => 3, 'created_at' => date('Y-m-d H:i:s'), 'message' => 'Second notification']];

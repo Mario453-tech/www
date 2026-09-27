@@ -28,10 +28,25 @@ const php = process.env.PHP_BINARY || 'php';
                     await page.setViewportSize({width, height: 900});
                     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
                     assert.equal(overflow, false, `${surface}/${locale}/${width} overflow`);
+                    if (surface === 'news') {
+                        const cards = page.locator('.news-card');
+                        assert.equal(await cards.count(), 3);
+                        const first = await cards.nth(0).boundingBox();
+                        const second = await cards.nth(1).boundingBox();
+                        const border = await cards.nth(0).evaluate(node => getComputedStyle(node).borderTopWidth);
+                        assert.equal(border, '1px', `news/${locale}/${width} card border`);
+                        assert.ok(first && second && (Math.abs(first.x - second.x) > 10 || Math.abs(first.y - second.y) > 10), `news/${locale}/${width} card separation`);
+                    }
                     if (process.env.UI_SCREENSHOT_DIR && [320, 1440].includes(width)) {
                         fs.mkdirSync(process.env.UI_SCREENSHOT_DIR, {recursive: true});
                         await page.screenshot({path: path.join(process.env.UI_SCREENSHOT_DIR, `${surface}-${locale}-${width}.png`), fullPage: true});
                     }
+                }
+                if (surface === 'news') {
+                    const editLink = page.locator('.news-card').first().locator('a.btn');
+                    await editLink.focus();
+                    assert.equal(await editLink.evaluate(node => document.activeElement === node), true, `news/${locale} edit action focus`);
+                    assert.match(await editLink.getAttribute('href'), /\/admin\/news\.php\?edit=9$/);
                 }
                 if (surface === 'bank') {
                     await page.locator('#abp-credit-btn').click();
