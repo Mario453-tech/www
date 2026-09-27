@@ -24,10 +24,11 @@ try {
 
  // POST actions / Akcje POST
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $postedAction = $_POST['action'] ?? '';
         if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
             $err = t('common.csrf_error');
         } else {
-            $action = $_POST['action'] ?? '';
+            $action = $postedAction;
 
             if ($action === 'add') {
                 $titleHtml = AdminNewsHtml::sanitizeTitle(trim($_POST['title'] ?? ''));
@@ -107,7 +108,13 @@ try {
 
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['admin_news_flash'] = ['msg' => $msg, 'err' => $err];
-        header('Location: /admin/news.php', true, 303);
+        $redirect = '/admin/news.php';
+        if ($err !== '' && $postedAction === 'add') {
+            $redirect .= '?add=1';
+        } elseif ($err !== '' && $postedAction === 'edit' && (int)($_POST['news_id'] ?? 0) > 0) {
+            $redirect .= '?edit=' . (int)$_POST['news_id'];
+        }
+        header('Location: ' . $redirect, true, 303);
         exit;
     }
 
