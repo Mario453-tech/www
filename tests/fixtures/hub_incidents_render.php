@@ -20,8 +20,8 @@ if ($surface === 'incidents') {
     $incidents = [];
     foreach (range(1, 4) as $id) {
         $incidents[] = [
-            'level' => $id === 2 ? 'medium' : 'minor', 'cause_type' => 'system',
-            'message' => $id === 2 ? 'Awaria pompy ograniczyła produkcję odwiertu.' : 'Czujnik temperatury zgłosił odczyt poza normą.',
+            'level' => $id === 2 ? 'medium' : 'minor', 'cause_type' => $id === 3 ? 'operator' : 'system',
+            'message' => $id === 2 ? 'Awaria pompy ograniczyła produkcję odwiertu.' : ($id === 3 ? 'Operator źle skalibrował zawór ciśnieniowy.' : 'Czujnik temperatury zgłosił odczyt poza normą.'),
             'well_id' => 54, 'well_name' => 'Rumaila, Irak', 'prod_drop' => $id === 2 ? 39 : 0,
             'cost' => $id === 2 ? 170500 : 0, 'deg_damage' => $id === 2 ? 6 : 0,
             'auto_repair' => $id !== 2, 'repaired_at' => $id === 2 ? null : '2026-09-28 16:00:00',
@@ -40,6 +40,32 @@ if ($surface === 'incidents') {
         ];
     }
     require dirname(__DIR__, 2) . '/templates/views/technical/tabs/incidents.php';
+    exit;
+}
+
+if ($surface === 'logistics') {
+    $hubIncidentsPage = 1;
+    $hubIncidentsTotal = 206;
+    $hubIncidentsTotalPages = 11;
+    $_GET = ['tab' => 'logistics'];
+    $messages = [
+        'Hub Mały Rosja / Syberia T20 - przeciążenie krytyczne przy 200%: uszkodzenie pompy głównej.',
+        'Wykryto wyciek ropy w instalacji huba Hub Mały Rosja / Syberia T20.',
+        'Przerwa pracy urządzeń przeładunkowych w Hub Mały Rosja / Syberia T20.',
+        'Korek na wejściu kolektora Hub Mały Rosja / Syberia T20.',
+    ];
+    $hubIncidents = [];
+    foreach ($messages as $index => $message) {
+        $hubIncidents[] = [
+            'severity' => $index === 0 ? 'critical' : 'medium',
+            'message' => $message,
+            'hub_name' => 'Hub Mały Rosja / Syberia T20',
+            'hub_id' => 20,
+            'meta_json' => '{"extra_loss_bbl":12.4,"condition_dmg":2}',
+            'created_at' => '2026-09-26 23:30:00',
+        ];
+    }
+    require dirname(__DIR__, 2) . '/templates/views/logistics/sections/hub_incidents_section.php';
     exit;
 }
 

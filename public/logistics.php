@@ -22,6 +22,7 @@ $gameShellTitle = t('logistics.page_title');
 $gameShellView = __DIR__ . '/../templates/views/logistics/main.php';
 $extraCss = [
     '/assets/css/logistics.css',
+    '/assets/css/logistics_incidents.css',
     '/assets/css/logistics_pipeline_staffing.css',
     '/assets/css/protection.css',
 ];

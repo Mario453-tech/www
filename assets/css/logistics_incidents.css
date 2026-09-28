@@ -1,0 +1,45 @@
+.logistics-incidents-panel { padding: 0; overflow: hidden; border-color: #292a36; background: #11121a; }
+.logistics-incidents-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px 20px; min-height: 66px; padding: 15px 20px; border-bottom: 1px solid #292a36; list-style: none; cursor: pointer; }
+.logistics-incidents-heading::-webkit-details-marker { display: none; }
+.logistics-incidents-heading h3 { display: flex; align-items: center; gap: 12px; margin: 0; color: #e3b844; font-size: 1rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.logistics-incidents-heading > span { color: #9a9ca9; font-size: .8rem; }
+.logistics-incidents-panel .incident-svg { display: inline-block; width: 16px; height: 16px; flex: 0 0 16px; vertical-align: middle; }
+.logistics-incidents-panel .incident-svg--heading { width: 25px; height: 25px; flex-basis: 25px; }
+.logistics-incidents-panel .incident-svg--panel-chevron { width: 18px; height: 18px; flex-basis: 18px; color: #9a9ca9; }
+.logistics-incidents-panel:not([open]) .incident-svg--panel-chevron { transform: rotate(180deg); }
+.logistics-incidents-list { display: flex; flex-direction: column; }
+.logistics-incidents-row { display: grid; grid-template-columns: minmax(135px, 170px) minmax(0, 1fr) auto; align-items: center; gap: 12px 16px; min-height: 76px; padding: 12px 20px; border-bottom: 1px solid #292a36; }
+.logistics-incidents-row:hover { background: #191a25; }
+.logistics-incidents-badge { display: inline-flex; align-items: center; gap: 9px; color: #e8bf4f; font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.logistics-incidents-row--critical .logistics-incidents-badge { color: #f14f65; }
+.logistics-incidents-row--high .logistics-incidents-badge { color: #fa7b42; }
+.logistics-incidents-row--low .logistics-incidents-badge { color: #6bcf9a; }
+.logistics-incidents-dot { width: 14px; height: 14px; flex: 0 0 14px; border-radius: 50%; background: currentColor; box-shadow: inset 0 1px 2px rgba(255,255,255,.26); }
+.logistics-incidents-body { min-width: 0; }
+.logistics-incidents-message { color: #ececf1; font-size: .87rem; line-height: 1.4; overflow-wrap: anywhere; }
+.logistics-incidents-meta { display: flex; flex-wrap: wrap; gap: 3px 6px; margin-top: 3px; color: #a4a5b0; font-size: .76rem; line-height: 1.5; }
+.logistics-incidents-source { display: inline-flex; align-items: center; gap: 6px; }
+.logistics-incidents-panel .incident-svg--meta { width: 14px; height: 14px; flex-basis: 14px; }
+.logistics-incidents-time { display: inline-flex; align-items: center; gap: 8px; color: #9a9ca9; font-size: .78rem; white-space: nowrap; }
+.logistics-incidents-panel .incident-svg--time { width: 18px; height: 18px; flex-basis: 18px; }
+.logistics-incidents-extra > summary { display: flex; align-items: center; min-height: 50px; padding: 10px 20px; color: #e7c351; font-weight: 700; cursor: pointer; }
+.logistics-incidents-extra > summary { gap: 10px; list-style: none; }
+.logistics-incidents-extra > summary::-webkit-details-marker { display: none; }
+.logistics-incidents-extra[open] .incident-svg--expand { transform: rotate(180deg); }
+.logistics-incidents-extra > summary:hover { background: #1a1b25; }
+.logistics-incidents-extra[open] > summary { border-bottom: 1px solid #292a36; }
+.logistics-incidents-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; min-height: 58px; padding: 10px 20px; border-top: 1px solid #292a36; color: #a4a5b0; font-size: .8rem; }
+.logistics-incidents-pagination > div { display: flex; gap: 8px; }
+.logistics-incidents-pagination .btn { min-height: 40px; display: inline-flex; align-items: center; }
+@media (max-width: 800px) {
+    .logistics-incidents-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; }
+    .logistics-incidents-time { grid-column: 2; grid-row: 1; }
+    .logistics-incidents-body { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+    .logistics-incidents-heading, .logistics-incidents-row { padding: 14px; }
+    .logistics-incidents-heading { grid-template-columns: minmax(0, 1fr) auto; }
+    .logistics-incidents-heading > span { grid-column: 1; grid-row: 2; }
+    .logistics-incidents-heading > .incident-svg--panel-chevron { grid-column: 2; grid-row: 1; }
+    .logistics-incidents-extra > summary, .logistics-incidents-pagination { padding-inline: 14px; }
+}

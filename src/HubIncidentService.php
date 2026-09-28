@@ -214,11 +214,11 @@ class HubIncidentService
  // Data getters
 
  /**
- * Ostatnie incydenty hubw gracza (do wywietlenia na stronie logistyki i dziau tech).
- * Recent hub incidents for the player (for display on logistics and technical pages).
+ * Recent hub incidents for the player (for logistics and technical pages).
+ * Ostatnie incydenty hubow gracza (dla logistyki i dzialu technicznego).
  * @return list<array<string, mixed>>
  */
-    public function getPlayerRecentIncidents(int $playerId, int $limit = 20): array
+    public function getPlayerRecentIncidents(int $playerId, int $limit = 20, int $offset = 0): array
     {
         $stmt = $this->db->prepare("
             SELECT e.*, h.name AS hub_name
@@ -226,18 +226,19 @@ class HubIncidentService
             LEFT   JOIN logistics_hubs h ON h.id = e.hub_id
             WHERE  e.player_id  = ?
               AND  e.event_type LIKE 'hub_incident_%'
-            ORDER BY e.created_at DESC
-            LIMIT  ?
+            ORDER BY e.created_at DESC, e.id DESC
+            LIMIT  ? OFFSET ?
         ");
         $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
         $stmt->bindValue(2, $limit,    PDO::PARAM_INT);
+        $stmt->bindValue(3, $offset,   PDO::PARAM_INT);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
  /**
- * Liczba incydentw hubw gracza (do paginacji).
  * Count of hub incidents for the player (for pagination).
+ * Liczba incydentow hubow gracza (do paginacji).
  */
     public function countPlayerIncidents(int $playerId): int
     {

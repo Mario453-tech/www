@@ -1,12 +1,14 @@
+<?php require_once dirname(__DIR__, 3) . '/components/incident_icons.php'; ?>
 <div class="incident-page-heading">
     <h1><?= t('technical.incidents_title') ?></h1>
     <p><?= t('technical.incidents_subtitle') ?></p>
 </div>
-<section class="g-card incident-panel">
-    <div class="g-card-title incident-panel-heading">
-        <span><?= t('technical.incidents_wells_title') ?> (<?= (int)$incTotal ?>)</span>
+<details class="g-card incident-panel" open>
+    <summary class="g-card-title incident-panel-heading">
+        <span><?= incidentIconSvg('rig', 'incident-svg--heading') ?><?= t('technical.incidents_wells_title') ?> (<?= (int)$incTotal ?>)</span>
         <small><?= t('technical.incidents_wells_hint') ?></small>
-    </div>
+        <?= incidentIconSvg('chevron-up', 'incident-svg--panel-chevron') ?>
+    </summary>
 
     <?php if (empty($incidents)): ?>
     <div class="empty-state"><?= t('technical.no_incidents') ?></div>
@@ -16,7 +18,7 @@
         if ($incidentIndex === 3): ?>
     </div>
     <details class="incident-extra">
-        <summary><?= t('technical.incidents_show_all', ['count' => count($incidents)]) ?></summary>
+        <summary><?= t('technical.incidents_show_all', ['count' => count($incidents)]) ?><?= incidentIconSvg('chevron-down', 'incident-svg--expand') ?></summary>
         <div class="inc-list">
         <?php endif;
         $lvl       = $inc['level'];
@@ -29,7 +31,7 @@
         <div class="inc-body">
             <div class="inc-msg"><?= htmlspecialchars($inc['message']) ?></div>
             <div class="inc-meta">
-                <span><?= t('technical.inc_cause_' . $cause, [], ucfirst($cause)) ?></span>
+                <span class="inc-meta-source"><?= incidentIconSvg($cause === 'operator' ? 'person' : 'gear', 'incident-svg--meta') ?><?= t('technical.inc_cause_' . $cause, [], ucfirst($cause)) ?></span>
                 <span class="sep">·</span>
                 <span><?= t('technical.well_num', ['id' => $inc['well_id']]) ?><?= $inc['well_name'] ? ' — '.htmlspecialchars($inc['well_name']) : '' ?></span>
                 <span class="sep">·</span>
@@ -57,7 +59,7 @@
             </a>
             <?php endif ?>
         </div>
-        <time class="inc-time" datetime="<?= htmlspecialchars((string)$inc['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m, H:i', strtotime((string)$inc['created_at'])) ?></time>
+        <time class="inc-time" datetime="<?= htmlspecialchars((string)$inc['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= incidentIconSvg('clock', 'incident-svg--time') ?><?= date('d.m, H:i', strtotime((string)$inc['created_at'])) ?></time>
     </article>
     <?php endforeach ?>
     </div>
@@ -76,20 +78,21 @@
     <?php endif ?>
 
     <?php endif ?>
-</section>
+</details>
 
 <?php if (!empty($hubIncidents)): ?>
-<section class="g-card incident-panel incident-panel--logistics">
-    <div class="g-card-title incident-panel-heading">
-         <span><?= t('logistics.hub.incidents_title') ?> (<?= (int)$hubIncTotal ?>)</span>
+<details class="g-card incident-panel incident-panel--logistics" open>
+    <summary class="g-card-title incident-panel-heading">
+         <span><?= incidentIconSvg('truck', 'incident-svg--heading') ?><?= t('logistics.hub.incidents_title') ?> (<?= (int)$hubIncTotal ?>)</span>
          <small><?= t('technical.incidents_hubs_hint', ['count' => count($hubIncidents), 'earlier' => max(0, $hubIncTotal - count($hubIncidents))]) ?></small>
-    </div>
+         <?= incidentIconSvg('chevron-up', 'incident-svg--panel-chevron') ?>
+    </summary>
     <div class="inc-list">
     <?php foreach ($hubIncidents as $incidentIndex => $hi):
         if ($incidentIndex === 3): ?>
     </div>
     <details class="incident-extra">
-        <summary><?= t('technical.incidents_show_all', ['count' => count($hubIncidents)]) ?></summary>
+        <summary><?= t('technical.incidents_show_all', ['count' => count($hubIncidents)]) ?><?= incidentIconSvg('chevron-down', 'incident-svg--expand') ?></summary>
         <div class="inc-list">
         <?php endif;
         $sev     = $hi['severity'] ?? 'low';
@@ -100,7 +103,7 @@
         <div class="inc-body">
             <div class="inc-msg"><?= htmlspecialchars($hi['message']) ?></div>
             <div class="inc-meta">
-                <span> <?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?></span>
+                <span class="inc-meta-source"><?= incidentIconSvg('truck', 'incident-svg--meta') ?><?= htmlspecialchars($hi['hub_name'] ?? 'Hub #' . $hi['hub_id']) ?></span>
                 <?php if (!empty($hi['meta_json'])): $meta = json_decode($hi['meta_json'], true) ?? []; ?>
                 <?php if (($meta['extra_loss_bbl'] ?? 0) > 0): ?>
                 <span class="sep">·</span>
@@ -114,7 +117,7 @@
                 <span class="sep">·</span>
             </div>
         </div>
-        <time class="inc-time" datetime="<?= htmlspecialchars((string)$hi['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m, H:i', strtotime((string)$hi['created_at'])) ?></time>
+        <time class="inc-time" datetime="<?= htmlspecialchars((string)$hi['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= incidentIconSvg('clock', 'incident-svg--time') ?><?= date('d.m, H:i', strtotime((string)$hi['created_at'])) ?></time>
     </article>
     <?php endforeach ?>
     </div>
@@ -122,8 +125,8 @@
     <?php if ($hubIncTotal > count($hubIncidents)): ?>
     <div class="incident-more-history">
         <?= t('logistics.hub.incidents_more', ['n' => $hubIncTotal - count($hubIncidents)]) ?>
-        → <a href="/logistics"><?= t('logistics.hub.incidents_goto') ?></a>
+        → <a href="/logistics#logistics-hub-incidents-heading"><?= t('logistics.hub.incidents_goto') ?></a>
     </div>
     <?php endif ?>
-</section>
+</details>
 <?php endif ?>

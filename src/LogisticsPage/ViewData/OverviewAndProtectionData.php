@@ -68,6 +68,9 @@ $hubCards          = [];
 $hubAlerts         = [];
 $hubUnassigned     = [];
 $hubIncidents      = [];
+$hubIncidentsTotal = 0;
+$hubIncidentsPage = 1;
+$hubIncidentsTotalPages = 1;
 $hubStaffingViewByHub = [];
 $playerHubRegions  = [];
 $hubTypeOptions    = [];
@@ -132,7 +135,10 @@ try {
  // Load all hub_incident_* events regardless of read state.
  // Laduje wszystkie zdarzenia hub_incident_* niezaleznie od stanu odczytu.
     $hubIncidentSvc   = new HubIncidentService($db, $hubSvc);
-    $hubIncidents     = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20);
+    $hubIncidentsTotal = $hubIncidentSvc->countPlayerIncidents($playerId);
+    $hubIncidentsTotalPages = max(1, (int)ceil($hubIncidentsTotal / 20));
+    $hubIncidentsPage = min(max(1, (int)($_GET['hub_incident_page'] ?? 1)), $hubIncidentsTotalPages);
+    $hubIncidents = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20, ($hubIncidentsPage - 1) * 20);
 
     $perPage = 5;
     $unassignedPage = max(1, (int)($_GET['unassigned_page'] ?? 1));

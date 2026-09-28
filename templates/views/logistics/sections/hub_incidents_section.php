@@ -1,68 +1,71 @@
-    <!--  -->
-    <!-- SEKCJA: Incydenty logistyczne hubow                                -->
-    <!--  -->
-    <?php if (!empty($hubIncidents)): ?>
-    <section class="logistics-panel" aria-labelledby="logistics-hub-incidents-heading">
-        <div class="logistics-panel-head">
-            <h3 id="logistics-hub-incidents-heading"><?= t('logistics.hub.incidents_title') ?></h3>
-            <span><?= t('logistics.hub.incidents_desc') ?></span>
-        </div>
-        <div class="logistics-hub-incidents-list">
-        <?php foreach ($hubIncidents as $hi):
-            $sev     = $hi['severity'] ?? 'low';
-            $sevIcon = match($sev) {
-                'critical' => '',
-                'high'     => '',
-                'medium'   => '',
-                default    => '',
-            };
-            $evType  = $hi['event_type'] ?? '';
-            $typeKey = str_replace('hub_incident_', '', $evType);
-        ?>
-        <div class="logistics-hub-incident-row logistics-hub-incident--<?= htmlspecialchars($sev) ?>">
-            <div class="logistics-hub-incident-icon"><?= $sevIcon ?></div>
-            <div class="logistics-hub-incident-body">
-                <div class="logistics-hub-incident-title">
-                    <strong><?= htmlspecialchars($hi['title'] ?? t('logistics.hub.incident.title.' . $typeKey)) ?></strong>
-                    <span class="logistics-hub-incident-hub">
-                        &middot; <?= htmlspecialchars($hi['hub_name'] ?? (($locale === 'en' ? 'Hub #' : 'Hub #') . $hi['hub_id'])) ?>
-                    </span>
-                </div>
-                <div class="logistics-hub-incident-msg"><?= htmlspecialchars($hi['message']) ?></div>
-                <div class="logistics-hub-incident-meta">
-                    <span class="c-muted2"><?= date('d.m H:i', strtotime($hi['created_at'])) ?></span>
-                </div>
-            </div>
-        </div>
-        <?php endforeach ?>
-        </div>
-        <?php if ((int)($hubIncidentsTotalPages ?? 1) > 1):
-            $hubIncidentsPage = (int)($hubIncidentsPage ?? 1);
-            $hubIncidentsTotalPages = (int)($hubIncidentsTotalPages ?? 1);
-            $hubIncidentsBaseParams = $_GET;
-            $hubIncidentsBaseParams['tab'] = $hubIncidentsBaseParams['tab'] ?? 'logistics';
-        ?>
-        <div class="logistics-pagination">
-            <div class="logistics-pagination-info">
-                <?= $hubIncidentsPage ?> / <?= $hubIncidentsTotalPages ?> (<?= (int)($hubIncidentsTotal ?? 0) ?>)
-            </div>
-            <div class="logistics-pagination-buttons">
-                <?php if ($hubIncidentsPage > 1):
-                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage - 1;
-                ?>
-                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
-                    <?= t('logistics.pagination_prev') ?>
-                </a>
+<?php require_once dirname(__DIR__, 3) . '/components/incident_icons.php'; ?>
+<?php if (!empty($hubIncidents)):
+    $incidentsOnPage = count($hubIncidents);
+    $incidentPageStart = (($hubIncidentsPage ?? 1) - 1) * 20 + 1;
+    $incidentPageEnd = $incidentPageStart + $incidentsOnPage - 1;
+?>
+<details class="logistics-panel logistics-incidents-panel" open>
+    <summary class="logistics-incidents-heading">
+        <h3 id="logistics-hub-incidents-heading">
+            <?= incidentIconSvg('truck', 'incident-svg--heading') ?>
+            <?= t('logistics.hub.incidents_title') ?> (<?= (int)($hubIncidentsTotal ?? $incidentsOnPage) ?>)
+        </h3>
+        <span><?= t('logistics.hub.incidents_range', ['start' => $incidentPageStart, 'end' => $incidentPageEnd, 'total' => (int)($hubIncidentsTotal ?? $incidentsOnPage)]) ?></span>
+        <?= incidentIconSvg('chevron-up', 'incident-svg--panel-chevron') ?>
+    </summary>
+    <div class="logistics-incidents-list">
+    <?php foreach ($hubIncidents as $incidentIndex => $hi):
+        if ($incidentIndex === 3): ?>
+    </div>
+    <details class="logistics-incidents-extra">
+        <summary><?= t('logistics.hub.incidents_show_all', ['count' => $incidentsOnPage]) ?><?= incidentIconSvg('chevron-down', 'incident-svg--expand') ?></summary>
+        <div class="logistics-incidents-list">
+        <?php endif;
+        $severity = (string)($hi['severity'] ?? 'low');
+        $severity = in_array($severity, ['critical', 'high', 'medium', 'low'], true) ? $severity : 'low';
+        $hubName = (string)($hi['hub_name'] ?? ('Hub #' . (int)($hi['hub_id'] ?? 0)));
+        $meta = json_decode((string)($hi['meta_json'] ?? ''), true);
+        $meta = is_array($meta) ? $meta : [];
+    ?>
+    <article class="logistics-incidents-row logistics-incidents-row--<?= $severity ?>">
+        <div class="logistics-incidents-badge"><span class="logistics-incidents-dot" aria-hidden="true"></span><?= t('logistics.hub.incidents_severity_' . $severity) ?></div>
+        <div class="logistics-incidents-body">
+            <div class="logistics-incidents-message"><?= htmlspecialchars((string)$hi['message'], ENT_QUOTES, 'UTF-8') ?></div>
+            <div class="logistics-incidents-meta">
+                <span class="logistics-incidents-source"><?= incidentIconSvg('truck', 'incident-svg--meta') ?><?= htmlspecialchars($hubName, ENT_QUOTES, 'UTF-8') ?></span>
+                <?php if (($meta['extra_loss_bbl'] ?? 0) > 0): ?>
+                <span>· <?= t('logistics.hub.incidents_loss', ['amount' => number_format((float)$meta['extra_loss_bbl'], 1, ',', ' ')]) ?></span>
                 <?php endif ?>
-                <?php if ($hubIncidentsPage < $hubIncidentsTotalPages):
-                    $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage + 1;
-                ?>
-                <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams)) ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary">
-                    <?= t('logistics.pagination_next') ?>
-                </a>
+                <?php if (($meta['condition_dmg'] ?? 0) > 0): ?>
+                <span>· <?= t('logistics.hub.incidents_damage', ['points' => (int)$meta['condition_dmg']]) ?></span>
                 <?php endif ?>
             </div>
         </div>
-        <?php endif ?>
-    </section>
+        <time class="logistics-incidents-time" datetime="<?= htmlspecialchars((string)$hi['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= incidentIconSvg('clock', 'incident-svg--time') ?><?= date('d.m, H:i', strtotime((string)$hi['created_at'])) ?></time>
+    </article>
+    <?php endforeach ?>
+    </div>
+    <?php if ($incidentsOnPage > 3): ?></details><?php endif ?>
+
+    <?php if ((int)($hubIncidentsTotalPages ?? 1) > 1):
+        $hubIncidentsBaseParams = $_GET;
+        $hubIncidentsBaseParams['tab'] = $hubIncidentsBaseParams['tab'] ?? 'logistics';
+    ?>
+    <nav class="logistics-incidents-pagination" aria-label="<?= t('logistics.hub.incidents_pagination') ?>">
+        <span><?= t('logistics.hub.incidents_page', ['page' => (int)$hubIncidentsPage, 'total' => (int)$hubIncidentsTotalPages]) ?></span>
+        <div>
+            <?php if ($hubIncidentsPage > 1):
+                $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage - 1;
+            ?>
+            <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams), ENT_QUOTES, 'UTF-8') ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary"><?= t('logistics.pagination_prev') ?></a>
+            <?php endif ?>
+            <?php if ($hubIncidentsPage < $hubIncidentsTotalPages):
+                $hubIncidentsBaseParams['hub_incident_page'] = $hubIncidentsPage + 1;
+            ?>
+            <a href="?<?= htmlspecialchars(http_build_query($hubIncidentsBaseParams), ENT_QUOTES, 'UTF-8') ?>#logistics-hub-incidents-heading" class="btn btn-xs btn-secondary"><?= t('logistics.pagination_next') ?></a>
+            <?php endif ?>
+        </div>
+    </nav>
     <?php endif ?>
+</details>
+<?php endif ?>

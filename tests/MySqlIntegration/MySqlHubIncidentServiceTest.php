@@ -95,6 +95,7 @@ final class MySqlHubIncidentServiceTest extends MySqlIntegrationTestCase
         ]);
 
         $recentPlayer = $incidentService->getPlayerRecentIncidents($playerId, 10);
+        $secondPage = $incidentService->getPlayerRecentIncidents($playerId, 1, 1);
         $recentHub = $incidentService->getHubRecentIncidents($ids['hubId'], $playerId, 10);
         $count = $incidentService->countPlayerIncidents($playerId);
 
@@ -103,6 +104,8 @@ final class MySqlHubIncidentServiceTest extends MySqlIntegrationTestCase
         $this->assertSame(2, $count);
         $this->assertSame('hub_incident_storage_jam', $recentPlayer[0]['event_type']);
         $this->assertSame('hub_incident_local_leak', $recentPlayer[1]['event_type']);
+        $this->assertCount(1, $secondPage);
+        $this->assertSame('hub_incident_local_leak', $secondPage[0]['event_type']);
         $this->assertSame((string)$ids['hubId'], (string)$recentHub[0]['hub_id']);
         $this->assertSame((string)$ids['hubId'], (string)$recentHub[1]['hub_id']);
     }
