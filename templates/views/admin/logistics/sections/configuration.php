@@ -15,11 +15,44 @@ $cfgField = static fn(string $group, string $key, string $label, string $unit = 
         $note
     );
 ?>
-<details id="hub-config-section" class="admin-details">
+<details id="hub-config-section" class="admin-details" open>
     <summary><?= t('admin.logistics.cfg_section_title') ?></summary>
     <p class="c-muted"><?= t('admin.logistics.cfg_section_desc') ?></p>
 
-    <div class="cfg-section">
+    <div class="cfg-section cfg-section--modes">
+        <h4><?= t('admin.logistics.cfg_work_modes_title') ?></h4>
+        <div class="cfg-type-cols">
+            <?php foreach (['eco', 'standard', 'max'] as $mode): ?>
+                <div class="cfg-type-block">
+                    <h5><?= t('admin.logistics.cfg_mode_' . $mode) ?></h5>
+                    <?php
+                    $cfgField('work_mode', "{$mode}.throughput_mult", t('admin.logistics.cfg_throughput_mult'), 'x', '0.01', t('admin.logistics.cfg_throughput_note'));
+                    $cfgField('work_mode', "{$mode}.wear_mult", t('admin.logistics.cfg_wear_mult'), 'x', '0.01');
+                    $cfgField('work_mode', "{$mode}.opex_mult", t('admin.logistics.cfg_opex_mult'), 'x', '0.01');
+                    $cfgField('work_mode', "{$mode}.risk_mult", t('admin.logistics.cfg_risk_mult'), 'x', '0.01');
+                    $cfgField('work_mode', "{$mode}.efficiency_mod", t('admin.logistics.cfg_efficiency_mod'), 'pkt', '0.1', t('admin.logistics.cfg_efficiency_note'));
+                    ?>
+                </div>
+            <?php endforeach ?>
+        </div>
+    </div>
+
+    <div class="cfg-section cfg-section--fallback">
+        <h4><?= t('admin.logistics.cfg_fallback_title') ?></h4>
+        <p class="c-muted"><?= t('admin.logistics.cfg_fallback_desc') ?></p>
+        <div class="cfg-group">
+            <?php
+            $cfgField('fallback', 'throughput_bph', t('admin.logistics.cfg_throughput_bph'), 'bph', '10', t('admin.logistics.cfg_throughput_bph_note'));
+            $cfgField('fallback', 'opex_mult', t('admin.logistics.cfg_opex_mult_fb'), 'x', '0.1', t('admin.logistics.cfg_opex_mult_fb_note'));
+            $cfgField('fallback', 'loss_mult', t('admin.logistics.cfg_loss_mult'), 'x', '0.1', t('admin.logistics.cfg_loss_mult_note'));
+            $cfgField('fallback', 'risk_mult', t('admin.logistics.cfg_risk_mult_fb'), 'x', '0.1', t('admin.logistics.cfg_risk_mult_fb_note'));
+            $cfgField('fallback', 'efficiency_pct', t('admin.logistics.cfg_efficiency_pct'), '%', '1', t('admin.logistics.cfg_efficiency_pct_note'));
+            ?>
+        </div>
+    </div>
+    <details class="hub-advanced-settings">
+        <summary><?= t('admin.logistics.cfg_advanced_title') ?></summary>
+    <div class="cfg-section cfg-section--types">
         <h4><?= t('admin.logistics.cfg_hub_types_title') ?></h4>
         <form method="post" action="/admin/logistics_hubs.php#hub-config-section"
               data-confirm="<?= htmlspecialchars(tPlain('admin.logistics.cfg_seed_confirm'), ENT_QUOTES, 'UTF-8') ?>"
@@ -54,7 +87,7 @@ $cfgField = static fn(string $group, string $key, string $label, string $unit = 
         </div>
     </div>
 
-    <div class="cfg-section">
+    <div class="cfg-section cfg-section--acquisition">
         <h4><?= t('admin.logistics.cfg_acquisition_title') ?></h4>
         <div class="cfg-type-cols">
             <?php foreach (['new', 'used', 'rental'] as $type): ?>
@@ -73,36 +106,5 @@ $cfgField = static fn(string $group, string $key, string $label, string $unit = 
             <?php endforeach ?>
         </div>
     </div>
-
-    <div class="cfg-section">
-        <h4><?= t('admin.logistics.cfg_work_modes_title') ?></h4>
-        <div class="cfg-type-cols">
-            <?php foreach (['eco', 'standard', 'max'] as $mode): ?>
-                <div class="cfg-type-block">
-                    <h5><?= t('admin.logistics.cfg_mode_' . $mode) ?></h5>
-                    <?php
-                    $cfgField('work_mode', "{$mode}.throughput_mult", t('admin.logistics.cfg_throughput_mult'), 'x', '0.01', t('admin.logistics.cfg_throughput_note'));
-                    $cfgField('work_mode', "{$mode}.wear_mult", t('admin.logistics.cfg_wear_mult'), 'x', '0.01');
-                    $cfgField('work_mode', "{$mode}.opex_mult", t('admin.logistics.cfg_opex_mult'), 'x', '0.01');
-                    $cfgField('work_mode', "{$mode}.risk_mult", t('admin.logistics.cfg_risk_mult'), 'x', '0.01');
-                    $cfgField('work_mode', "{$mode}.efficiency_mod", t('admin.logistics.cfg_efficiency_mod'), 'pkt', '0.1', t('admin.logistics.cfg_efficiency_note'));
-                    ?>
-                </div>
-            <?php endforeach ?>
-        </div>
-    </div>
-
-    <div class="cfg-section">
-        <h4><?= t('admin.logistics.cfg_fallback_title') ?></h4>
-        <p class="c-muted"><?= t('admin.logistics.cfg_fallback_desc') ?></p>
-        <div class="cfg-group">
-            <?php
-            $cfgField('fallback', 'throughput_bph', t('admin.logistics.cfg_throughput_bph'), 'bph', '10', t('admin.logistics.cfg_throughput_bph_note'));
-            $cfgField('fallback', 'opex_mult', t('admin.logistics.cfg_opex_mult_fb'), 'x', '0.1', t('admin.logistics.cfg_opex_mult_fb_note'));
-            $cfgField('fallback', 'loss_mult', t('admin.logistics.cfg_loss_mult'), 'x', '0.1', t('admin.logistics.cfg_loss_mult_note'));
-            $cfgField('fallback', 'risk_mult', t('admin.logistics.cfg_risk_mult_fb'), 'x', '0.1', t('admin.logistics.cfg_risk_mult_fb_note'));
-            $cfgField('fallback', 'efficiency_pct', t('admin.logistics.cfg_efficiency_pct'), '%', '1', t('admin.logistics.cfg_efficiency_pct_note'));
-            ?>
-        </div>
-    </div>
+    </details>
 </details>

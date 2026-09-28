@@ -13,7 +13,7 @@ $staffPageQuery = array_filter([
     'staff_status' => $staffingFilters['status'] ?: null,
 ]);
 $staffPageUrl = static fn(int $targetPage): string => '/admin/logistics_hubs.php?'
-    . http_build_query($staffPageQuery + ['staff_page' => $targetPage])
+    . http_build_query($staffPageQuery + ['view' => 'overview', 'staff_page' => $targetPage])
     . '#hub-staffing-section';
 ?>
 <details id="hub-staffing-section" class="admin-details admin-details--staffing" open>
@@ -105,6 +105,7 @@ $staffPageUrl = static fn(int $targetPage): string => '/admin/logistics_hubs.php
 
     <h4><?= t('admin.logistics.staffing_filter_title') ?></h4>
     <form method="get" action="/admin/logistics_hubs.php#hub-staffing-section" class="staffing-filter-form">
+        <input type="hidden" name="view" value="overview">
         <label>
             <span><?= t('admin.logistics.staffing_filter_player') ?></span>
             <input type="number" min="1" name="staff_player_id" value="<?= $staffingFilters['player_id'] ?: '' ?>" class="admin-input admin-input-dark">

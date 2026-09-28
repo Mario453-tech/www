@@ -22,6 +22,13 @@ $db     = Database::getInstance()->getConnection();
 $csrf   = CSRF::generateToken();
 $msg    = '';
 $msgErr = false;
+$activeView = (string)($_GET['view'] ?? (isset($_GET['hub_id']) ? 'list' : 'overview'));
+if (!in_array($activeView, ['overview', 'list', 'config'], true)) {
+    $activeView = 'overview';
+}
+if (isset($_GET['hub_id']) && !isset($_GET['view'])) {
+    $activeView = 'list';
+}
 
 // Handle POST actions with PRG.
 // Obsluz akcje POST przez PRG.
@@ -42,12 +49,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $_SESSION['admin_hub_msg']     = $msg;
     $_SESSION['admin_hub_msg_err'] = $msgErr;
     $postAction = (string)($_POST['action'] ?? '');
+    $targetView = match ($postAction) {
+        'save_config', 'seed_hub_type_defaults' => 'config',
+        'save_staffing_config' => 'overview',
+        default => 'list',
+    };
     $anchor = match ($postAction) {
         'save_config', 'seed_hub_type_defaults' => '#hub-config-section',
         'save_staffing_config' => '#hub-staffing-section',
         default => '',
     };
-    header('Location: /admin/logistics_hubs.php' . (isset($_GET['hub_id']) ? '?hub_id=' . (int) $_GET['hub_id'] : '') . $anchor);
+    $redirectQuery = ['view' => $targetView];
+    if (isset($_GET['hub_id'])) {
+        $redirectQuery['hub_id'] = (int) $_GET['hub_id'];
+    }
+    header('Location: /admin/logistics_hubs.php?' . http_build_query($redirectQuery) . $anchor);
     exit;
 }
 
@@ -159,5 +175,14 @@ $staffingDiagnostics = $hub_admin->buildStaffingDiagnostics(
 
 // Render the view.
 // Wyrenderuj widok.
-$adminExtraCss = ['/assets/css/admin_staffing.css'];
+$pageTitle = t('admin.logistics.title');
+$adminExtraCss = [
+    '/assets/css/admin_logistics.css',
+    '/assets/css/admin_hubs.css',
+    '/assets/css/admin_staffing.css',
+    '/assets/css/admin_hubs_view.css',
+];
+$extraJs = ['/assets/js/admin_logistics_hubs.js'];
+require __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/logistics/main.php';
+require __DIR__ . '/partials/footer.php';

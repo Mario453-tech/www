@@ -1,23 +1,24 @@
-<!DOCTYPE html>
-<html lang="pl">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title><?= t('admin.logistics.title') ?></title>
-<link rel="stylesheet" href="<?= asset('/assets/css/admin.css') ?>">
-<link rel="stylesheet" href="<?= asset('/assets/css/admin_logistics.css') ?>">
-<link rel="stylesheet" href="<?= asset('/assets/css/admin_hubs.css') ?>">
 <script>window.ADMIN_LOGISTICS_LANG = { seed_confirm: <?= json_encode(tPlain('admin.logistics.seed_confirm'), JSON_UNESCAPED_UNICODE) ?> };</script>
-</head>
-<body class="admin-body">
 <div class="admin-container">
 
 <div class="admin-breadcrumb">
     <a href="/admin/index.php"> Panel admina</a> / <?= t('admin.logistics.breadcrumb') ?>
 </div>
 
-<h2> <?= t('admin.logistics.title') ?></h2>
-<p class="c-muted"><?= t('admin.logistics.subtitle') ?></p>
+<header class="hub-page-header">
+    <div>
+        <h1><?= t('admin.logistics.title') ?><?= $activeView === 'config' ? ' / ' . t('admin.logistics.nav_config') : '' ?></h1>
+        <p><?= $activeView === 'overview' ? t('admin.logistics.subtitle') : ($activeView === 'list' ? t('admin.logistics.list_subtitle', ['count' => $totalHubs]) : t('admin.logistics.config_subtitle')) ?></p>
+    </div>
+    <?php if ($activeView === 'list'): ?>
+    <a class="btn btn-primary hub-create-link" href="?view=list&create=1#hub-create-section"><?= t('admin.logistics.create_title') ?></a>
+    <?php endif ?>
+</header>
+<nav class="hub-view-nav" aria-label="<?= t('admin.logistics.nav_aria') ?>">
+    <a href="?view=overview" <?= $activeView === 'overview' ? 'aria-current="page"' : '' ?>><?= t('admin.logistics.nav_overview') ?></a>
+    <a href="?view=list" <?= $activeView === 'list' ? 'aria-current="page"' : '' ?>><?= t('admin.logistics.nav_list') ?></a>
+    <a href="?view=config" <?= $activeView === 'config' ? 'aria-current="page"' : '' ?>><?= t('admin.logistics.nav_config') ?></a>
+</nav>
 
 <?php if ($msg): ?>
 <div class="admin-alert admin-alert--<?= $msgErr ? 'danger' : 'success' ?>">
@@ -25,12 +26,13 @@
 </div>
 <?php endif ?>
 
+<?php if ($activeView === 'overview'): ?>
 <!--  Pasek statystyk  -->
 <div class="stats-bar">
-    <span><?= t('admin.logistics.stats_total') ?>: <strong><?= $totalHubs ?></strong></span>
-    <span><?= t('admin.logistics.stats_active') ?>: <strong class="c-good"><?= $activeCount ?></strong></span>
-    <span><?= t('admin.logistics.stats_paused') ?>: <strong class="c-warn"><?= $pausedCount ?></strong></span>
-    <span><?= t('admin.logistics.stats_other') ?>: <strong><?= $totalHubs - $activeCount - $pausedCount ?></strong></span>
+    <div><span><?= t('admin.logistics.stats_total') ?></span><strong><?= $totalHubs ?></strong></div>
+    <div><span><?= t('admin.logistics.stats_active') ?></span><strong class="c-good"><?= $activeCount ?></strong></div>
+    <div><span><?= t('admin.logistics.stats_paused') ?></span><strong class="c-bad"><?= $pausedCount ?></strong></div>
+    <div><span><?= t('admin.logistics.stats_other') ?></span><strong><?= $totalHubs - $activeCount - $pausedCount ?></strong></div>
 </div>
 
 <!--  Weryfikacja ticku (OPEX, straty, odwierty bez huba)  -->
@@ -38,7 +40,7 @@
 $tickStats     = $hub_admin->getTickVerificationStats($db);
 $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 ?>
-<details class="admin-details admin-details--verify" <?= $hasUnassigned ? 'open' : '' ?>>
+<details class="admin-details admin-details--verify" open>
     <summary> <?= t('admin.logistics.tick_verify_title') ?></summary>
     <div class="verify-grid">
         <div class="verify-card <?= $hasUnassigned ? 'verify-card--warn' : '' ?>">
@@ -70,37 +72,11 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 </details>
 
 <?php require __DIR__ . '/sections/staffing_diagnostics.php'; ?>
+<?php endif ?>
 
-<!--  Seed masowy  -->
-<div class="seed-box">
-    <h4> <?= t('admin.logistics.seed_title') ?></h4>
-    <p class="c-muted"><?= t('admin.logistics.seed_desc') ?></p>
-    <form method="POST" id="seed-region-form">
-        <input type="hidden" name="action"      value="seed_region">
-        <input type="hidden" name="csrf_token"  value="<?= htmlspecialchars($csrf) ?>">
-        <div class="admin-form-row">
-            <div>
-                <label><?= t('admin.logistics.seed_region_label') ?></label>
-                <select name="region_id" class="admin-input" id="seed-region-select">
-                    <option value=""><?= t('admin.logistics.seed_region_empty') ?></option>
-                    <?php foreach ($allRegions as $r): ?>
-                    <option value="<?= (int)$r['id'] ?>"><?= htmlspecialchars($r['name']) ?> (#<?= $r['id'] ?>)</option>
-                    <?php endforeach ?>
-                </select>
-            </div>
-            <div>
-                <label><?= t('admin.logistics.seed_count_label') ?></label>
-                <input type="number" name="count" value="20" min="1" max="50" class="admin-input admin-input--short">
-            </div>
-            <button type="submit" class="btn btn-warn btn-sm" id="seed-region-submit">
-                 <?= t('admin.logistics.seed_submit') ?>
-            </button>
-        </div>
-    </form>
-</div>
-
+<?php if ($activeView === 'list'): ?>
 <!--  Create a single hub  -->
-<details class="admin-details">
+<details id="hub-create-section" class="admin-details" <?= isset($_GET['create']) ? 'open' : '' ?>>
     <summary><?= t('admin.logistics.create_title') ?></summary>
     <form method="POST" class="admin-details-form">
         <input type="hidden" name="action"     value="create_hub">
@@ -148,6 +124,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 
 <!--  Filtry listy  -->
 <form method="GET" class="filter-row">
+    <input type="hidden" name="view" value="list">
     <?php if ($viewHubId): ?>
     <input type="hidden" name="hub_id" value="<?= $viewHubId ?>">
     <?php endif ?>
@@ -182,7 +159,7 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
         </select>
     </div>
     <button type="submit" class="btn btn-secondary btn-sm"><?= t('admin.logistics.filter_submit') ?></button>
-    <a href="/admin/logistics_hubs.php" class="btn btn-secondary btn-sm"><?= t('admin.logistics.filter_reset') ?></a>
+    <a href="/admin/logistics_hubs.php?view=list" class="btn btn-secondary btn-sm"><?= t('admin.logistics.filter_reset') ?></a>
 </form>
 
 <!--  Hub details (after click)  -->
@@ -376,12 +353,12 @@ $hasUnassigned = $tickStats['unassigned_wells'] > 0;
 <?php else: ?>
 
 <?php
-$pageQs  = array_filter(['status' => $filterStatus, 'region_id' => $filterRegion ?: null, 'cond' => $filterCond, 'hub_id' => $viewHubId ?: null]);
+$pageQs  = array_filter(['view' => 'list', 'status' => $filterStatus, 'region_id' => $filterRegion ?: null, 'cond' => $filterCond, 'hub_id' => $viewHubId ?: null]);
 $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs + ['page' => $p]);
 ?>
 
 <?php foreach ($hubsPageByRegion as $regionName => $regionHubs): ?>
-<div class="hub-region-section">
+<section class="hub-region-section">
     <div class="hub-region-header"> <?= htmlspecialchars($regionName) ?> <small class="c-muted">(<?= count($regionHubs) ?>)</small></div>
     <div class="hub-admin-grid">
     <?php foreach ($regionHubs as $hub):
@@ -429,7 +406,7 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
             <span><?= $modeMap[$hub['work_mode']] ?? $hub['work_mode'] ?></span>
         </div>
         <div class="hub-actions-row">
-            <a href="?hub_id=<?= $hubId ?>&status=<?= urlencode($filterStatus) ?>&region_id=<?= $filterRegion ?>&cond=<?= urlencode($filterCond) ?>&page=<?= $page ?>"
+            <a href="?view=list&hub_id=<?= $hubId ?>&status=<?= urlencode($filterStatus) ?>&region_id=<?= $filterRegion ?>&cond=<?= urlencode($filterCond) ?>&page=<?= $page ?>"
                class="btn btn-xs btn-secondary"> <?= t('admin.logistics.btn_detail') ?></a>
 
             <form method="POST" class="hub-inline-form"
@@ -457,7 +434,7 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
     </div>
     <?php endforeach ?>
     </div>
-</div>
+</section>
 <?php endforeach ?>
 
 <!--  Paginacja  -->
@@ -493,10 +470,41 @@ $pageUrl = fn(int $p) => '/admin/logistics_hubs.php?' . http_build_query($pageQs
 
 <?php endif ?>
 
+<!--  Seed masowy  -->
+<details class="admin-details hub-seed-details">
+<summary><?= t('admin.logistics.seed_title') ?></summary>
+<div class="seed-box">
+    <h4><?= t('admin.logistics.seed_title') ?></h4>
+    <p class="c-muted"><?= t('admin.logistics.seed_desc') ?></p>
+    <form method="POST" id="seed-region-form">
+        <input type="hidden" name="action" value="seed_region">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars($csrf) ?>">
+        <div class="admin-form-row">
+            <div>
+                <label><?= t('admin.logistics.seed_region_label') ?></label>
+                <select name="region_id" class="admin-input" id="seed-region-select">
+                    <option value=""><?= t('admin.logistics.seed_region_empty') ?></option>
+                    <?php foreach ($allRegions as $r): ?>
+                    <option value="<?= (int)$r['id'] ?>"><?= htmlspecialchars($r['name']) ?> (#<?= $r['id'] ?>)</option>
+                    <?php endforeach ?>
+                </select>
+            </div>
+            <div>
+                <label><?= t('admin.logistics.seed_count_label') ?></label>
+                <input type="number" name="count" value="20" min="1" max="50" class="admin-input admin-input--short">
+            </div>
+            <button type="submit" class="btn btn-warn btn-sm" id="seed-region-submit">
+                <?= t('admin.logistics.seed_submit') ?>
+            </button>
+        </div>
+    </form>
+</div>
+</details>
+
+<?php endif ?>
+
+<?php if ($activeView === 'config'): ?>
 <?php require __DIR__ . '/sections/configuration.php'; ?>
+<?php endif ?>
 
 </div><!-- /admin-container -->
-<script src="<?= asset('/assets/js/modal.js') ?>"></script>
-<script src="<?= asset('/assets/js/admin_logistics_hubs.js') ?>"></script>
-</body>
-</html>

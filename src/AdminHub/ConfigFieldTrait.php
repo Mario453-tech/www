@@ -45,7 +45,7 @@ trait AdminHubConfigFieldTrait
         if ($note !== '') {
             echo '<div class="cfg-note">' . htmlspecialchars($note) . '</div>';
         }
-        echo '<form method="POST" class="cfg-form">';
+        echo '<form method="POST" action="/admin/logistics_hubs.php?view=config#hub-config-section" class="cfg-form">';
         echo '<input type="hidden" name="action"       value="save_config">';
         echo '<input type="hidden" name="csrf_token"   value="' . $csrfE . '">';
         echo '<input type="hidden" name="config_group" value="' . $gEsc . '">';
