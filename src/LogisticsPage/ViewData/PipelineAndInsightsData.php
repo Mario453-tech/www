@@ -416,6 +416,8 @@ $viewData = compact(
     'hubAlerts',
     'hubUnassigned',
     'hubIncidents',
+    'hubIncidentQuery',
+    'hubIncidentSeverity',
     'hubIncidentsTotal',
     'hubIncidentsPage',
     'hubIncidentsTotalPages',

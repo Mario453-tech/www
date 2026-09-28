@@ -157,6 +157,12 @@
                     <span class="badge logistics-pipeline-badge logistics-pipeline-badge--<?= htmlspecialchars($status) ?>"><?= t('logistics.pipeline.status_' . $status) ?></span>
                 </div>
 
+                <div class="logistics-pipeline-row-facts">
+                    <span><?= t('logistics.hub.label_condition') ?> <strong class="<?= $conditionClass ?>"><?= number_format($conditionPct, 1, ',', ' ') ?>%</strong></span>
+                    <span><?= t('logistics.pipeline.label_flow') ?> <strong><?= number_format((float)($pipe['flow_bbl_h'] ?? 0), 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
+                    <span><?= t('logistics.pipeline.label_capacity') ?> <strong><?= number_format((float)($pipe['capacity_bbl_h'] ?? 0), 1, ',', ' ') ?> <?= t('common.bbl_h') ?></strong></span>
+                </div>
+
                 <div class="pipeline-staffing-card-summary">
                     <div class="pipeline-staffing-card-head">
                         <strong><?= t('logistics.pipeline.staffing.card_title') ?></strong>

@@ -31,6 +31,8 @@ final class LogisticsPageController
         'hubAlerts',
         'hubUnassigned',
         'hubIncidents',
+        'hubIncidentQuery',
+        'hubIncidentSeverity',
         'hubIncidentsTotal',
         'hubIncidentsPage',
         'hubIncidentsTotalPages',

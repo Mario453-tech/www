@@ -7,6 +7,7 @@
         hidden
     ></div>
     <?php endif ?>
+    <?php $attentionCount = (int)($unassignedTotal ?? 0) + count($logisticsInsights['hub_hotspots'] ?? []) + (int)($pipelineSummary['needs_service'] ?? 0); ?>
     <section class="logistics-kpi-grid" aria-label="<?= htmlspecialchars(t('logistics.kpi_aria')) ?>">
         <div class="logistics-kpi">
             <span class="logistics-kpi-label"><?= t('logistics.kpi_efficiency') ?></span>
@@ -21,7 +22,7 @@
             <strong><?= number_format((float)$totals['cost'], 2, ',', ' ') ?> <?= $currencyLabel ?>/h</strong>
         </div>
         <div class="logistics-kpi">
-            <span class="logistics-kpi-label"><?= t('logistics.kpi_wells') ?></span>
-            <strong><?= count($wells) ?></strong>
+            <span class="logistics-kpi-label"><?= t('logistics.design.attention') ?></span>
+            <strong class="<?= $attentionCount > 0 ? 'c-bad' : 'c-good' ?>"><?= $attentionCount ?></strong>
         </div>
     </section>

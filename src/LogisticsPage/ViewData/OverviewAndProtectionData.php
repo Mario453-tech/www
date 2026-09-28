@@ -71,6 +71,9 @@ $hubIncidents      = [];
 $hubIncidentsTotal = 0;
 $hubIncidentsPage = 1;
 $hubIncidentsTotalPages = 1;
+$hubIncidentQuery = trim(mb_substr((string)($_GET['incident_q'] ?? ''), 0, 100));
+$hubIncidentSeverity = (string)($_GET['incident_severity'] ?? '');
+$hubIncidentSeverity = in_array($hubIncidentSeverity, ['critical', 'high', 'medium', 'low'], true) ? $hubIncidentSeverity : '';
 $hubStaffingViewByHub = [];
 $playerHubRegions  = [];
 $hubTypeOptions    = [];
@@ -134,11 +137,12 @@ try {
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
  // Load all hub_incident_* events regardless of read state.
  // Laduje wszystkie zdarzenia hub_incident_* niezaleznie od stanu odczytu.
-    $hubIncidentSvc   = new HubIncidentService($db, $hubSvc);
-    $hubIncidentsTotal = $hubIncidentSvc->countPlayerIncidents($playerId);
+    require_once $srcDir . '/LogisticsIncidentFeed.php';
+    $logisticsIncidentFeed = new LogisticsIncidentFeed($db);
+    $hubIncidentsTotal = $logisticsIncidentFeed->count($playerId, $hubIncidentQuery, $hubIncidentSeverity);
     $hubIncidentsTotalPages = max(1, (int)ceil($hubIncidentsTotal / 20));
     $hubIncidentsPage = min(max(1, (int)($_GET['hub_incident_page'] ?? 1)), $hubIncidentsTotalPages);
-    $hubIncidents = $hubIncidentSvc->getPlayerRecentIncidents($playerId, 20, ($hubIncidentsPage - 1) * 20);
+    $hubIncidents = $logisticsIncidentFeed->page($playerId, 20, ($hubIncidentsPage - 1) * 20, $hubIncidentQuery, $hubIncidentSeverity);
 
     $perPage = 5;
     $unassignedPage = max(1, (int)($_GET['unassigned_page'] ?? 1));

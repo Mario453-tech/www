@@ -13,13 +13,14 @@
         </div>
 
         <?php if (!empty($hubAlerts)): ?>
-        <div class="logistics-hub-alerts">
+        <details class="logistics-hub-alerts logistics-design-alert-details">
+            <summary><?= t('logistics.design.hub_alerts', ['count' => count($hubAlerts)]) ?></summary>
             <?php foreach ($hubAlerts as $ha): ?>
             <div class="logistics-alert logistics-alert--<?= $ha['severity'] === 'critical' ? 'danger' : 'warn' ?>">
                 <?= htmlspecialchars($ha['message']) ?>
             </div>
             <?php endforeach ?>
-        </div>
+        </details>
         <?php endif ?>
 
         <?php if (empty($hubCards)): ?>
@@ -85,6 +86,13 @@
                         <?= t('logistics.hub.risk_' . $riskLevel) ?>
                     </span>
                     <?php endif ?>
+                </div>
+
+                <div class="logistics-hub-row-facts">
+                    <span><?= t('logistics.hub.label_condition') ?> <strong class="<?= $condClass ?>"><?= number_format($condPct, 1, ',', ' ') ?>%</strong></span>
+                    <span><?= t('logistics.hub.staffing.card_title') ?> <strong class="<?= $coverageClass ?>"><?= (int)round($coveragePct) ?>%</strong></span>
+                    <span><?= t('logistics.hub.label_slots') ?> <strong><?= (int)$hub['assigned_count'] ?>/<?= (int)$hub['slot_limit'] ?></strong></span>
+                    <span><?= t('logistics.hub.label_my_wells') ?> <strong><?= $myWells ?></strong></span>
                 </div>
 
                 <div class="logistics-hub-meta">

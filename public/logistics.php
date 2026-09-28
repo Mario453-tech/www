@@ -24,6 +24,7 @@ $extraCss = [
     '/assets/css/logistics.css',
     '/assets/css/logistics_incidents.css',
     '/assets/css/logistics_pipeline_staffing.css',
+    '/assets/css/logistics_design.css',
     '/assets/css/protection.css',
 ];
 $extraJs = [
@@ -39,6 +40,7 @@ $extraJs = [
     '/assets/js/logistics_hub_browser.js',
     '/assets/js/protection.js',
     '/assets/js/logistics_countdowns.js',
+    '/assets/js/logistics_design.js',
 ];
 $extraHead = '<meta name="csrf-token" content="'
     . htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8')
