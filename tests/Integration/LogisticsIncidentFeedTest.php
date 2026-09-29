@@ -20,6 +20,7 @@ final class LogisticsIncidentFeedTest extends TestCase
         $db->exec("INSERT INTO logistics_hubs VALUES (1, 7, 'Hub Alpha')");
         $db->exec("INSERT INTO logistics_hub_events VALUES (1, 7, 1, 'hub_incident_leak', 'critical', 'Hub leak', '{}', '2026-09-28 10:00:00')");
         $db->exec("INSERT INTO logistics_hub_events VALUES (2, 8, 1, 'hub_incident_leak', 'critical', 'Other player', '{}', '2026-09-30 10:00:00')");
+        $db->exec("INSERT INTO logistics_hub_events VALUES (5, 7, 1, 'hub_incidentXother', 'low', 'Unrelated event', '{}', '2026-09-30 11:00:00')");
         $db->exec("INSERT INTO well_pipelines VALUES (5, 7, 'Pipeline Beta')");
         $db->exec("INSERT INTO well_pipeline_events VALUES (3, 7, 5, 'incident', 'warning', 'Valve leak', '2026-09-29 10:00:00')");
         $db->exec("INSERT INTO well_pipeline_events VALUES (4, 7, 5, 'pipeline_build_started', 'info', 'Building', '2026-09-30 10:00:00')");

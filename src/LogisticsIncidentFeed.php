@@ -43,7 +43,7 @@ final class LogisticsIncidentFeed
                        COALESCE(h.name, CONCAT('Hub #', e.hub_id)) AS hub_name, 'hub' AS source
                   FROM logistics_hub_events e
                   LEFT JOIN logistics_hubs h ON h.id = e.hub_id AND h.player_id = e.player_id
-                 WHERE e.player_id = ? AND e.event_type LIKE 'hub_incident_%'
+                 WHERE e.player_id = ? AND e.event_type LIKE 'hub_incident!_%' ESCAPE '!'
                 UNION ALL
                 SELECT p.id, p.player_id, NULL AS hub_id, p.pipeline_id,
                        CASE p.severity WHEN 'danger' THEN 'critical' WHEN 'warning' THEN 'medium' ELSE 'low' END,

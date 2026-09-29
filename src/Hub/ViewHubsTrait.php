@@ -289,34 +289,7 @@ trait HubViewHubsTrait
             $regionName = $hubs[0]['region_name'] ?? "Region #{$regionId}";
             $annotated  = [];
             foreach ($hubs as $hub) {
-                $slotsUsed   = (int)($hub['assigned_count'] ?? 0);
-                $slotLimit   = (int)($hub['slot_limit'] ?? 0);
-                $leaseFee    = (float)($hub['lease_fee_per_tick'] ?? 0.0);
-                $buyPrice    = (float)(($hub['acquisition_price'] ?? 0) > 0
-                                ? $hub['acquisition_price']
-                                : $hub['build_cost']);
- // Prevent a zero-price display when DB values were seeded from a zeroed config.
-                static $buyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
-                if ($buyPrice <= 0.0) {
-                    $buyPrice = $buyFloors[$hub['hub_type'] ?? 'small'] ?? 31000.0;
-                }
- // Deposit applies only to rental acquisition type.
-                $acqTypeHub = (string)($hub['acquisition_type'] ?? 'new');
-                if ($acqTypeHub === 'rental' && $leaseFee <= 0.0) {
-                    static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
-                    $leaseFee = $leaseFloors[$hub['hub_type'] ?? 'small'] ?? 200.0;
-                } elseif ($acqTypeHub !== 'rental') {
-                    $leaseFee = 0.0;
-                }
-
-                $annotated[] = $hub + [
-                    'slots_avail'  => max(0, $slotLimit - $slotsUsed),
-                    'slots_full'   => $slotLimit > 0 && $slotsUsed >= $slotLimit,
-                    'status_class' => $this->getStatusCssClass($hub['status']),
-                    'buy_price'    => round($buyPrice, 2),
-                    'rent_deposit' => round($leaseFee * 3.0, 2),
-                    'lease_fee'    => round($leaseFee, 2),
-                ];
+                $annotated[] = $this->annotateMarketHub($hub);
             }
 
             $result[] = [
@@ -327,6 +300,73 @@ trait HubViewHubsTrait
         }
 
         return $result;
+    }
+
+    /**
+     * Returns one server-paginated market page with view-ready offers.
+     * Zwraca jedna strone rynku z ofertami przygotowanymi do widoku.
+     * @return array{regions: list<array<string, mixed>>, total: int, page: int, pages: int}
+     */
+    public function getMarketHubsPageByRegion(
+        int $playerId,
+        string $search,
+        string $filter,
+        int $page,
+        int $perPage = 10
+    ): array {
+        $marketPage = $this->hubSvc->getMarketHubsPageForPlayer($playerId, $search, $filter, $page, $perPage);
+        $regions = [];
+        foreach ($marketPage['hubs'] as $hub) {
+            $regionId = (int)$hub['region_id'];
+            if (!isset($regions[$regionId])) {
+                $regions[$regionId] = [
+                    'region_id' => $regionId,
+                    'region_name' => (string)($hub['region_name'] ?? "Region #{$regionId}"),
+                    'hubs' => [],
+                ];
+            }
+            $regions[$regionId]['hubs'][] = $this->annotateMarketHub($hub);
+        }
+        return [
+            'regions' => array_values($regions),
+            'total' => $marketPage['total'],
+            'page' => $marketPage['page'],
+            'pages' => $marketPage['pages'],
+        ];
+    }
+
+    /**
+     * Adds market prices and availability without changing the source record.
+     * Dodaje ceny i dostepnosc rynku bez zmiany rekordu z bazy.
+     * @param array<string, mixed> $hub
+     * @return array<string, mixed>
+     */
+    private function annotateMarketHub(array $hub): array
+    {
+        $slotsUsed = (int)($hub['assigned_count'] ?? 0);
+        $slotLimit = (int)($hub['slot_limit'] ?? 0);
+        $leaseFee = (float)($hub['lease_fee_per_tick'] ?? 0.0);
+        $buyPrice = (float)(($hub['acquisition_price'] ?? 0) > 0
+            ? $hub['acquisition_price'] : ($hub['build_cost'] ?? 0));
+        static $buyFloors = ['small' => 31000.0, 'medium' => 93000.0, 'large' => 248000.0];
+        if ($buyPrice <= 0.0) {
+            $buyPrice = $buyFloors[$hub['hub_type'] ?? 'small'] ?? 31000.0;
+        }
+        $acqType = (string)($hub['acquisition_type'] ?? 'new');
+        if ($acqType === 'rental' && $leaseFee <= 0.0) {
+            static $leaseFloors = ['small' => 200.0, 'medium' => 600.0, 'large' => 1600.0];
+            $leaseFee = $leaseFloors[$hub['hub_type'] ?? 'small'] ?? 200.0;
+        } elseif ($acqType !== 'rental') {
+            $leaseFee = 0.0;
+        }
+        return array_replace($hub, [
+            'slots_avail' => max(0, $slotLimit - $slotsUsed),
+            'slots_full' => $slotLimit > 0 && $slotsUsed >= $slotLimit,
+            'status_class' => $this->getStatusCssClass((string)$hub['status']),
+            'buy_price' => round($buyPrice, 2),
+            'rent_deposit' => round($leaseFee * 3.0, 2),
+            'lease_fee' => round($leaseFee, 2),
+        ]);
     }
 
  /**

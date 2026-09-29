@@ -58,12 +58,6 @@ try {
 }
 
 $alerts = [];
-if ($totalLoss > 0) {
-    $alerts[] = [
-        'type' => 'warn',
-        'text' => t('logistics.alert_loss', ['bbl' => number_format($totalLoss, 1, ',', ' ')]),
-    ];
-}
 
 $hubCards          = [];
 $hubAlerts         = [];
@@ -79,6 +73,16 @@ $hubStaffingViewByHub = [];
 $playerHubRegions  = [];
 $hubTypeOptions    = [];
 $hubAvailByRegion  = [];
+$hubMarketQueryInput = $_GET['hub_market_q'] ?? '';
+$hubMarketQuery = is_string($hubMarketQueryInput) ? trim(mb_substr($hubMarketQueryInput, 0, 100)) : '';
+$hubMarketFilterInput = $_GET['hub_market_filter'] ?? 'all';
+$hubMarketFilter = is_string($hubMarketFilterInput) ? $hubMarketFilterInput : 'all';
+$hubMarketFilter = in_array($hubMarketFilter, ['all', 'free', 'new', 'used', 'rental', 'large', 'medium', 'small'], true)
+    ? $hubMarketFilter : 'all';
+$hubMarketPageInput = $_GET['hub_market_page'] ?? 1;
+$hubMarketPage = max(1, is_scalar($hubMarketPageInput) ? (int)$hubMarketPageInput : 1);
+$hubMarketTotal = 0;
+$hubMarketTotalPages = 1;
 $unassignedPage    = 1;
 $unassignedTotal   = 0;
 $unassignedTotalPages = 1;
@@ -134,7 +138,11 @@ try {
  // Wlasnosc prywatna: "Moje huby" obejmuja wlasne i wynajete; przegladarka pokazuje rynek.
     $hubCards         = $viewSvc->getMyHubCards($playerId);
     $hubAlerts        = $viewSvc->getAlerts($playerId);
-    $hubAvailByRegion = $viewSvc->getMarketHubsByRegion($playerId);
+    $hubMarketResult = $viewSvc->getMarketHubsPageByRegion($playerId, $hubMarketQuery, $hubMarketFilter, $hubMarketPage);
+    $hubAvailByRegion = $hubMarketResult['regions'];
+    $hubMarketTotal = $hubMarketResult['total'];
+    $hubMarketPage = $hubMarketResult['page'];
+    $hubMarketTotalPages = $hubMarketResult['pages'];
     $hubUnassignedAll = $hubSvc->getUnassignedWells($playerId);
  // Load all hub_incident_* events regardless of read state.
  // Laduje wszystkie zdarzenia hub_incident_* niezaleznie od stanu odczytu.

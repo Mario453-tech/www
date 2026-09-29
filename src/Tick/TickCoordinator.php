@@ -7,6 +7,7 @@ require_once __DIR__ . '/TickModuleConfigRepository.php';
 require_once __DIR__ . '/TickModuleScheduler.php';
 require_once __DIR__ . '/TickRunResult.php';
 require_once __DIR__ . '/TickStatsRepository.php';
+require_once __DIR__ . '/../LogisticsIncidentRetentionService.php';
 
 final class TickCoordinator
 {
@@ -311,6 +312,20 @@ final class TickCoordinator
     private function cleanup(): void
     {
         $this->cleanupTickHistoryIfDue();
+
+        try {
+            // Use the database clock, matching the timestamps written by the game.
+            // Uzyj zegara bazy, zgodnego z czasem zapisanym przez gre.
+            $cutoff = (string)$this->db->query('SELECT DATE_SUB(NOW(), INTERVAL 48 HOUR)')->fetchColumn();
+            $deleted = (new LogisticsIncidentRetentionService($this->db))->pruneBefore($cutoff);
+            if (($deleted['hub'] + $deleted['pipeline']) > 0 && class_exists('GameLog', false)) {
+                GameLog::info('tick', 'logistics incident history cleanup OK', $deleted);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) {
+                GameLog::error('tick', 'logistics incident history cleanup FAILED', $e);
+            }
+        }
 
         $retentionDays = $this->configInt('incident_retention_days', 30, 1);
         $incidentRetentionDays = 3;

@@ -87,7 +87,7 @@
             ?>
             <?php if ($status === 'building'): ?>
             <!-- Building pipeline card with countdown / Karta rurociagu w budowie z odliczaniem -->
-            <article class="logistics-pipeline-card logistics-pipeline-card--building">
+            <article class="logistics-pipeline-card logistics-pipeline-card--building" data-pipeline-id="<?= (int)($pipe['id'] ?? 0) ?>">
                 <div class="logistics-pipeline-card-head">
                     <div>
                         <h4><?= htmlspecialchars((string)($pipe['name'] ?? t('logistics.pipeline.fallback_name', ['id' => (int)($pipe['id'] ?? 0)]))) ?></h4>
@@ -147,7 +147,7 @@
                 $engineerCoverage = (float)($pipelineStaffingSummary['engineer_coverage_pct'] ?? 0.0);
                 $logisticsCoverage = (float)($pipelineStaffingSummary['logistics_coverage_pct'] ?? 0.0);
             ?>
-            <article class="logistics-pipeline-card<?= !empty($pipe['is_critical']) ? ' is-critical' : (!empty($pipe['is_degraded']) ? ' is-degraded' : '') ?>">
+            <article class="logistics-pipeline-card<?= !empty($pipe['is_critical']) ? ' is-critical' : (!empty($pipe['is_degraded']) ? ' is-degraded' : '') ?>" data-pipeline-id="<?= $pipelineId ?>">
                 <div class="logistics-pipeline-card-head">
                     <div>
                         <h4><?= htmlspecialchars((string)($pipe['name'] ?? t('logistics.pipeline.fallback_name', ['id' => (int)($pipe['id'] ?? 0)]))) ?></h4>

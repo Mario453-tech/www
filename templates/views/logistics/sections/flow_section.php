@@ -6,7 +6,7 @@ $hubsInUse = count(array_filter($hubCards, static fn(array $card): bool => (int)
 $activePipelineCount = count(array_filter($pipelines, static fn(array $pipeline): bool => ($pipeline['status'] ?? '') === 'active'));
 $activeRouteCount = count(array_filter(['ciezarowki', 'tankowiec', 'rurociag'], static fn(string $type): bool => (int)($transportMix[$type]['count'] ?? 0) > 0));
 ?>
-<section class="logistics-flow-section" aria-labelledby="logistics-flow-heading">
+<section class="logistics-flow-section" aria-labelledby="logistics-flow-heading" tabindex="0">
     <div class="logistics-flow-header">
         <h3 id="logistics-flow-heading"><?= t('logistics.flow_title') ?></h3>
         <span class="logistics-flow-sub"><?= t('logistics.flow_subtitle') ?></span>

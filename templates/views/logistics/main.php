@@ -1,5 +1,5 @@
 <?php require __DIR__ . '/partials/bootstrap.php'; ?>
-<div class="logistics-page logistics-design" data-details-label="<?= htmlspecialchars(t('logistics.design.details'), ENT_QUOTES, 'UTF-8') ?>">
+<div class="logistics-page logistics-design" data-player-id="<?= (int)($playerId ?? 0) ?>" data-details-label="<?= htmlspecialchars(t('logistics.design.details'), ENT_QUOTES, 'UTF-8') ?>">
     <nav class="logistics-section-nav" aria-label="<?= htmlspecialchars(t('logistics.design.nav_aria'), ENT_QUOTES, 'UTF-8') ?>">
         <a href="#logistics-summary" aria-current="location"><?= t('logistics.design.overview') ?></a>
         <a href="#logistics-transport-section"><?= t('logistics.design.transport') ?></a>
@@ -16,7 +16,6 @@
             <?php require __DIR__ . '/sections/flow_section.php'; ?>
             <?php require __DIR__ . '/sections/decisions_section.php'; ?>
         </div>
-        <?php require __DIR__ . '/sections/alerts.php'; ?>
         <?php require __DIR__ . '/sections/transport_mix_section.php'; ?>
         <details class="logistics-insights-details">
             <summary><?= t('logistics.insight_title') ?></summary>
@@ -56,8 +55,7 @@
         <?php require __DIR__ . '/sections/protection_sections.php'; ?>
     </section>
 
-    <section class="logistics-design-section" id="logistics-incidents-section" aria-labelledby="logistics-incidents-section-title">
-        <header class="logistics-design-heading"><h2 id="logistics-incidents-section-title"><?= t('logistics.design.incidents_heading') ?></h2><p><?= t('logistics.design.incidents_desc') ?></p></header>
+    <section class="logistics-design-section" id="logistics-incidents-section" aria-labelledby="logistics-hub-incidents-heading">
         <?php require __DIR__ . '/sections/hub_incidents_section.php'; ?>
     </section>
     <?php require __DIR__ . '/modals/hub_modals.php'; ?>

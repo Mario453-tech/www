@@ -10,7 +10,8 @@
         string $targetKey,
         array $targets,
         array $options,
-        string $colTargetLabel
+        string $colTargetLabel,
+        bool $showTable = true
     ): void {
         if ($targets === []) {
             return;
@@ -18,6 +19,7 @@
         $headingId = 'logistics-protection-heading-' . $targetKey;
         $modalId   = 'protection-modal-' . $targetKey;
     ?>
+    <?php if ($showTable): ?>
     <section class="logistics-panel" aria-labelledby="<?= $headingId ?>">
         <div class="logistics-panel-head">
             <h3 id="<?= $headingId ?>"><?= t('protection.section_title_' . $targetKey) ?></h3>
@@ -59,6 +61,7 @@
             <?php endforeach ?>
         </div>
     </section>
+    <?php endif ?>
 
     <div id="<?= $modalId ?>" class="logistics-modal-overlay protection-modal-overlay protection-modal" hidden>
         <div class="logistics-modal-box">
@@ -116,11 +119,40 @@
     <?php
     };
 
+    $roadProtectionRows = is_array($roadProtectionWells ?? null) ? $roadProtectionWells : [];
+    $pipelineProtectionRows = is_array($pipelineProtectionTargets ?? null) ? $pipelineProtectionTargets : [];
+    if ($roadProtectionRows !== [] || $pipelineProtectionRows !== []):
+    ?>
+    <section class="logistics-panel" aria-labelledby="logistics-protection-combined-heading">
+        <div class="logistics-panel-head"><h3 id="logistics-protection-combined-heading"><?= t('logistics.design.protection_combined') ?></h3></div>
+        <div class="logistics-table logistics-table--protection logistics-table--protection-combined" role="region" tabindex="0" aria-label="<?= htmlspecialchars(t('logistics.design.protection_combined'), ENT_QUOTES, 'UTF-8') ?>">
+            <div class="logistics-table-head">
+                <span><?= t('logistics.design.protection_type') ?></span><span><?= t('logistics.design.protection_object') ?></span>
+                <span><?= t('protection.col_protection') ?></span><span><?= t('protection.col_until') ?></span><span><?= t('protection.col_action') ?></span>
+            </div>
+            <?php foreach (['road' => $roadProtectionRows, 'pipeline' => $pipelineProtectionRows] as $targetType => $targetRows): ?>
+            <?php foreach ($targetRows as $protTarget): ?>
+            <div class="logistics-table-row">
+                <span><?= t('logistics.design.protection_' . $targetType) ?></span>
+                <span><?= htmlspecialchars((string)$protTarget['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="<?= $protTarget['active'] !== null ? 'c-good' : 'c-muted2' ?>"><?= $protTarget['active'] !== null ? htmlspecialchars((string)$protTarget['active']['name'], ENT_QUOTES, 'UTF-8') : t('protection.status_none') ?></span>
+                <span><?= $protTarget['active'] !== null ? htmlspecialchars(substr((string)$protTarget['active']['ends_at'], 0, 16), ENT_QUOTES, 'UTF-8') : '—' ?></span>
+                <span><button type="button" class="btn btn-xs <?= $protTarget['active'] !== null ? 'btn-secondary' : 'btn-primary' ?> protection-add-btn"
+                    data-target="<?= $targetType ?>" data-target-id="<?= (int)$protTarget['id'] ?>" <?= $protTarget['active'] !== null ? 'data-renew="1"' : '' ?>>
+                    <?= t($protTarget['active'] !== null ? 'protection.btn_renew' : 'protection.btn_add') ?>
+                </button></span>
+            </div>
+            <?php endforeach ?>
+            <?php endforeach ?>
+        </div>
+    </section>
+    <?php endif;
     $renderProtectionSection(
         'road',
-        is_array($roadProtectionWells ?? null) ? $roadProtectionWells : [],
+        $roadProtectionRows,
         is_array($roadProtectionOptions ?? null) ? $roadProtectionOptions : [],
-        t('protection.col_well')
+        t('protection.col_well'),
+        false
     );
     $renderProtectionSection(
         'hub',
@@ -130,8 +162,9 @@
     );
     $renderProtectionSection(
         'pipeline',
-        is_array($pipelineProtectionTargets ?? null) ? $pipelineProtectionTargets : [],
+        $pipelineProtectionRows,
         is_array($pipelineProtectionOptions ?? null) ? $pipelineProtectionOptions : [],
-        t('protection.col_pipeline')
+        t('protection.col_pipeline'),
+        false
     );
     ?>

@@ -1,6 +1,11 @@
     <?php
-        $hasUnassignedWells = !empty($hubUnassigned);
         $hasAvailableRegions = !empty($hubAvailByRegion);
+        $marketPage = (int)($hubMarketPage ?? 1);
+        $marketPages = (int)($hubMarketTotalPages ?? 1);
+        $marketTotal = (int)($hubMarketTotal ?? 0);
+        $marketPageSize = 10;
+        $marketStart = $marketTotal ? (($marketPage - 1) * $marketPageSize + 1) : 0;
+        $marketEnd = min($marketTotal, $marketPage * $marketPageSize);
     ?>
     <section class="logistics-panel" aria-labelledby="logistics-available-hubs-heading">
         <div class="logistics-panel-head">
@@ -8,28 +13,27 @@
             <span><?= t('logistics.hub.avail_section_desc') ?></span>
         </div>
 
-        <?php if (!$hasAvailableRegions): ?>
-        <div class="logistics-empty"><?= t('logistics.hub.avail_no_regions') ?></div>
-        <?php else: ?>
+        <form class="logistics-hub-filter logistics-market-filter" method="get" action="/logistics#logistics-market-section">
+            <label for="lhb-search"><?= t('logistics.design.market_search') ?>
+                <input class="logistics-hub-search" type="search" id="lhb-search" name="hub_market_q"
+                    value="<?= htmlspecialchars((string)($hubMarketQuery ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                    placeholder="<?= htmlspecialchars(t('logistics.hub.filter_placeholder'), ENT_QUOTES, 'UTF-8') ?>" maxlength="100" autocomplete="off">
+            </label>
+            <label for="lhb-filter"><?= t('logistics.design.market_filter') ?>
+                <select id="lhb-filter" name="hub_market_filter">
+                    <?php foreach (['all', 'free', 'new', 'used', 'rental', 'large', 'medium', 'small'] as $marketFilterOption): ?>
+                    <option value="<?= $marketFilterOption ?>" <?= ($hubMarketFilter ?? 'all') === $marketFilterOption ? 'selected' : '' ?>><?= t(in_array($marketFilterOption, ['large', 'medium', 'small'], true) ? 'logistics.hub.type_' . $marketFilterOption : 'logistics.hub.filter_' . $marketFilterOption) ?></option>
+                    <?php endforeach ?>
+                </select>
+            </label>
+            <button class="btn btn-sm btn-primary" type="submit"><?= t('logistics.design.filter') ?></button>
+            <a class="btn btn-sm btn-secondary" href="/logistics#logistics-market-section"><?= t('logistics.design.market_reset') ?></a>
+        </form>
+        <p id="lhb-count" class="logistics-filter-count" aria-live="polite"><?= t('logistics.design.market_range', ['start' => $marketStart, 'end' => $marketEnd, 'total' => $marketTotal]) ?></p>
 
-        <div class="logistics-hub-filter">
-            <input class="logistics-hub-search" type="search" id="lhb-search"
-                   placeholder="<?= htmlspecialchars(t('logistics.hub.filter_placeholder')) ?>" autocomplete="off">
-            <div class="logistics-hub-filter-chips">
-                <button class="logistics-filter-chip active" type="button" data-lhb-filter="all"><?= t('logistics.hub.filter_all') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="free"><?= t('logistics.hub.filter_free') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="new"><?= t('logistics.hub.filter_new') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="used"><?= t('logistics.hub.filter_used') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="rental"><?= t('logistics.hub.filter_rental') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="large"><?= t('logistics.hub.type_large') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="medium"><?= t('logistics.hub.type_medium') ?></button>
-                <button class="logistics-filter-chip" type="button" data-lhb-filter="small"><?= t('logistics.hub.type_small') ?></button>
-            </div>
-            <span id="lhb-count"
-                  class="logistics-filter-count"
-                  data-filter-template="<?= htmlspecialchars(t('logistics.hub.filter_count', ['shown' => '{shown}', 'total' => '{total}']), ENT_QUOTES) ?>"></span>
-        </div>
-        <div class="logistics-hub-filter-note"><?= t('logistics.hub.preview_limit_note', ['count' => 5]) ?></div>
+        <?php if (!$hasAvailableRegions): ?>
+        <div class="logistics-empty"><?= t('logistics.design.market_empty') ?></div>
+        <?php else: ?>
 
         <div id="lhb-browser" class="logistics-hub-browser">
         <?php foreach ($hubAvailByRegion as $rgIdx => $regionGroup): ?>
@@ -37,7 +41,6 @@
             $rHubs      = $regionGroup['hubs'] ?? [];
             $rHubCount  = count($rHubs);
             $rFreeSlots = 0;
-            $rPreviewLimit = 5;
             foreach ($rHubs as $_h) {
                 $rFreeSlots += max(0, (int)($_h['slots_avail'] ?? 0));
             }
@@ -47,18 +50,18 @@
              data-region-id="<?= (int)($regionGroup['region_id'] ?? 0) ?>"
              data-region-name-lc="<?= htmlspecialchars(mb_strtolower($regionGroup['region_name'] ?? ''), ENT_QUOTES) ?>">
 
-            <button class="logistics-region-toggle" type="button" data-lhb-toggle>
+            <button class="logistics-region-toggle" type="button" data-lhb-toggle aria-expanded="<?= $rgIdx === 0 ? 'true' : 'false' ?>" aria-controls="lhb-region-<?= $rgIdx ?>">
                 <span class="logistics-region-caret"></span>
                 <span class="logistics-region-title-wrap">
                     <span class="logistics-region-title"><?= htmlspecialchars($regionGroup['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . (int)($regionGroup['region_id'] ?? $rgIdx))) ?></span>
-                    <span class="logistics-region-subtitle"><?= t('logistics.hub.region_summary', ['count' => $rHubCount]) ?></span>
+                    <span class="logistics-region-subtitle"><?= t('logistics.design.market_region_page_count', ['count' => $rHubCount]) ?></span>
                 </span>
                 <span class="logistics-region-badge<?= $rHasFree ? ' has-free' : '' ?>">
-                    <?= t('logistics.hub.region_stats', ['free' => $rFreeSlots, 'count' => $rHubCount]) ?>
+                    <?= t('logistics.design.market_region_slots', ['count' => $rFreeSlots]) ?>
                 </span>
             </button>
 
-            <div class="logistics-region-body">
+            <div class="logistics-region-body" id="lhb-region-<?= $rgIdx ?>">
             <?php if (empty($rHubs)): ?>
                         <div class="logistics-empty logistics-empty--padded"><?= t('logistics.hub.avail_none_in_region') ?></div>
             <?php else: ?>
@@ -95,9 +98,6 @@
                     $cardClasses = ['logistics-hub-avail-card', 'hub-status-' . preg_replace('/[^a-z0-9_-]/i', '', $hStatus)];
                     if ($isFull) {
                         $cardClasses[] = 'slots-full';
-                    }
-                    if ($hubIdx >= $rPreviewLimit) {
-                        $cardClasses[] = 'is-preview-hidden';
                     }
                 ?>
                 <article class="<?= implode(' ', $cardClasses) ?>"
@@ -200,22 +200,28 @@
                 <?php endforeach ?>
                 </div>
 
-                <?php if ($rHubCount > $rPreviewLimit): ?>
-                <div class="logistics-region-more">
-                    <button class="btn btn-xs btn-secondary logistics-region-more-btn"
-                            type="button"
-                            data-lhb-expand
-                            data-expanded-label="<?= htmlspecialchars(t('logistics.hub.show_less'), ENT_QUOTES) ?>"
-                            data-collapsed-label="<?= htmlspecialchars(t('logistics.hub.show_all', ['count' => $rHubCount]), ENT_QUOTES) ?>">
-                        <?= t('logistics.hub.show_all', ['count' => $rHubCount]) ?>
-                    </button>
-                </div>
-                <?php endif ?>
             <?php endif ?>
             </div>
         </div>
         <?php endforeach ?>
         </div><!-- /lhb-browser -->
 
+        <?php endif ?>
+        <?php if ($marketPages > 1):
+            $marketBaseParams = $_GET;
+            $marketBaseParams['hub_market_q'] = (string)($hubMarketQuery ?? '');
+            $marketBaseParams['hub_market_filter'] = (string)($hubMarketFilter ?? 'all');
+        ?>
+        <nav class="logistics-market-pagination" aria-label="<?= htmlspecialchars(t('logistics.design.market_pagination'), ENT_QUOTES, 'UTF-8') ?>">
+            <span><?= t('logistics.design.market_page', ['page' => $marketPage, 'total' => $marketPages]) ?></span>
+            <div>
+                <?php if ($marketPage > 1): $marketBaseParams['hub_market_page'] = $marketPage - 1; ?>
+                <a class="btn btn-sm btn-secondary" href="?<?= htmlspecialchars(http_build_query($marketBaseParams), ENT_QUOTES, 'UTF-8') ?>#logistics-market-section"><?= t('logistics.pagination_prev') ?></a>
+                <?php endif ?>
+                <?php if ($marketPage < $marketPages): $marketBaseParams['hub_market_page'] = $marketPage + 1; ?>
+                <a class="btn btn-sm btn-secondary" href="?<?= htmlspecialchars(http_build_query($marketBaseParams), ENT_QUOTES, 'UTF-8') ?>#logistics-market-section"><?= t('logistics.pagination_next') ?></a>
+                <?php endif ?>
+            </div>
+        </nav>
         <?php endif ?>
     </section>

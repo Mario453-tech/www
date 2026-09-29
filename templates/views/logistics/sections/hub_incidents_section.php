@@ -3,30 +3,33 @@
     $incidentsOnPage = count($hubIncidents);
     $incidentPageStart = $incidentsOnPage ? (($hubIncidentsPage ?? 1) - 1) * 20 + 1 : 0;
     $incidentPageEnd = $incidentsOnPage ? $incidentPageStart + $incidentsOnPage - 1 : 0;
+    $visibleHubIds = array_map('intval', array_column(array_column($hubCards ?? [], 'hub'), 'id'));
+    $visiblePipelineIds = array_map('intval', array_column($pipelines ?? [], 'id'));
 ?>
-<form class="logistics-incident-filters" method="get" action="/logistics#logistics-incidents-section">
-    <label for="logistics-incident-search"><?= t('logistics.design.search_incidents') ?>
-        <input id="logistics-incident-search" type="search" name="incident_q" value="<?= htmlspecialchars($hubIncidentQuery ?? '', ENT_QUOTES, 'UTF-8') ?>" maxlength="100">
-    </label>
-    <label for="logistics-incident-severity"><?= t('logistics.design.severity') ?>
-        <select id="logistics-incident-severity" name="incident_severity">
-            <option value=""><?= t('logistics.design.all_severities') ?></option>
-            <?php foreach (['critical', 'high', 'medium', 'low'] as $severityOption): ?>
-            <option value="<?= $severityOption ?>" <?= ($hubIncidentSeverity ?? '') === $severityOption ? 'selected' : '' ?>><?= t('logistics.hub.incidents_severity_' . $severityOption) ?></option>
-            <?php endforeach ?>
-        </select>
-    </label>
-    <button class="btn btn-sm btn-secondary" type="submit"><?= t('logistics.design.filter') ?></button>
-</form>
 <details class="logistics-panel logistics-incidents-panel" open>
     <summary class="logistics-incidents-heading">
-        <h3 id="logistics-hub-incidents-heading">
+        <h2 class="logistics-incidents-heading-label" id="logistics-hub-incidents-heading">
             <?= incidentIconSvg('truck', 'incident-svg--heading') ?>
-            <?= t('logistics.hub.incidents_title') ?> (<?= (int)($hubIncidentsTotal ?? $incidentsOnPage) ?>)
-        </h3>
+            <?= t('logistics.design.incidents_heading') ?> (<?= (int)($hubIncidentsTotal ?? $incidentsOnPage) ?>)
+        </h2>
         <span><?= t('logistics.hub.incidents_range', ['start' => $incidentPageStart, 'end' => $incidentPageEnd, 'total' => (int)($hubIncidentsTotal ?? $incidentsOnPage)]) ?></span>
         <?= incidentIconSvg('chevron-up', 'incident-svg--panel-chevron') ?>
     </summary>
+    <p class="logistics-incidents-intro"><?= t('logistics.design.incidents_desc') ?></p>
+    <form class="logistics-incident-filters" method="get" action="/logistics#logistics-incidents-section">
+        <label for="logistics-incident-search"><?= t('logistics.design.search_incidents') ?>
+            <input id="logistics-incident-search" type="search" name="incident_q" value="<?= htmlspecialchars($hubIncidentQuery ?? '', ENT_QUOTES, 'UTF-8') ?>" maxlength="100">
+        </label>
+        <label for="logistics-incident-severity"><?= t('logistics.design.severity') ?>
+            <select id="logistics-incident-severity" name="incident_severity">
+                <option value=""><?= t('logistics.design.all_severities') ?></option>
+                <?php foreach (['critical', 'high', 'medium', 'low'] as $severityOption): ?>
+                <option value="<?= $severityOption ?>" <?= ($hubIncidentSeverity ?? '') === $severityOption ? 'selected' : '' ?>><?= t('logistics.hub.incidents_severity_' . $severityOption) ?></option>
+                <?php endforeach ?>
+            </select>
+        </label>
+        <button class="btn btn-sm btn-secondary" type="submit"><?= t('logistics.design.filter') ?></button>
+    </form>
     <?php if ($incidentsOnPage === 0): ?>
     <p class="logistics-empty"><?= t('logistics.design.no_incidents') ?></p>
     <?php endif ?>
@@ -41,15 +44,18 @@
         $severity = (string)($hi['severity'] ?? 'low');
         $severity = in_array($severity, ['critical', 'high', 'medium', 'low'], true) ? $severity : 'low';
         $hubName = (string)($hi['hub_name'] ?? ('Hub #' . (int)($hi['hub_id'] ?? 0)));
+        $incidentSource = ($hi['source'] ?? 'hub') === 'pipeline' ? 'pipeline' : 'hub';
+        $objectId = (int)($incidentSource === 'pipeline' ? ($hi['pipeline_id'] ?? 0) : ($hi['hub_id'] ?? 0));
+        $canOpenObject = $objectId > 0 && in_array($objectId, $incidentSource === 'hub' ? $visibleHubIds : $visiblePipelineIds, true);
         $meta = json_decode((string)($hi['meta_json'] ?? ''), true);
         $meta = is_array($meta) ? $meta : [];
     ?>
-    <article class="logistics-incidents-row logistics-incidents-row--<?= $severity ?>">
+    <article class="logistics-incidents-row logistics-incidents-row--<?= $severity ?>" data-event-time="<?= htmlspecialchars((string)($hi['created_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
         <div class="logistics-incidents-badge"><span class="logistics-incidents-dot" aria-hidden="true"></span><?= t('logistics.hub.incidents_severity_' . $severity) ?></div>
         <div class="logistics-incidents-body">
             <div class="logistics-incidents-message"><?= htmlspecialchars((string)$hi['message'], ENT_QUOTES, 'UTF-8') ?></div>
             <div class="logistics-incidents-meta">
-                <span class="logistics-incidents-source"><span class="logistics-source-icon logistics-source-icon--<?= ($hi['source'] ?? 'hub') === 'pipeline' ? 'pipeline' : 'hub' ?>" aria-hidden="true"></span><?= htmlspecialchars($hubName, ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="logistics-incidents-source"><span class="logistics-source-icon logistics-source-icon--<?= $incidentSource ?>" aria-hidden="true"></span><?php if ($canOpenObject): ?><a href="#logistics-<?= $incidentSource === 'hub' ? 'owned' : 'pipelines' ?>-section" data-logistics-object="<?= $incidentSource ?>" data-object-id="<?= $objectId ?>"><?= htmlspecialchars($hubName, ENT_QUOTES, 'UTF-8') ?></a><?php else: ?><?= htmlspecialchars($hubName, ENT_QUOTES, 'UTF-8') ?><?php endif ?></span>
                 <?php if (($meta['extra_loss_bbl'] ?? 0) > 0): ?>
                 <span>· <?= t('logistics.hub.incidents_loss', ['amount' => number_format((float)$meta['extra_loss_bbl'], 1, ',', ' ')]) ?></span>
                 <?php endif ?>

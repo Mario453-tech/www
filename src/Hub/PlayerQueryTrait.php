@@ -93,6 +93,71 @@ trait HubPlayerQueryTrait
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    /**
+     * Returns one filtered market page scoped to the player's operating regions.
+     * Zwraca jedna filtrowana strone rynku tylko z regionow gracza.
+     * @return array{hubs: list<array<string, mixed>>, total: int, page: int, pages: int}
+     */
+    public function getMarketHubsPageForPlayer(
+        int $playerId,
+        string $search,
+        string $filter,
+        int $page,
+        int $perPage = 10
+    ): array {
+        $regionIds = $this->getPlayerRegionIds($playerId);
+        if ($regionIds === []) {
+            return ['hubs' => [], 'total' => 0, 'page' => 1, 'pages' => 1];
+        }
+
+        $search = mb_substr(trim($search), 0, 100);
+        $filter = in_array($filter, ['all', 'free', 'new', 'used', 'rental', 'large', 'medium', 'small'], true)
+            ? $filter : 'all';
+        $perPage = max(1, min(50, $perPage));
+        $placeholders = implode(',', array_fill(0, count($regionIds), '?'));
+        $where = "h.region_id IN ($placeholders)
+            AND h.player_id = 0 AND h.tenant_player_id = 0
+            AND h.status NOT IN ('disabled','building')";
+        $params = $regionIds;
+        if ($search !== '') {
+            $escapedSearch = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $search);
+            $where .= " AND (h.name LIKE ? ESCAPE '!' OR h.zone_key LIKE ? ESCAPE '!'
+                OR wr.name LIKE ? ESCAPE '!')";
+            $like = '%' . $escapedSearch . '%';
+            array_push($params, $like, $like, $like);
+        }
+        if ($filter === 'free') {
+            $where .= " AND h.slot_limit > (SELECT COUNT(*) FROM logistics_hub_assignments a WHERE a.hub_id = h.id AND a.status = 'active')";
+        } elseif (in_array($filter, ['new', 'used', 'rental'], true)) {
+            $where .= ' AND h.acquisition_type = ?';
+            $params[] = $filter;
+        } elseif (in_array($filter, ['large', 'medium', 'small'], true)) {
+            $where .= ' AND h.hub_type = ?';
+            $params[] = $filter;
+        }
+
+        $from = ' FROM logistics_hubs h LEFT JOIN world_regions wr ON wr.id = h.region_id WHERE ' . $where;
+        $countStmt = $this->db->prepare('SELECT COUNT(*)' . $from);
+        $countStmt->execute($params);
+        $total = (int)$countStmt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = min(max(1, $page), $pages);
+
+        $stmt = $this->db->prepare(
+            "SELECT h.*, wr.name AS region_name,
+                (SELECT COUNT(*) FROM logistics_hub_assignments a WHERE a.hub_id = h.id AND a.status = 'active') AS assigned_count" . $from
+            . ' ORDER BY wr.name, h.hub_type, h.zone_key, h.name, h.id LIMIT ? OFFSET ?'
+        );
+        foreach ($params as $index => $value) {
+            $stmt->bindValue($index + 1, $value, is_int($value) ? PDO::PARAM_INT : PDO::PARAM_STR);
+        }
+        $stmt->bindValue(count($params) + 1, $perPage, PDO::PARAM_INT);
+        $stmt->bindValue(count($params) + 2, ($page - 1) * $perPage, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return ['hubs' => $stmt->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
  /**
  * Returns ALL active hubs in a region accessible to the player (owned + rented + legacy market).
  * Used for well assignment - only player's own hubs shown.

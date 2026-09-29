@@ -36,10 +36,11 @@
         </div>
 
         <!-- Aktywne dostawy / Active deliveries -->
+        <h4 class="logistics-marine-subheading"><?= t('logistics.design.marine_active') ?> (<?= (int)($marineDeliveriesTotal ?? count($marineDeliveriesList)) ?>)</h4>
         <?php if (empty($marineDeliveriesList)): ?>
             <div class="logistics-empty"><?= t('marine.no_deliveries') ?></div>
         <?php else: ?>
-        <div class="logistics-table">
+        <div class="logistics-table logistics-table--marine-active" role="region" tabindex="0" aria-label="<?= htmlspecialchars(t('logistics.design.marine_active'), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="logistics-table-head logistics-table-row--marine">
                 <span><?= t('marine.col_well') ?></span>
                 <span><?= t('marine.col_port') ?></span>
@@ -78,7 +79,10 @@
                     </small>
                     <?php endif ?>
                 </span>
-                <span><?= htmlspecialchars($etaStr) ?></span>
+                <span><?php if ($delStatus === 'waiting_for_port' && $etaTs && $etaTs < time()): ?>
+                    <strong class="c-warn"><?= t('logistics.design.marine_waiting_arrived') ?></strong>
+                    <small><?= htmlspecialchars($etaStr, ENT_QUOTES, 'UTF-8') ?></small>
+                    <?php else: ?><?= htmlspecialchars($etaStr, ENT_QUOTES, 'UTF-8') ?><?php endif ?></span>
             </div>
             <?php endforeach ?>
         </div>
@@ -114,11 +118,11 @@
 
         <!-- Historia dostaw / Delivery history -->
         <div class="marine-history-section">
-            <div class="logistics-section-title"><?= t('marine.history_title') ?></div>
+            <h4 class="logistics-marine-subheading"><?= t('marine.history_title') ?></h4>
             <?php if (empty($marineHistoryList)): ?>
                 <div class="logistics-empty"><?= t('marine.no_history') ?></div>
             <?php else: ?>
-            <div class="logistics-table logistics-table--marine-history">
+            <div class="logistics-table logistics-table--marine-history" role="region" tabindex="0" aria-label="<?= htmlspecialchars(t('marine.history_title'), ENT_QUOTES, 'UTF-8') ?>">
                 <div class="logistics-table-head">
                     <span><?= t('marine.col_well') ?></span>
                     <span><?= t('marine.col_port') ?></span>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require_once dirname(__DIR__, 2) . '/src/i18n.php';
 $_SESSION = ['locale' => $argv[1] ?? 'pl'];
+parse_str((string)($argv[2] ?? ''), $_GET);
 class CSRF { public static function generateToken(): string { return 'fixture'; } public static function field(): string { return '<input type="hidden" name="csrf_token" value="fixture">'; } }
 function url(string $path, array $params = []): string { return '/' . $path . ($params ? '?' . http_build_query($params) : ''); }
 
@@ -43,15 +44,29 @@ foreach ([1, 2] as $id) {
     ];
 }
 $hubAlerts = [];
-$hubAvailByRegion = [['region_id' => 1, 'region_name' => 'Bliski Wschód', 'hubs' => [
-    ['id' => 21, 'name' => 'Hub Alpha', 'slots_avail' => 2, 'slot_limit' => 4, 'hub_type' => 'small',
-        'status' => 'active', 'acquisition_type' => 'used', 'condition_pct' => 80.0, 'buy_price' => 30000.0],
-    ['id' => 22, 'name' => 'Hub Beta', 'slots_avail' => 3, 'slot_limit' => 4, 'hub_type' => 'medium',
-        'status' => 'active', 'acquisition_type' => 'new', 'condition_pct' => 100.0, 'buy_price' => 60000.0],
-]]];
+$hubMarketOffers = [];
+for ($id = 1; $id <= 12; $id++) {
+    $hubMarketOffers[] = ['id' => $id + 20, 'name' => $id === 12 ? 'Hub Beta' : 'Hub Alpha ' . $id,
+        'slots_avail' => 2, 'slot_limit' => 4, 'hub_type' => $id === 12 ? 'medium' : 'small',
+        'status' => 'active', 'acquisition_type' => $id === 12 ? 'new' : 'used',
+        'condition_pct' => 80.0, 'buy_price' => 30000.0];
+}
+$hubMarketQuery = trim((string)($_GET['hub_market_q'] ?? ''));
+$hubMarketFilter = (string)($_GET['hub_market_filter'] ?? 'all');
+$hubMarketPage = max(1, (int)($_GET['hub_market_page'] ?? 1));
+$hubMarketMatching = array_values(array_filter($hubMarketOffers, static function (array $offer) use ($hubMarketQuery, $hubMarketFilter): bool {
+    return ($hubMarketQuery === '' || stripos($offer['name'], $hubMarketQuery) !== false)
+        && ($hubMarketFilter === 'all' || $hubMarketFilter === 'free'
+            || $hubMarketFilter === $offer['acquisition_type'] || $hubMarketFilter === $offer['hub_type']);
+}));
+$hubMarketTotal = count($hubMarketMatching);
+$hubMarketTotalPages = max(1, (int)ceil($hubMarketTotal / 10));
+$hubMarketPage = min($hubMarketPage, $hubMarketTotalPages);
+$hubMarketVisible = array_slice($hubMarketMatching, ($hubMarketPage - 1) * 10, 10);
+$hubAvailByRegion = $hubMarketVisible === [] ? [] : [['region_id' => 1, 'region_name' => 'Bliski Wschód', 'hubs' => $hubMarketVisible]];
 $hubUnassigned = [];
 $hubIncidents = [[
-    'id' => 1, 'source' => 'hub', 'severity' => 'critical', 'message' => 'Awaria huba testowego.',
+    'id' => 1, 'source' => 'hub', 'hub_id' => 1, 'severity' => 'critical', 'message' => 'Awaria huba testowego.',
     'hub_name' => 'Hub testowy', 'meta_json' => '{}', 'created_at' => '2026-09-29 10:00:00',
 ]];
 $hubIncidentsTotal = 1;
@@ -76,13 +91,14 @@ $pipelineStaffingClientPayload = ['pipelines' => [], 'candidates' => []];
 $pipelineSummary = ['total' => 2, 'critical' => 0, 'needs_service' => 0, 'avg_condition' => 80.0, 'avg_cost' => 0.0];
 $pipelineHse = [];
 $logisticsInsights = ['recommendations' => [['tone' => 'ok', 'title' => 'Transport działa', 'text' => 'Brak pilnych decyzji.', 'cta_href' => '#logistics-transport-section', 'cta_label' => 'Transport']]];
-$roadProtectionWells = [];
+$roadProtectionWells = [['id' => 54, 'name' => 'Rumaila, Irak', 'active' => null]];
 $roadProtectionOptions = [];
 $hubProtectionTargets = [];
 $hubProtectionOptions = [];
-$pipelineProtectionTargets = [];
+$pipelineProtectionTargets = [['id' => 1, 'name' => 'Rurociąg testowy 1', 'active' => null]];
 $pipelineProtectionOptions = [];
-$marineDeliveries = [];
+$marineDeliveries = [['well_id' => 58, 'well_name' => 'Zatoka Perska', 'port_name' => 'Port testowy',
+    'volume_bbl' => 500.0, 'status' => 'waiting_for_port', 'eta_at' => '2026-09-25 12:00:00']];
 $marineBuffers = [['well_id' => 58, 'well_name' => 'Zatoka Perska', 'marine_buffer_bbl' => 1826.2, 'min_load_bbl' => 4000.0]];
 $marineHistory = [];
 $marineMinLoadBbl = 4000.0;

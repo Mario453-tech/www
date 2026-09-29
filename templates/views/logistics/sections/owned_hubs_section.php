@@ -118,19 +118,19 @@
                                 class="workmode-btn workmode-btn--eco <?= $workMode === 'eco' ? 'is-active' : '' ?>"
                                 onclick="window.hubSetMode(<?= $hubId ?>, 'eco')"
                                 title="<?= htmlspecialchars(t('logistics.hub.desc_mode_eco')) ?>">
-                            <span class="dot">🟢</span> <?= t('logistics.hub.mode_eco') ?>
+                            <span class="logistics-workmode-icon" aria-hidden="true"></span> <?= t('logistics.hub.mode_eco') ?>
                         </button>
                         <button type="button"
                                 class="workmode-btn workmode-btn--standard <?= $workMode === 'standard' ? 'is-active' : '' ?>"
                                 onclick="window.hubSetMode(<?= $hubId ?>, 'standard')"
                                 title="<?= htmlspecialchars(t('logistics.hub.desc_mode_standard')) ?>">
-                            <span class="dot">🔵</span> <?= t('logistics.hub.mode_standard') ?>
+                            <span class="logistics-workmode-icon" aria-hidden="true"></span> <?= t('logistics.hub.mode_standard') ?>
                         </button>
                         <button type="button"
                                 class="workmode-btn workmode-btn--max <?= $workMode === 'max' ? 'is-active' : '' ?>"
                                 onclick="window.hubSetMode(<?= $hubId ?>, 'max')"
                                 title="<?= htmlspecialchars(t('logistics.hub.desc_mode_max')) ?>">
-                            <span class="dot">🔴</span> <?= t('logistics.hub.mode_max') ?>
+                            <span class="logistics-workmode-icon" aria-hidden="true"></span> <?= t('logistics.hub.mode_max') ?>
                         </button>
                     </div>
                 </div>
@@ -198,6 +198,8 @@
                     <div class="logistics-hub-staffing-bar" role="progressbar" aria-valuenow="<?= (int)round($coveragePct) ?>" aria-valuemin="0" aria-valuemax="100">
                             <div class="logistics-hub-staffing-fill logistics-hub-staffing-fill--<?= $coveragePct >= 100.0 ? 'good' : ($coveragePct >= 60.0 ? 'warn' : 'bad') ?>" data-progress-width="<?= min(100, max(0, $coveragePct)) ?>"></div>
                     </div>
+                    <details class="logistics-staffing-more">
+                    <summary><?= t('logistics.design.staffing_more') ?></summary>
                     <div class="logistics-hub-staffing-stats">
                         <div class="logistics-hub-staffing-stat">
                             <span><?= t('logistics.hub.staffing.coverage') ?></span>
@@ -242,6 +244,7 @@
                     <?php else: ?>
                     <div class="logistics-hub-staffing-empty"><?= t('logistics.hub.staffing.empty_card') ?></div>
                     <?php endif ?>
+                    </details>
                 </div>
 
                 <div class="logistics-hub-actions">

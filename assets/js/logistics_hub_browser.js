@@ -54,72 +54,18 @@
 
     function initAvailableHubsBrowser() {
         const browser = document.getElementById('lhb-browser');
-        const search = document.getElementById('lhb-search');
-        const count = document.getElementById('lhb-count');
-        const filters = Array.from(document.querySelectorAll('[data-lhb-filter]'));
         if (!browser) return;
-        let activeFilter = 'all';
-
-        function applyFilter() {
-            const query = search ? search.value.toLowerCase().trim() : '';
-            const filtering = query !== '' || activeFilter !== 'all';
-            let total = 0;
-            let shown = 0;
-            browser.classList.toggle('is-filtering', filtering);
-            browser.querySelectorAll('.logistics-region-group').forEach((group) => {
-                const regionName = group.dataset.regionNameLc || '';
-                let groupVisible = false;
-                group.querySelectorAll('[data-lhb-card]').forEach((card) => {
-                    total += 1;
-                    const free = Number(card.dataset.hubFree || 0);
-                    const type = card.dataset.hubType || '';
-                    const acquisition = card.dataset.hubAcqType || 'new';
-                    const queryMatches = query === ''
-                        || (card.dataset.hubNameLc || '').includes(query)
-                        || regionName.includes(query);
-                    const filterMatches = activeFilter === 'all'
-                        || (activeFilter === 'free' && free > 0)
-                        || activeFilter === type
-                        || activeFilter === acquisition;
-                    const visible = queryMatches && filterMatches;
-                    card.hidden = !visible;
-                    if (visible) {
-                        shown += 1;
-                        groupVisible = true;
-                    }
-                });
-                group.hidden = !groupVisible;
-                group.classList.toggle('is-filter-match', groupVisible && filtering);
-            });
-            if (count) {
-                count.textContent = (count.dataset.filterTemplate || '')
-                    .replace('{shown}', String(shown))
-                    .replace('{total}', String(total));
-            }
-        }
-
-        if (search) search.addEventListener('input', applyFilter);
-        filters.forEach((filter) => filter.addEventListener('click', () => {
-            filters.forEach((entry) => entry.classList.remove('active'));
-            filter.classList.add('active');
-            activeFilter = filter.dataset.lhbFilter || 'all';
-            applyFilter();
-        }));
         browser.addEventListener('click', (event) => {
             const toggle = event.target.closest('[data-lhb-toggle]');
             if (toggle) {
                 const group = toggle.closest('.logistics-region-group');
-                if (group) group.classList.toggle('is-open');
+                if (group) {
+                    const isOpen = group.classList.toggle('is-open');
+                    toggle.setAttribute('aria-expanded', String(isOpen));
+                }
                 return;
             }
-            const expand = event.target.closest('[data-lhb-expand]');
-            if (!expand) return;
-            const group = expand.closest('.logistics-region-group');
-            if (!group) return;
-            const expanded = group.classList.toggle('is-expanded');
-            expand.textContent = expanded ? expand.dataset.expandedLabel : expand.dataset.collapsedLabel;
         });
-        applyFilter();
     }
 
     function initCooldownTimers() {
