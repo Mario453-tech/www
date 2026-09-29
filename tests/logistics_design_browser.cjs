@@ -32,6 +32,15 @@ const screenshots = process.env.UI_SCREENSHOT_DIR;
             assert.equal(await page.locator('.logistics-pipeline-card').count(), 2);
             assert.equal(await page.locator('[data-lhb-card]').count(), 2);
             assert.equal(await page.locator('.logistics-entity-row').count(), 4);
+            assert.equal(await page.locator('.logistics-table--mix .logistics-table-row').count(), 3);
+            assert.equal(await page.locator('.logistics-road-trip-card .logistics-facts > div').count(), 4);
+            assert.equal(await page.locator('.logistics-tanker-card').count(), 1);
+            assert.equal(await page.locator('.logistics-transport-kpi').count(), 3);
+            assert.match(await page.locator('.logistics-transport-kpi').first().innerText(), /2/);
+            assert.equal(await page.locator('#logistics-transport-section .logistics-optimizer-trigger').count(), 1);
+            assert.match(await page.locator('.logistics-kpi').first().innerText(), /2 (aktyw|active)/);
+            assert.equal((await page.locator('.logistics-alert').innerText()).includes('logistics.alert_loss'), false);
+            assert.equal((await page.locator('.logistics-table--mix').innerText()).includes('Nie ustawiono'), false);
             for (const width of [320, 360, 390, 768, 1024, 1440]) {
                 await page.setViewportSize({ width, height: 900 });
                 await page.waitForTimeout(120);
@@ -48,6 +57,8 @@ const screenshots = process.env.UI_SCREENSHOT_DIR;
                 }
             }
             await page.setViewportSize({ width: 1440, height: 900 });
+            await page.locator('.logistics-section-nav a[href="#logistics-transport-section"]').click();
+            if (screenshots && locale === 'pl') { await page.waitForTimeout(400); await page.screenshot({ path: path.join(screenshots, 'logistics-transport-1440.png') }); }
             const hubButtons = page.locator('#logistics-owned-section .logistics-entity-row');
             await hubButtons.nth(1).click();
             assert.equal(await hubButtons.nth(1).getAttribute('aria-current'), 'true');

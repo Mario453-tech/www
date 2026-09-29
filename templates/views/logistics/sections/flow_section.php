@@ -2,6 +2,9 @@
 // Render real logistics flow values without simulating live production.
 // Pokazuj rzeczywiste wartosci przeplywu bez udawania produkcji na zywo.
 $activeHubCount = count($hubCards);
+$hubsInUse = count(array_filter($hubCards, static fn(array $card): bool => (int)($card['hub']['assigned_count'] ?? 0) > 0));
+$activePipelineCount = count(array_filter($pipelines, static fn(array $pipeline): bool => ($pipeline['status'] ?? '') === 'active'));
+$activeRouteCount = count(array_filter(['ciezarowki', 'tankowiec', 'rurociag'], static fn(string $type): bool => (int)($transportMix[$type]['count'] ?? 0) > 0));
 ?>
 <section class="logistics-flow-section" aria-labelledby="logistics-flow-heading">
     <div class="logistics-flow-header">
@@ -12,32 +15,27 @@ $activeHubCount = count($hubCards);
         <li class="logistics-flow-stage logistics-flow-stage--wells">
             <span class="logistics-flow-stage-icon" aria-hidden="true"></span>
             <strong><?= t('logistics.flow_step_wells') ?></strong>
-            <span><?= count($wells) ?> <?= t('logistics.flow_active') ?></span>
-            <small><?= number_format($totalTransported + $totalLoss, 0, ',', ' ') ?> <?= t('common.bbl_h') ?></small>
+            <span><?= t('logistics.design.flow_active_wells', ['count' => (int)$activeWellCount]) ?></span>
         </li>
         <li class="logistics-flow-stage logistics-flow-stage--transport">
             <span class="logistics-flow-stage-icon" aria-hidden="true"></span>
             <strong><?= t('logistics.flow_step_transport') ?></strong>
-            <span><?= (int)$activeRoadTripsTotal ?> <?= t('logistics.flow_active') ?></span>
-            <small class="<?= $totalLoss > 0 ? 'c-warn' : 'c-good' ?>"><?= number_format($totalLoss, 1, ',', ' ') ?> <?= t('common.bbl_h') ?> <?= t('logistics.flow_loss') ?></small>
+            <span><?= t('logistics.design.flow_routes', ['count' => $activeRouteCount]) ?></span>
         </li>
         <li class="logistics-flow-stage logistics-flow-stage--hubs">
             <span class="logistics-flow-stage-icon" aria-hidden="true"></span>
             <strong><?= t('logistics.flow_step_hubs') ?></strong>
-            <span><?= $activeHubCount ?> <?= t('logistics.flow_active') ?></span>
-            <small><?= (int)($unassignedTotal ?? 0) ?> <?= t('logistics.insight_pill_unassigned') ?></small>
+            <span><?= t('logistics.design.flow_hubs_usage', ['used' => $hubsInUse, 'total' => $activeHubCount]) ?></span>
         </li>
         <li class="logistics-flow-stage logistics-flow-stage--pipes">
             <span class="logistics-flow-stage-icon" aria-hidden="true"></span>
             <strong><?= t('logistics.flow_step_transport2') ?></strong>
-            <span><?= (int)($pipelineSummary['total'] ?? 0) ?> <?= t('logistics.flow_pipelines') ?></span>
-            <small><?= (int)($pipelineSummary['needs_service'] ?? 0) ?> <?= t('logistics.pipeline.pill_service') ?></small>
+            <span><?= t('logistics.design.flow_active_pipelines', ['count' => $activePipelineCount]) ?></span>
         </li>
         <li class="logistics-flow-stage logistics-flow-stage--storage">
             <span class="logistics-flow-stage-icon" aria-hidden="true"></span>
             <strong><?= t('logistics.flow_step_storage') ?></strong>
             <span><?= number_format($storageBbl, 0, ',', ' ') ?> <?= t('common.bbl') ?></span>
-            <small><?= (int)$storagePct ?>% <?= t('logistics.flow_capacity') ?></small>
         </li>
     </ol>
 </section>

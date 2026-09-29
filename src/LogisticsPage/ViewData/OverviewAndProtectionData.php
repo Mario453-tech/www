@@ -11,6 +11,7 @@
 $summary = $logisticsSvc->getCurrentSummary();
 $wells   = $summary['wells'] ?? [];
 $totals  = $summary['totals'] ?? ['transported' => 0, 'loss' => 0, 'cost' => 0];
+$activeWellCount = count(array_filter($wells, static fn(array $well): bool => ($well['status'] ?? '') === 'active'));
 
 $wellSummaryById = [];
 foreach ($wells as $wellSummary) {

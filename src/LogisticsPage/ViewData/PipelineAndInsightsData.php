@@ -405,6 +405,7 @@ if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] |
 
 $viewData = compact(
     'wells',
+    'activeWellCount',
     'totals',
     'transportMix',
     'efficiency',

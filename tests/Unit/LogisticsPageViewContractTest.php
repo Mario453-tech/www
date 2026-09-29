@@ -10,6 +10,7 @@ final class LogisticsPageViewContractTest extends BaseTestCase
     {
         self::assertSame([
             'wells',
+            'activeWellCount',
             'totals',
             'transportMix',
             'efficiency',
@@ -77,8 +78,10 @@ final class LogisticsPageViewContractTest extends BaseTestCase
             'transport_mix_section.php',
             'insights_section.php',
             'optimizer_cta.php',
+            'transport_kpi.php',
             'transport_table.php',
             'road_trips_section.php',
+            'tanker_buffer_card.php',
             'marine_section.php',
             'hub_summary.php',
             'owned_hubs_section.php',

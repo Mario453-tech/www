@@ -334,7 +334,8 @@ class LogisticsService
     public function getCurrentSummary(): array
     {
         $stmt = $this->db->prepare("
-            SELECT id, well_type, base_production_per_hour,
+            SELECT id, COALESCE(NULLIF(name, ''), location_name, CONCAT('Odwiert #', id)) AS well_name,
+                   well_type, base_production_per_hour,
                    transport_type, transport_capacity_pct, transport_opex_pct, status
             FROM wells
             WHERE player_id = ? AND status NOT IN ('broken','blowout','seized')
@@ -360,6 +361,7 @@ class LogisticsService
             );
             $summary['wells'][] = [
                 'id'           => $wellId,
+                'well_name'    => (string)$w['well_name'],
                 'well_type'    => $w['well_type'],
                 'status'       => (string)($w['status'] ?? 'active'),
                 'selected_transport' => $selectedTransport,

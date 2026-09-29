@@ -35,46 +35,6 @@
             </div>
         </div>
 
-        <!-- Bufory tankowcow / Tanker buffers -->
-        <?php if (!empty($marineBuffersList)): ?>
-        <div class="logistics-section-title"><?= t('marine.buffer_title') ?></div>
-        <div class="logistics-table logistics-table--marine-buffer">
-            <div class="logistics-table-head">
-                <span><?= t('marine.col_well') ?></span>
-                <span><?= t('marine.col_buffer') ?></span>
-                <span><?= t('marine.col_missing') ?></span>
-                <span><?= t('marine.col_progress') ?></span>
-            </div>
-            <?php foreach ($marineBuffersList as $buffer):
-                $bufferBbl = max(0.0, (float)($buffer['marine_buffer_bbl'] ?? 0.0));
-                $thresholdBbl = max(0.0, (float)($buffer['min_load_bbl'] ?? $marineMinLoadBbl));
-                $missingBbl = $thresholdBbl > 0 ? max(0.0, $thresholdBbl - $bufferBbl) : 0.0;
-                $bufferPct = $thresholdBbl > 0 ? min(100.0, round($bufferBbl / $thresholdBbl * 100, 1)) : 100.0;
-                $bufferClass = $bufferPct >= 90 ? 'full' : ($bufferPct >= 60 ? 'mid' : 'low');
-                $bufferTextClass = $bufferPct >= 90 ? 'c-good' : ($bufferPct >= 60 ? 'c-warn' : 'c-muted2');
-                $bufferWellLabel = ($buffer['well_name'] ?? null)
-                    ? htmlspecialchars((string)$buffer['well_name'])
-                    : t('marine.well_unknown', ['id' => (int)($buffer['well_id'] ?? 0)]);
-            ?>
-            <div class="logistics-table-row">
-                <span><?= $bufferWellLabel ?></span>
-                <span><?= number_format($bufferBbl, 1, ',', ' ') ?> / <?= number_format($thresholdBbl, 0, ',', ' ') ?> <?= t('common.bbl') ?></span>
-                <span class="<?= $missingBbl <= 0.0 ? 'c-good' : 'c-warn' ?>">
-                    <?= $missingBbl <= 0.0
-                        ? t('marine.buffer_ready')
-                        : t('marine.buffer_missing', ['bbl' => number_format($missingBbl, 1, ',', ' ')]) ?>
-                </span>
-                <span class="marine-buffer-progress">
-                    <span class="hub-buffer-bar">
-                                <span class="hub-buffer-bar__fill hub-buffer-bar__fill--<?= $bufferClass ?>" data-progress-width="<?= $bufferPct ?>"></span>
-                    </span>
-                    <small class="<?= $bufferTextClass ?>"><?= number_format($bufferPct, 1, ',', ' ') ?>%</small>
-                </span>
-            </div>
-            <?php endforeach ?>
-        </div>
-        <?php endif ?>
-
         <!-- Aktywne dostawy / Active deliveries -->
         <?php if (empty($marineDeliveriesList)): ?>
             <div class="logistics-empty"><?= t('marine.no_deliveries') ?></div>

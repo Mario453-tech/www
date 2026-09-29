@@ -19,8 +19,9 @@ final class LogisticsPageController
     use LogisticsPageViewDataTrait;
 
     public const MODULE_VIEW_DATA_KEYS = [
-        'wells',
-        'totals',
+    'wells',
+    'activeWellCount',
+    'totals',
         'transportMix',
         'efficiency',
         'lossPct',

@@ -10,7 +10,7 @@
     </nav>
 
     <section class="logistics-design-section" id="logistics-summary" aria-labelledby="logistics-summary-title">
-        <header class="logistics-design-heading"><h2 id="logistics-summary-title"><?= t('logistics.design.overview_heading') ?></h2><p><?= t('logistics.design.overview_desc') ?></p></header>
+        <h2 class="visually-hidden" id="logistics-summary-title"><?= t('logistics.design.overview_heading') ?></h2>
         <?php require __DIR__ . '/sections/flash_kpi.php'; ?>
         <div class="logistics-design-overview-grid">
             <?php require __DIR__ . '/sections/flow_section.php'; ?>
@@ -25,10 +25,16 @@
     </section>
 
     <section class="logistics-design-section" id="logistics-transport-section" aria-labelledby="logistics-transport-section-title">
-        <header class="logistics-design-heading"><h2 id="logistics-transport-section-title"><?= t('logistics.design.transport') ?></h2><p><?= t('logistics.design.transport_desc') ?></p></header>
-        <?php require __DIR__ . '/sections/optimizer_cta.php'; ?>
+        <header class="logistics-design-heading logistics-design-heading--transport">
+            <div><h2 id="logistics-transport-section-title"><?= t('logistics.design.transport') ?></h2><p><?= t('logistics.design.transport_desc') ?></p></div>
+            <?php require __DIR__ . '/sections/optimizer_cta.php'; ?>
+        </header>
+        <?php require __DIR__ . '/sections/transport_kpi.php'; ?>
         <?php require __DIR__ . '/sections/transport_table.php'; ?>
-        <?php require __DIR__ . '/sections/road_trips_section.php'; ?>
+        <div class="logistics-transport-status-grid">
+            <?php require __DIR__ . '/sections/road_trips_section.php'; ?>
+            <?php require __DIR__ . '/sections/tanker_buffer_card.php'; ?>
+        </div>
         <?php require __DIR__ . '/sections/marine_section.php'; ?>
     </section>
 
