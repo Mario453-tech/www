@@ -381,13 +381,13 @@ try {
     $marineSvc          = new MarineDeliveryService($db);
     $marineDeliveries   = $marineSvc->getActiveForPlayer($playerId);
     $marineBuffers      = $marineSvc->getBufferedForPlayer($playerId, $marineMinLoadBbl);
-    $marineHistory      = $marineSvc->getHistoryForPlayer($playerId, 10);
+
     $marineInTransitBbl = $marineSvc->getInTransitBbl($playerId);
 } catch (Throwable $e) {
     GameLog::error('logistics', 'MarineDeliveryService load failed', $e, ['player' => $playerId]);
 }
 
-if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] || $marineInTransitBbl <= 0.0) {
+if ($marineDeliveries === [] || $marineBuffers === [] || $marineInTransitBbl <= 0.0) {
     $marineFallback = MarineDeliveryService::loadPanelFallback($db, $playerId, $marineMinLoadBbl);
     if ($marineDeliveries === []) {
         $marineDeliveries = $marineFallback['deliveries'];
@@ -395,12 +395,24 @@ if ($marineDeliveries === [] || $marineBuffers === [] || $marineHistory === [] |
     if ($marineBuffers === []) {
         $marineBuffers = $marineFallback['buffers'];
     }
-    if ($marineHistory === []) {
-        $marineHistory = $marineFallback['history'];
-    }
+
     if ($marineInTransitBbl <= 0.0) {
         $marineInTransitBbl = $marineFallback['in_transit_bbl'];
     }
+}
+
+$marineHistoryPage = 1;
+$marineHistoryTotalPages = 1;
+$marineHistoryTotal = 0;
+try {
+    $requestedHistoryPage = filter_var($_GET['marine_history_page'] ?? 1, FILTER_VALIDATE_INT) ?: 1;
+    $historyPage = (new MarineHistoryService($db))->page($playerId, $requestedHistoryPage);
+    $marineHistory = $historyPage['items'];
+    $marineHistoryPage = $historyPage['page'];
+    $marineHistoryTotalPages = $historyPage['pages'];
+    $marineHistoryTotal = $historyPage['total'];
+} catch (Throwable $e) {
+    GameLog::error('logistics', 'Marine history page load failed', $e, ['player' => $playerId]);
 }
 
 $viewData = compact(
@@ -452,6 +464,9 @@ $viewData = compact(
     'marineBuffers',
     'marineMinLoadBbl',
     'marineHistory',
+    'marineHistoryPage',
+    'marineHistoryTotalPages',
+    'marineHistoryTotal',
     'marineInTransitBbl',
     'storageBbl',
     'storagePct',

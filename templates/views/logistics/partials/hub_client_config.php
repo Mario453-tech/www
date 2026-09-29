@@ -1,5 +1,13 @@
 <?php
 $logisticsClientConfig['staffing'] = [
+    'staff_available' => t('logistics.followup.staff_available'),
+    'staff_busy' => t('logistics.followup.staff_busy'),
+    'staff_none_free' => t('logistics.followup.staff_none_free'),
+    'staff_no_allocation' => t('logistics.followup.staff_no_allocation'),
+    'staff_blocked' => t('logistics.followup.staff_blocked'),
+    'staff_view_assignment' => t('logistics.followup.staff_view_assignment'),
+    'staff_missing_effect' => t('logistics.followup.staff_missing_effect'),
+    'staff_coverage_effect' => t('logistics.followup.staff_coverage_effect'),
     'post_url' => function_exists('url') ? url('logistics') : '/logistics',
     'csrf_token' => CSRF::generateToken(),
     'locale' => $locale,
@@ -77,6 +85,9 @@ $logisticsClientConfig['hub'] = [
     'upgrade_confirm' => t('logistics.hub.upgrade_confirm', ['cost' => '{cost}']),
     'detach_confirm'  => t('logistics.hub.wells_detach_confirm', ['id' => '{id}']),
  // Modal odwiertow huba / Hub wells modal
+    'open_well' => t('logistics.followup.open_well'),
+    'transfer_no_target' => t('logistics.followup.transfer_no_target'),
+    'transfer_no_permit' => t('logistics.followup.transfer_no_permit'),
     'wells_none'     => t('logistics.hub.wells_none'),
     'col_well'       => t('logistics.hub.wells_col_well'),
     'col_region'     => t('logistics.hub.wells_col_region'),

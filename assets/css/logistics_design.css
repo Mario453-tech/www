@@ -330,3 +330,45 @@
 @media (prefers-reduced-motion: reduce) {
     .logistics-design *, .logistics-design *::before, .logistics-design *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* Compact problem-first hub details and dialogs. / Zwarte szczegoly hubow i dialogi. */
+.logistics-hub-priority{padding:16px;margin:8px 0 18px;border-left:3px solid #d7b447;background:#24222a;display:grid;gap:12px}
+.logistics-hub-priority.is-critical{border-color:#ed5b73}
+.logistics-hub-priority-actions{display:flex;flex-wrap:wrap;gap:10px}
+.logistics-staffing-notice{padding:14px 16px;border-left:3px solid #d7b447;background:#24222a;margin-bottom:18px}
+.logistics-staffing-row p{margin:6px 0;color:#b5b4c2;font-size:.875rem}
+.logistics-history-note{color:#aaa9b7;font-size:.875rem;margin:0 0 12px}
+.logistics-well-compact-list{display:grid;gap:12px}
+.logistics-well-compact{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:16px;border:1px solid #343340;border-radius:8px;background:#20202a}
+.logistics-well-compact p{margin:8px 0 0;color:#b5b4c2;font-size:.875rem}
+.logistics-well-open,.logistics-transfer-reason{grid-column:1/-1}
+.logistics-well-open{color:#d7b447;min-height:44px;display:flex;align-items:center}
+.logistics-well-failed{color:#ff768d;background:#502932;align-self:start}
+#hub-staffing-modal .logistics-modal-box,#hub-wells-modal .logistics-modal-box{width:min(850px,calc(100vw - 40px));max-height:min(780px,90dvh);display:flex;flex-direction:column}
+#hub-staffing-modal-body,#hub-wells-modal-body{overflow:auto;min-height:0;padding:20px;flex:1}
+#hub-staffing-modal .logistics-modal-hdr,#hub-wells-modal .logistics-modal-hdr,#hub-staffing-modal .logistics-modal-footer,#hub-wells-modal .logistics-modal-footer{flex-shrink:0}
+#hub-staffing-modal .logistics-staffing-row{grid-template-columns:minmax(0,1fr) auto;padding:14px;gap:16px}
+#hub-staffing-modal .logistics-staffing-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#hub-staffing-modal .btn,#hub-wells-modal .btn{min-height:44px;white-space:normal}
+#hub-staffing-modal .logistics-modal-close,#hub-wells-modal .logistics-modal-close{min-width:44px;min-height:44px}
+.logistics-design .hub-risk-badge{animation:none}
+@media(max-width:600px){
+#hub-staffing-modal,#hub-wells-modal{padding:0}
+#hub-staffing-modal .logistics-modal-box,#hub-wells-modal .logistics-modal-box{width:100%;height:100dvh;max-height:100dvh;border-radius:0;margin:0}
+#hub-staffing-modal-body,#hub-wells-modal-body{padding:14px}
+#hub-staffing-modal .logistics-staffing-row{grid-template-columns:1fr}
+.logistics-well-compact{grid-template-columns:1fr}
+}
+
+#hub-staffing-modal .logistics-modal-box,#hub-wells-modal .logistics-modal-box{max-width:850px}
+#hub-staffing-modal-body,#hub-wells-modal-body{color:#ededf2}
+#hub-staffing-modal .logistics-staffing-row.is-blocked{opacity:1}
+#hub-staffing-modal .logistics-staffing-notice{color:#ededf2}
+#logistics-owned-section .logistics-entity-list{grid-template-columns:minmax(0,1fr)}
+@media(min-width:1000px){
+#logistics-owned-section .logistics-entity-row{grid-template-columns:minmax(180px,1.2fr) minmax(0,3fr) auto;align-items:center}
+#logistics-owned-section .logistics-entity-row .logistics-hub-row-facts{grid-column:2;grid-row:1}
+#logistics-owned-section .logistics-entity-row > .badge{grid-column:3}
+}
+
+body.logistics-dialog-open{overflow:hidden}

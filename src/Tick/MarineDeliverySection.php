@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/MarineHistoryService.php';
+
 /**
  * MarineDeliverySection tick: aktualizacja statusow dostaw morskich.
  * MarineDeliverySection tick: marine delivery status updates.
@@ -42,13 +44,13 @@ class MarineDeliverySection
  * Global cleanup of stale marine deliveries (once per tick, not per player).
  *
  * Dwie kategorie / Two categories:
- *  1. dostawy zakonczone (delivered/lost) starsze niz 7 dni — DELETE (balast historii),
- *     finished deliveries (delivered/lost) older than 7 days — DELETE (history bloat);
+ *  1. dostawy zakonczone (delivered/lost) starsze niz 48 godzin — DELETE (balast historii),
+ *     finished deliveries (delivered/lost) older than 48 hours — DELETE (history bloat);
  *  2. utkniete rejsy (departing/in_transit/delayed/waiting_for_port) — oznaczane
- *     status='lost' (widoczna strata w historii gracza, sprzatana krokiem 1 po 7 dniach),
+ *     status='lost' (widoczna strata w historii gracza, sprzatana krokiem 1 po 48 godzinach),
  *     NIE kasowane bez sladu; wpisy port_queue sa zwalniane.
  *     stuck voyages (departing/in_transit/delayed/waiting_for_port) — marked
- *     status='lost' (visible loss in player history, pruned by step 1 after 7 days),
+ *     status='lost' (visible loss in player history, pruned by step 1 after 48 hours),
  *     NOT deleted without a trace; port_queue rows are released.
  *
  * Prog 2 dni jest spojny z filtrem dropdownu w admin/incidents.php (departure_at).
@@ -61,14 +63,10 @@ class MarineDeliverySection
         $terminal = 0;
         $stuck    = 0;
         try {
- // 1) Zakonczone dostawy starsze niz 7 dni / Finished deliveries older than 7 days
-            $stmt = $db->prepare(
-                "DELETE FROM marine_deliveries
-                  WHERE status IN ('delivered','lost')
-                    AND COALESCE(delivered_at, arrived_at, eta_at, created_at) < NOW() - INTERVAL 7 DAY"
-            );
-            $stmt->execute();
-            $terminal = $stmt->rowCount();
+            // Keep completed delivery history for 48 hours, measured by the database clock.
+            // Zachowaj historie zakonczonych dostaw przez 48 godzin wedlug zegara bazy.
+            $cutoff = (string)$db->query('SELECT DATE_SUB(NOW(), INTERVAL 48 HOUR)')->fetchColumn();
+            $terminal = (new MarineHistoryService($db))->pruneBefore($cutoff);
 
  // 2) Utkniete rejsy morskie starsze niz 2 dni / Stuck sea voyages older than 2 days
  // 'delayed' z port_id (port zapelnionyretry) jest wylaczone — to legalny rejs czekajacy na
@@ -77,10 +75,10 @@ class MarineDeliverySection
  // for queue space; step 3 already handles 'delayed' with no port assigned (port_id IS NULL).
  // Oznaczamy jako 'lost' zamiast DELETE: gracz widzi strate w historii (zaden zapis nie znika
  // bez sladu — wczesniej ladunek offline'owego gracza po prostu wyparowywal); wiersz 'lost'
- // sprzata krok 1 po 7 dniach.
+ // sprzata krok 1 po 48 godzinach.
  // Marked 'lost' instead of DELETE: the player sees the loss in history (nothing vanishes
  // without a trace — previously an offline player's cargo simply evaporated); step 1 prunes
- // the 'lost' row after 7 days.
+ // the 'lost' row after 48 hours.
             $stmt = $db->prepare(
                 "UPDATE marine_deliveries
                     SET status = 'lost', incident_type = 'stale_purge', delivered_at = NOW()

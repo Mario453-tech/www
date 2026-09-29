@@ -106,20 +106,18 @@
                 body.innerHTML = `<div class="logistics-empty">${Hub.esc(labels().wells_none || '')}</div>`;
                 return;
             }
-            const rows = wells.map((well) => `<div class="logistics-table-row">
-                <span>#${Number(well.id)} ${Hub.esc(well.name || well.location_name || '')}</span>
-                <span>${Hub.esc(well.region_name || '')}${well.zone_key ? ' / ' + Hub.esc(well.zone_key) : ''}</span>
-                <span>${Number(well.base_production_per_hour || 0).toFixed(1)}</span>
-                <span>${Hub.esc(statusLabel(well.status))}</span>
-                <span class="logistics-hub-row-actions">
-                    <button class="btn btn-xs btn-warn" type="button" data-hub-action="detach" data-well-id="${Number(well.id)}" data-hub-id="${Number(hubId)}">${labels().btn_detach}</button>
-                    <button class="btn btn-xs btn-secondary" type="button" data-hub-action="transfer-modal" data-well-id="${Number(well.id)}" data-hub-id="${Number(hubId)}">${labels().btn_transfer}</button>
-                </span>
-            </div>`).join('');
-            body.innerHTML = `<div class="logistics-table">
-                <div class="logistics-table-head"><span>${labels().col_well}</span><span>${labels().col_region}</span><span>${labels().col_prod}</span><span>${labels().col_status}</span><span>${labels().col_actions}</span></div>
-                ${rows}
-            </div>`;
+            body.innerHTML = '<div class="logistics-well-compact-list">' + wells.map((well) => {
+                const failed = ['damaged', 'broken', 'blowout', 'failure'].includes(well.status) || Number(well.technical_condition) <= 0;
+                const transfer = well.can_transfer
+                    ? `<button class="btn btn-sm btn-secondary" type="button" data-hub-action="transfer-modal" data-well-id="${Number(well.id)}" data-hub-id="${Number(hubId)}">${Hub.esc(labels().btn_transfer)}</button>`
+                    : `<p class="logistics-transfer-reason">${Hub.esc(labels()[well.transfer_reason] || labels().transfer_no_target)}</p>`;
+                return `<article class="logistics-well-compact">
+                    <div><strong>#${Number(well.id)} · ${Hub.esc(well.name || well.location_name || '')}</strong><p>${Hub.esc(well.region_name || '')} · ${Number(well.base_production_per_hour || 0).toLocaleString()} bbl/h</p></div>
+                    <span class="badge ${failed ? 'logistics-well-failed' : 'badge-muted'}">${Hub.esc(statusLabel(well.status))}</span>
+                    <a class="logistics-well-open" href="/#wg-card-${Number(well.id)}">${Hub.esc(labels().open_well)} →</a>
+                    ${transfer}
+                </article>`;
+            }).join('') + '</div>';
         } catch (requestError) {
             console.error('[HUB] hub wells request failed', requestError);
             error(body);

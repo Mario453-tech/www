@@ -303,13 +303,15 @@ setInterval(() => {
 (function initRepairDeepLink() {
     var params = new URLSearchParams(location.search);
     var repairWell = params.get('repair_well');
-    if (!repairWell) {
+    var repairHub = params.get('repair_hub');
+    if (!repairWell && !repairHub) {
         return;
     }
 
     // Consume the one-shot repair target before a later task-page reload.
     // Usun jednorazowy cel naprawy przed pozniejszym przeladowaniem strony zadania.
     params.delete('repair_well');
+    params.delete('repair_hub');
     var cleanQuery = params.toString();
     var cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
     window.history.replaceState(null, '', cleanUrl);
@@ -354,19 +356,19 @@ setInterval(() => {
 
         if (taskSel) {
             var hasRepair = Array.prototype.some.call(taskSel.options, function (o) {
-                return o.value === 'well_repair';
+                return o.value === (repairHub ? 'hub_repair' : 'well_repair');
             });
             if (hasRepair) {
-                taskSel.value = 'well_repair';
+                taskSel.value = repairHub ? 'hub_repair' : 'well_repair';
             }
             if (typeof toggleWellSelect === 'function' && staffId) {
                 toggleWellSelect(taskSel, staffId);
             }
         }
 
-        var wellSel = target.querySelector('select[name="well_id"]');
+        var wellSel = target.querySelector(repairHub ? 'select[name="hub_id"]' : 'select[name="well_id"]');
         if (wellSel) {
-            wellSel.value = repairWell;
+            wellSel.value = repairHub || repairWell;
         }
 
         target.classList.add('staff-card--repair-target');

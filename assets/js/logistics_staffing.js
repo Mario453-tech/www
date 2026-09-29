@@ -84,41 +84,13 @@
     }
 
     function summaryMarkup(summary, runtimeEnabled) {
-        const throughput = Number((summary.runtime_effects && summary.runtime_effects.hub_throughput_pct) || 0);
-        const incident = (Number((summary.runtime_incident_mods && summary.runtime_incident_mods.incident_mult) || 1) - 1) * 100;
-        const maintenance = (Number(summary.maintenance_cost_mult || 1) - 1) * 100;
-        const missing = Array.isArray(summary.missing_roles) && summary.missing_roles.length > 0
-            ? summary.missing_roles.map(roleLabel).join(', ')
-            : '';
-        const coverage = Math.max(0, Math.min(100, Number(summary.coverage_pct || 0)));
-        const fillTone = coverage >= 100 ? 'good' : (coverage >= 60 ? 'warn' : 'bad');
-
-        return '' +
-            '<div class="logistics-hub-staffing-modal-summary">' +
-                '<div class="logistics-hub-staffing-head">' +
-                    '<div>' +
-                        '<span class="logistics-hub-staffing-label">' + esc(text('coverage')) + '</span>' +
-                        '<strong>' + esc(formatPct(summary.coverage_pct || 0, 0)) + '</strong>' +
-                    '</div>' +
-                    runtimeBadge(runtimeEnabled) +
-                '</div>' +
-                '<div class="logistics-hub-staffing-bar" role="progressbar" aria-valuenow="' + Math.round(coverage) + '" aria-valuemin="0" aria-valuemax="100">' +
-                    '<div class="logistics-hub-staffing-fill logistics-hub-staffing-fill--' + fillTone + '" data-progress-width="' + coverage + '"></div>' +
-                '</div>' +
-                '<div class="logistics-hub-staffing-stats">' +
-                    '<div class="logistics-hub-staffing-stat"><span>' + esc(text('coverage')) + '</span><strong>' + esc(String(summary.assigned_count || 0) + '/' + String(summary.required_count || 0)) + '</strong></div>' +
-                    '<div class="logistics-hub-staffing-stat"><span>' + esc(text('skill')) + '</span><strong>' + esc(Number(summary.average_skill || 0).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })) + '/10</strong></div>' +
-                    '<div class="logistics-hub-staffing-stat"><span>' + esc(text('morale')) + '</span><strong>' + esc(formatPct(summary.average_morale || 0, 0)) + '</strong></div>' +
-                '</div>' +
-                '<div class="logistics-hub-staffing-effects">' +
-                    '<span class="badge ' + effectTone(throughput, true) + '">' + esc(text('effect_throughput', { value: Number(throughput).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })) + '</span>' +
-                    '<span class="badge ' + effectTone(incident, false) + '">' + esc(text('effect_incident', { value: Number(incident).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })) + '</span>' +
-                    '<span class="badge ' + effectTone(maintenance, false) + '">' + esc(text('effect_maintenance', { value: Number(maintenance).toLocaleString(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) })) + '</span>' +
-                '</div>' +
-                (missing
-                    ? '<div class="logistics-hub-staffing-missing"><span>' + esc(text('missing_roles')) + '</span><strong>' + esc(missing) + '</strong></div>'
-                    : '') +
-            '</div>';
+        const throughput = runtimeEnabled ? Number(summary.runtime_effects?.hub_throughput_pct || 0) : 0;
+        const missing = (summary.missing_roles || []).includes('hub_operator');
+        const label = text(missing ? 'staff_missing_effect' : 'staff_coverage_effect', {
+            value: throughput.toLocaleString(locale, { maximumFractionDigits: 1 }),
+            assigned: String(summary.assigned_count || 0), required: String(summary.required_count || 0)
+        });
+        return '<div class="logistics-staffing-notice"><strong>' + esc(label) + '</strong></div>';
     }
 
     function assignmentMarkup(assignment) {
@@ -131,6 +103,17 @@
     }
 
     function candidateMarkup(hubId, candidate) {
+        if (candidate.is_blocked || !candidate.can_assign) {
+            const reason = candidate.is_blocked
+                ? text('staff_blocked', { status: statusLabel(candidate.status), relation: relationLabel(candidate.relation_status) })
+                : text('staff_no_allocation');
+            const record = 'employee:' + candidate.source_type + ':' + Number(candidate.source_id);
+            const release = Number(candidate.current_assignment_id) > 0
+                ? '<form method="post" action="' + esc(config.post_url) + '">' + buildHidden('csrf_token', config.csrf_token) + buildHidden('action', 'release_hub_staff') + buildHidden('assignment_id', candidate.current_assignment_id) + '<button class="btn btn-sm btn-secondary" type="button" data-staffing-release="1" data-confirm="' + esc(text('confirm_release')) + '">' + esc(text('btn_release')) + '</button></form>' : '';
+            return '<article class="logistics-staffing-row is-blocked"><div><strong>' + esc(candidate.full_name) + '</strong>' +
+                '<p>' + esc(candidate.specialization_name || text('no_specialization')) + ' · ' + esc(text('free_allocation')) + ': ' + esc(formatPct(candidate.free_allocation_pct, 0)) + '</p>' +
+                '<p>' + esc(reason) + '</p></div><div class="logistics-staffing-actions"><a class="btn btn-sm btn-secondary" href="/hr?tab=employees&amp;record=' + encodeURIComponent(record) + '">' + esc(text('staff_view_assignment')) + '</a>' + release + '</div></article>';
+        }
         const action = 'assign_hub_staff';
         const submitLabel = candidate.current_assignment_id > 0 ? text('btn_update') : text('btn_assign');
         const confirmText = candidate.current_assignment_id > 0 ? text('confirm_update') : text('confirm_assign');
@@ -205,50 +188,21 @@
         const summary = hubData.summary || {};
 
         title.textContent = text('heading') + ' - ' + hubName(hubId);
-        let html = '' +
-            '<div class="logistics-staffing-modal-intro">' +
-                '<p>' + esc(text('subtitle')) + '</p>' +
-            '</div>' +
-            summaryMarkup(summary, !!hubData.runtime_enabled);
-
-        html += '<section class="logistics-staffing-section"><h4>' + esc(text('active_team')) + '</h4>';
-        if (activeAssignments.length > 0) {
-            html += '<div class="logistics-staffing-chip-list">';
-            activeAssignments.forEach(function (assignment) {
-                html += assignmentMarkup(assignment);
-            });
-            html += '</div>';
-        } else {
-            html += '<div class="logistics-hub-staffing-empty">' + esc(text('empty_card')) + '</div>';
-        }
+        let html = summaryMarkup(summary, !!hubData.runtime_enabled);
+        const available = candidates.filter(candidate => !candidate.is_blocked && candidate.can_assign);
+        const busy = candidates.filter(candidate => candidate.is_blocked || !candidate.can_assign);
+        html += '<section class="logistics-staffing-section"><h4>' + esc(text('staff_available')) + ' (' + available.length + ')</h4>';
+        html += available.length ? '<div class="logistics-staffing-list">' + available.map(candidate => candidateMarkup(hubId, candidate)).join('') + '</div>' : '<p>' + esc(text('staff_none_free')) + '</p>';
         html += '</section>';
-
-        html += '<section class="logistics-staffing-section"><h4>' + esc(text('available_team')) + '</h4>';
-        if (candidates.length > 0) {
-            html += '<div class="logistics-staffing-list">';
-            candidates.forEach(function (candidate) {
-                html += candidateMarkup(hubId, candidate);
-            });
-            html += '</div>';
-        } else {
-            if (hubData.operator_configured === false) {
-                html += '<div class="logistics-hub-staffing-empty">' + esc(text('operator_not_configured')) + '</div>';
-            } else {
-                html += '<div class="logistics-hub-staffing-empty">' +
-                    '<p>' + esc(text('empty')) + '</p>' +
-                    '<a class="btn btn-sm btn-primary" href="' + esc(text('recruit_url')) + '">' +
-                        esc(text('recruit_operator')) +
-                    '</a>' +
-                '</div>';
-            }
-        }
-        html += '</section>';
+        if (busy.length) html += '<section class="logistics-staffing-section"><h4>' + esc(text('staff_busy')) + ' (' + busy.length + ')</h4><div class="logistics-staffing-list">' + busy.map(candidate => candidateMarkup(hubId, candidate)).join('') + '</div></section>';
+        if (!candidates.length) html += '<a class="btn btn-sm btn-primary" href="' + esc(text('recruit_url')) + '">' + esc(text('recruit_operator')) + '</a>';
 
         body.innerHTML = html;
         if (typeof window.applyLogisticsProgressWidths === 'function') {
             window.applyLogisticsProgressWidths(body);
         }
-        modal.hidden = false;
+        if (window.HubUI) window.HubUI.openHubModal('hub-staffing-modal');
+        else modal.hidden = false;
     }
 
     function confirmAndSubmit(button, fallbackText) {

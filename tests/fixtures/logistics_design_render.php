@@ -37,7 +37,7 @@ foreach ([1, 2] as $id) {
     $hubCards[] = [
         'hub' => ['id' => $id, 'name' => 'Hub testowy ' . $id, 'status' => 'active', 'region_id' => 1,
             'region_name' => 'Bliski Wschód', 'zone_key' => 'A1', 'hub_type' => 'small',
-            'condition_pct' => $id === 1 ? 35.2 : 100.0, 'assigned_count' => 1,
+            'condition_pct' => $id === 1 ? 0.0 : 100.0, 'assigned_count' => 1,
             'slot_limit' => 3, 'level' => 1, 'work_mode' => 'standard'],
         'last_stats' => ['load_pct' => 65.0], 'wells' => [], 'ownership' => 'owned',
         'status_class' => 'badge-ok', 'max_level' => 3, 'can_upgrade' => false,
@@ -74,7 +74,11 @@ $hubIncidentsPage = 1;
 $hubIncidentsTotalPages = 1;
 $hubIncidentQuery = '';
 $hubIncidentSeverity = '';
-$hubStaffingViewByHub = [];
+$hubStaffingViewByHub = [1 => [
+    'runtime_enabled' => true, 'active_assignments' => [],
+    'summary' => ['coverage_pct' => 0, 'assigned_count' => 0, 'required_count' => 1, 'missing_roles' => ['hub_operator'], 'runtime_effects' => ['hub_throughput_pct' => -40]],
+    'candidates' => array_map(static fn(int $id): array => ['source_type' => 'technical_staff', 'source_id' => $id, 'full_name' => 'Operator ' . $id, 'specialization_name' => 'Operator huba', 'free_allocation_pct' => 0, 'is_blocked' => false, 'can_assign' => false, 'current_assignment_id' => 0, 'status' => 'active', 'relation_status' => 'normal'], [1,2]),
+]];
 $playerHubRegions = [];
 $hubTypeOptions = [];
 $unassignedPage = 1;
@@ -100,7 +104,10 @@ $pipelineProtectionOptions = [];
 $marineDeliveries = [['well_id' => 58, 'well_name' => 'Zatoka Perska', 'port_name' => 'Port testowy',
     'volume_bbl' => 500.0, 'status' => 'waiting_for_port', 'eta_at' => '2026-09-25 12:00:00']];
 $marineBuffers = [['well_id' => 58, 'well_name' => 'Zatoka Perska', 'marine_buffer_bbl' => 1826.2, 'min_load_bbl' => 4000.0]];
-$marineHistory = [];
+$marineHistoryPage = min(3, max(1, (int)($_GET['marine_history_page'] ?? 1)));
+$marineHistoryTotal = 12;
+$marineHistoryTotalPages = 3;
+$marineHistory = array_map(static fn(int $id): array => ['id' => $id, 'well_name' => 'Dostawa ' . $id, 'port_name' => 'Port', 'volume_bbl' => 100, 'status' => 'delivered', 'delivered_at' => '2026-09-30 12:00:00'], array_slice(range(1, 12), ($marineHistoryPage - 1) * 5, 5));
 $marineMinLoadBbl = 4000.0;
 $marineInTransitBbl = 0.0;
 $wellsWithoutPipeline = [];

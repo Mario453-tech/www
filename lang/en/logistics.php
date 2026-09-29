@@ -7,6 +7,23 @@ declare(strict_types=1);
  */
 
 return [
+    'logistics.followup.attention' => 'Needs attention',
+    'logistics.followup.critical' => 'Critical',
+    'logistics.followup.missing_operator' => 'no operator',
+    'logistics.followup.fill_staff' => 'Fill staffing',
+    'logistics.followup.staff_available' => 'Available to assign',
+    'logistics.followup.staff_busy' => 'Unavailable',
+    'logistics.followup.staff_none_free' => 'No employees with free allocation.',
+    'logistics.followup.staff_no_allocation' => 'All allocation is used by other assignments.',
+    'logistics.followup.staff_blocked' => 'Assignment blocked by employee status: {status} · {relation}.',
+    'logistics.followup.staff_view_assignment' => 'View assignment',
+    'logistics.followup.staff_missing_effect' => 'No operator — throughput {value}%',
+    'logistics.followup.staff_coverage_effect' => 'Staffing {assigned}/{required} — throughput {value}%',
+    'logistics.followup.open_well' => 'Open well',
+    'logistics.followup.transfer_no_target' => 'Cannot transfer: no other available hub with a free slot in this region.',
+    'logistics.followup.transfer_no_permit' => 'Transfer requires a local works permit in this region.',
+    'logistics.followup.history_retention' => 'Delivery history is removed 48 hours after completion.',
+
     'logistics.design.nav_aria' => 'Logistics sections',
     'logistics.design.overview' => 'Overview',
     'logistics.design.overview_heading' => 'Logistics department',

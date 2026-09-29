@@ -68,6 +68,23 @@ final class HubAssignmentServiceTest extends SqliteIntegrationTestCase
         ], $overrides);
     }
 
+    public function testTransferAvailabilityRespectsOwnershipSlotsAndPermit(): void
+    {
+        $this->db->exec("INSERT INTO wells VALUES (100, 1, 7, 'A1', 'broken')");
+        $hub = $this->makeHubStub(['id' => 11]);
+        $hubSvc = $this->createMock(HubService::class);
+        $hubSvc->method('getRegionHubs')->willReturnCallback(static fn() => [$hub]);
+        $hubSvc->method('getHub')->willReturn($hub);
+        $service = new HubAssignmentService($this->db, $hubSvc);
+        $this->assertTrue($service->transferAvailability(1, 100, 10, 7)['can_transfer']);
+        $this->assertFalse($service->transferAvailability(2, 100, 10, 7)['can_transfer']);
+        $this->assertFalse($service->transferAvailability(1, 100, 11, 7)['can_transfer']);
+        $this->db->exec('CREATE TABLE legal_region_config (region_id INTEGER, hub_permit_enabled INTEGER)');
+        $this->db->exec('INSERT INTO legal_region_config VALUES (7, 1)');
+        $this->db->exec('CREATE TABLE hub_permit_applications (player_id INTEGER, region_id INTEGER, status TEXT)');
+        $this->assertSame('transfer_no_permit', $service->transferAvailability(1, 100, 10, 7)['transfer_reason']);
+    }
+
     public function testAssignWellCreatesActiveAssignment(): void
     {
         $this->db->exec("INSERT INTO players (id, cash) VALUES (1, 999999)");

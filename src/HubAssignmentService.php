@@ -206,6 +206,24 @@ class HubAssignmentService
         }
     }
 
+    /**
+     * Explain whether a well has an eligible alternative hub, using transfer rules.
+     * Wyjasnia dostepnosc alternatywnego huba na podstawie zasad przenoszenia.
+     * @return array{can_transfer:bool,transfer_reason:string}
+     */
+    public function transferAvailability(int $playerId, int $wellId, int $currentHubId, int $regionId): array
+    {
+        if (!$this->hasLocalPermitOrNotRequired($playerId, $regionId)) {
+            return ['can_transfer' => false, 'transfer_reason' => 'transfer_no_permit'];
+        }
+        foreach ($this->hubSvc->getRegionHubs($regionId) as $hub) {
+            if ((int)$hub['id'] === $currentHubId) continue;
+            $validation = $this->validateAssignment($playerId, (int)$hub['id'], $wellId, skipCurrentCheck: true);
+            if ($validation['ok']) return ['can_transfer' => true, 'transfer_reason' => ''];
+        }
+        return ['can_transfer' => false, 'transfer_reason' => 'transfer_no_target'];
+    }
+
  /**
  * Transfers a well from its current hub to another hub.
  * Player must own the well; hubs are system-owned (no ownership check).

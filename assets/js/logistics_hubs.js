@@ -126,15 +126,42 @@
         });
     }
 
+    const modalTriggers = new Map();
     function closeHubModal(id) {
         const element = document.getElementById(id);
         if (element) element.hidden = true;
+        if (!document.querySelector('[data-hub-modal]:not([hidden])')) document.body.classList.remove('logistics-dialog-open');
+        const trigger = modalTriggers.get(id);
+        if (trigger?.isConnected) trigger.focus();
     }
 
     function openHubModal(id) {
         const element = document.getElementById(id);
-        if (element) element.hidden = false;
+        if (!element) return;
+        modalTriggers.set(id, document.activeElement);
+        element.hidden = false;
+        document.body.classList.add('logistics-dialog-open');
+        element.setAttribute('role', 'dialog');
+        element.setAttribute('aria-modal', 'true');
+        const title = element.querySelector('.logistics-modal-hdr span');
+        if (title) {
+            if (!title.id) title.id = id + '-heading';
+            element.setAttribute('aria-labelledby', title.id);
+        }
+        element.querySelector('[data-hub-modal-close]')?.focus();
     }
+
+    document.addEventListener('keydown', (event) => {
+        const modal = Array.from(document.querySelectorAll('[data-hub-modal]:not([hidden])')).pop();
+        if (!modal) return;
+        if (event.key === 'Escape') { event.preventDefault(); closeHubModal(modal.id); return; }
+        if (event.key !== 'Tab') return;
+        const controls = Array.from(modal.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex="0"]')).filter(el => el.getClientRects().length);
+        if (!controls.length) return;
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) { event.preventDefault(); first.focus(); }
+    });
 
     async function hubPost(action, body = {}) {
         const form = new FormData();

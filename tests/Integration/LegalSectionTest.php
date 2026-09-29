@@ -218,6 +218,19 @@ final class LegalSectionTest extends SqliteIntegrationTestCase
 
     // ---------------------------------------------------------- helpers
 
+    public function testHubDecisionsContinueWhenDrillingQueryFails(): void
+    {
+        $this->db->exec('ALTER TABLE legal_region_config ADD COLUMN hub_review_minutes INTEGER DEFAULT 120');
+        $this->db->exec("CREATE TABLE hub_permit_applications (id INTEGER PRIMARY KEY, player_id INTEGER, region_id INTEGER, status TEXT, delay_count INTEGER DEFAULT 0, decision_due_at TEXT, decided_at TEXT)");
+        $this->db->exec("INSERT INTO hub_permit_applications VALUES (1, 101, 1, 'pending', 0, '2020-01-01 12:00:00', NULL), (2, 102, 1, 'pending', 0, '2099-01-01 12:00:00', NULL)");
+        $this->db->exec('DROP TABLE drilling_permit_applications');
+        $section = $this->runSection();
+        $this->assertSame(1, $section->hubDecided);
+        $this->assertSame('granted', $this->db->query('SELECT status FROM hub_permit_applications WHERE id=1')->fetchColumn());
+        $this->assertSame('pending', $this->db->query('SELECT status FROM hub_permit_applications WHERE id=2')->fetchColumn());
+        $this->assertSame(0, $this->runSection()->hubDecided);
+    }
+
     private function runSection(): LegalSection
     {
         $section = new LegalSection($this->db, new DateTime());

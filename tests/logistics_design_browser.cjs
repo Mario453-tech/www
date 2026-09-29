@@ -25,10 +25,37 @@ const screenshots = process.env.UI_SCREENSHOT_DIR;
             await page.route(/^https:\/\/fixture\.test\/(?:logistics)?(?:\?.*)?$/, route => {
                 const query = new URL(route.request().url()).search.slice(1);
                 const content = execFileSync(php, [fixture, locale, query], { encoding: 'utf8' });
-                const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Logistics fixture</title><base href="https://fixture.test/">${styles.map(file => `<link rel="stylesheet" href="/assets/css/${file}">`).join('')}</head><body><main class="game-shell-module">${content}</main><script>window.HubUI={};window.hubBuyNewSubmit=function(){};</script><script src="/assets/js/logistics_hub_browser.js"></script><script src="/assets/js/logistics_design.js"></script></body></html>`;
+                const html = `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Logistics fixture</title><base href="https://fixture.test/">${styles.map(file => `<link rel="stylesheet" href="/assets/css/${file}">`).join('')}</head><body><main class="game-shell-module">${content}</main><script src="/assets/js/logistics_config.js"></script><script src="/assets/js/logistics_hubs.js"></script><script src="/assets/js/logistics_staffing.js"></script><script src="/assets/js/logistics_hub_wells.js"></script><script src="/assets/js/logistics_hub_browser.js"></script><script src="/assets/js/logistics_design.js"></script></body></html>`;
                 route.fulfill({ body: html, contentType: 'text/html' });
             });
+            await page.route('https://fixture.test/src/HubApi.php?**', route => route.fulfill({ json: { success: true, hub: { name: 'Hub testowy 1' }, wells: [{ id: 57, name: 'Tengiz', region_name: 'Rosja / Syberia', status: 'broken', technical_condition: 0, base_production_per_hour: 162.2, can_transfer: false, transfer_reason: 'transfer_no_target' }] } }));
             await page.goto('https://fixture.test/');
+            assert.equal(await page.locator('.logistics-table--marine-history .logistics-table-row').count(), 5);
+            await page.locator('a[href*="marine_history_page=2"]').click();
+            assert.match(await page.locator('.logistics-table--marine-history').innerText(), /Dostawa 6/);
+            await page.goto('https://fixture.test/');
+            const staffButton = page.locator('.logistics-hub-card[data-hub-id="1"] .logistics-hub-priority [data-hub-action="staffing"]');
+            await staffButton.click();
+            assert.equal(await page.locator('#hub-staffing-modal input[type="number"]').count(), 0);
+            assert.equal(await page.locator('#hub-staffing-modal a[href*="record="]').count(), 2);
+            assert.match(await page.locator('.logistics-staffing-notice').innerText(), /-40%/);
+            await page.keyboard.press('Escape');
+            assert.equal(await page.locator('#hub-staffing-modal').isVisible(), false);
+            await page.locator('.logistics-hub-card[data-hub-id="1"] [data-hub-action="wells"]').click();
+            await page.locator('.logistics-well-open').waitFor();
+            assert.equal(await page.locator('.logistics-well-open').getAttribute('href'), '/#wg-card-57');
+            assert.equal(await page.locator('#hub-wells-modal [data-hub-action="transfer-modal"]').count(), 0);
+            for (const modalWidth of [320, 390, 1440]) {
+                await page.setViewportSize({ width: modalWidth, height: 900 });
+                assert.equal(await page.locator('#hub-wells-modal .logistics-modal-box').evaluate(el => el.scrollWidth > el.clientWidth + 1), false);
+                if (screenshots && locale === 'pl') await page.screenshot({ path: path.join(screenshots, `hub-wells-${modalWidth}.png`) });
+            }
+            await page.keyboard.press('Escape');
+            await page.setViewportSize({ width: 1440, height: 900 });
+            await staffButton.click();
+            if (screenshots && locale === 'pl') await page.screenshot({ path: path.join(screenshots, 'hub-staffing-1440.png') });
+            await page.keyboard.press('Escape');
+
             assert.equal(await page.locator('.logistics-section-nav a').count(), 6);
             assert.equal(await page.locator('.logistics-design-section').count(), 6);
             assert.equal(await page.locator('.logistics-hub-card').count(), 2);
@@ -108,6 +135,7 @@ const screenshots = process.env.UI_SCREENSHOT_DIR;
             assert.match(await page.locator('#lhb-count').innerText(), /12/);
             await page.locator('#lhb-search').fill('Beta');
             await page.locator('.logistics-market-filter button[type="submit"]').click();
+            await page.waitForLoadState('load');
             assert.match(page.url(), /#logistics-market-section$/, 'market filters retain the current section');
             assert.equal(await page.locator('[data-lhb-card]').count(), 1);
             assert.ok((await page.locator('[data-lhb-card]').innerText()).includes('Beta'));
@@ -127,6 +155,15 @@ const screenshots = process.env.UI_SCREENSHOT_DIR;
             await page.emulateMedia({ reducedMotion: 'no-preference' });
             await page.unroute(/^https:\/\/fixture\.test\/(?:logistics)?(?:\?.*)?$/);
         }
+        await page.route('https://fixture.test/technical?**', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body><article class="staff-card" data-spec="maintenance_engineer"><details><summary>Assign</summary><form><input name="staff_id" value="1"><select name="task_type"><option value="well_repair">Well</option><option value="hub_repair" data-needs-hub="1">Hub</option></select><div id="hub-sel-1"><select name="hub_id"><option value="">Select</option><option value="2">Hub 2</option></select></div></form></details></article><script src="/assets/js/technical.js"></script></body></html>` }));
+        await page.goto('https://fixture.test/technical?tab=team&repair_hub=2#tech-mnt');
+        assert.equal(await page.locator('select[name="task_type"]').inputValue(), 'hub_repair');
+        assert.equal(await page.locator('select[name="hub_id"]').inputValue(), '2');
+        assert.equal(await page.locator('details').getAttribute('open'), '');
+        await page.route('https://fixture.test/well-fixture', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html><html><body><div class="wg-grid" id="wg-region-test" style="display:none"><article class="wg-card" id="wg-card-57"><div class="wg-detail" id="wg-detail-57" style="display:none">Well 57</div></article></div><script src="/assets/js/well_grid.js"></script></body></html>` }));
+        await page.goto('https://fixture.test/well-fixture#wg-card-57');
+        assert.equal(await page.locator('#wg-detail-57').isVisible(), true);
+        assert.deepEqual(errors, [], 'cross-department deep links have no runtime errors');
     } finally {
         await browser.close();
     }

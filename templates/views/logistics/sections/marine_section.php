@@ -119,6 +119,7 @@
         <!-- Historia dostaw / Delivery history -->
         <div class="marine-history-section">
             <h4 class="logistics-marine-subheading"><?= t('marine.history_title') ?></h4>
+            <p class="logistics-history-note"><?= t('logistics.followup.history_retention') ?></p>
             <?php if (empty($marineHistoryList)): ?>
                 <div class="logistics-empty"><?= t('marine.no_history') ?></div>
             <?php else: ?>

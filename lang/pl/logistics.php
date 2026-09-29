@@ -8,6 +8,23 @@ declare(strict_types=1);
  */
 
 return [
+    'logistics.followup.attention' => 'Wymaga uwagi',
+    'logistics.followup.critical' => 'Krytyczny',
+    'logistics.followup.missing_operator' => 'brak operatora',
+    'logistics.followup.fill_staff' => 'Uzupełnij obsadę',
+    'logistics.followup.staff_available' => 'Mogę przypisać',
+    'logistics.followup.staff_busy' => 'Zajęci',
+    'logistics.followup.staff_none_free' => 'Brak pracowników z wolną alokacją.',
+    'logistics.followup.staff_no_allocation' => 'Cała alokacja wykorzystana w innych przydziałach.',
+    'logistics.followup.staff_blocked' => 'Przydział zablokowany przez status pracownika: {status} · {relation}.',
+    'logistics.followup.staff_view_assignment' => 'Zobacz przydział',
+    'logistics.followup.staff_missing_effect' => 'Brak operatora — przepustowość {value}%',
+    'logistics.followup.staff_coverage_effect' => 'Obsada {assigned}/{required} — przepustowość {value}%',
+    'logistics.followup.open_well' => 'Otwórz odwiert',
+    'logistics.followup.transfer_no_target' => 'Nie możesz przenieść odwiertu: brak innego dostępnego huba z wolnym slotem w tym regionie.',
+    'logistics.followup.transfer_no_permit' => 'Przeniesienie wymaga zezwolenia na prace lokalne w tym regionie.',
+    'logistics.followup.history_retention' => 'Historia dostaw jest usuwana po 48 godzinach od zakończenia.',
+
 
     'logistics.design.nav_aria' => 'Sekcje działu logistyki',
     'logistics.design.overview' => 'Przegląd',

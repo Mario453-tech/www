@@ -138,8 +138,8 @@ function wgFocusWell(id) {
         var el = document.getElementById('wg-card-' + id);
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            el.classList.add('wg-card--flash');
-            setTimeout(function () { el.classList.remove('wg-card--flash'); }, 1600);
+            el.setAttribute('tabindex', '-1');
+            el.focus({ preventScroll: true });
         }
     }, 160);
 
@@ -765,3 +765,15 @@ async function wgSetOutboundTransportRequest(wellId, transportType, csrf) {
         alertError(wgt('err_connection_msg', { msg: e.message }));
     }
 }
+
+// Open the exact well when arriving from another department.
+// Otworz konkretny odwiert po przejsciu z innego dzialu.
+(function () {
+    function openLinkedWell() {
+        const match = location.hash.match(/^#wg-card-(\d+)$/);
+        if (match) wgFocusWell(Number(match[1]));
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', openLinkedWell);
+    else openLinkedWell();
+    window.addEventListener('hashchange', openLinkedWell);
+})();

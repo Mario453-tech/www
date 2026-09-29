@@ -17,7 +17,7 @@
             <summary><?= t('logistics.design.hub_alerts', ['count' => count($hubAlerts)]) ?></summary>
             <?php foreach ($hubAlerts as $ha): ?>
             <div class="logistics-alert logistics-alert--<?= $ha['severity'] === 'critical' ? 'danger' : 'warn' ?>">
-                <?= htmlspecialchars($ha['message']) ?>
+                <a href="<?= !empty($ha['hub_id']) ? '#logistics-owned-section' : '#logistics-unassigned-heading' ?>" <?php if (!empty($ha['hub_id'])): ?>data-logistics-object="hub" data-object-id="<?= (int)$ha['hub_id'] ?>"<?php endif ?>><?= htmlspecialchars($ha['message']) ?></a>
             </div>
             <?php endforeach ?>
         </details>
@@ -62,6 +62,8 @@
                 $incidentMult = (float)($staffSummary['runtime_incident_mods']['incident_mult'] ?? 1.0);
                 $maintenanceMult = (float)($staffSummary['maintenance_cost_mult'] ?? 1.0);
                 $missingRoles = is_array($staffSummary['missing_roles'] ?? null) ? $staffSummary['missing_roles'] : [];
+                $missingOperator = in_array('hub_operator', $missingRoles, true);
+                $needsAttention = $riskLevel !== 'none' || $missingOperator || $coveragePct < 100;
                 $coverageClass = $coveragePct >= 100.0 ? 'c-good' : ($coveragePct >= 60.0 ? 'c-warn' : 'c-bad');
             ?>
             <article class="logistics-hub-card hub-status-<?= htmlspecialchars($hub['status']) ?>"
@@ -81,9 +83,9 @@
                     <span class="badge <?= $card['status_class'] ?>">
                         <?= t('logistics.hub.status_' . $hub['status']) ?>
                     </span>
-                    <?php if ($riskLevel !== 'none'): ?>
-                    <span class="badge hub-risk-badge hub-risk-badge--<?= $riskLevel ?>">
-                        <?= t('logistics.hub.risk_' . $riskLevel) ?>
+                    <?php if ($needsAttention): ?>
+                    <span class="badge hub-risk-badge hub-risk-badge--<?= $riskLevel === 'critical' ? 'critical' : 'medium' ?>">
+                        <?= t('logistics.followup.' . ($riskLevel === 'critical' ? 'critical' : 'attention')) ?>
                     </span>
                     <?php endif ?>
                 </div>
@@ -93,6 +95,16 @@
                     <span><?= t('logistics.hub.staffing.card_title') ?> <strong class="<?= $coverageClass ?>"><?= (int)round($coveragePct) ?>%</strong></span>
                     <span><?= t('logistics.hub.label_slots') ?> <strong><?= (int)$hub['assigned_count'] ?>/<?= (int)$hub['slot_limit'] ?></strong></span>
                     <span><?= t('logistics.hub.label_my_wells') ?> <strong><?= $myWells ?></strong></span>
+                </div>
+
+                <div class="logistics-hub-priority <?= $riskLevel === 'critical' ? 'is-critical' : '' ?>">
+                    <strong><?= t('logistics.hub.label_condition') ?> <?= number_format($condPct, 1, ',', ' ') ?>%<?= $missingOperator ? ' · ' . t('logistics.followup.missing_operator') : '' ?></strong>
+                    <div class="logistics-hub-priority-actions">
+                        <?php if ($condPct < 100 && !in_array($hub['status'], ['disabled', 'building'], true)): ?>
+                        <a class="btn btn-sm btn-primary" href="/technical?tab=team&amp;repair_hub=<?= $hubId ?>#tech-mnt"><?= t('logistics.hub.btn_repair') ?></a>
+                        <?php endif ?>
+                        <button class="btn btn-sm btn-secondary" type="button" data-hub-action="staffing" data-hub-id="<?= $hubId ?>"><?= t('logistics.followup.fill_staff') ?></button>
+                    </div>
                 </div>
 
                 <div class="logistics-hub-meta">

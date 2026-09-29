@@ -64,7 +64,9 @@ class LegalSection
             if (class_exists('GameLog', false)) {
                 GameLog::error('LegalSection', 'fetch overdue applications FAILED', $e);
             }
-            return;
+            // A drilling query failure must not stop independent hub applications.
+            // Blad zapytania o wiercenia nie moze blokowac niezaleznych wnioskow hubow.
+            $applications = [];
         }
 
         foreach ($applications as $app) {

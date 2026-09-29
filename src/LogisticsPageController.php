@@ -12,6 +12,7 @@ require_once __DIR__ . '/TechnicalTeamService.php';
 require_once __DIR__ . '/WellPipelineService.php';
 require_once __DIR__ . '/PortService.php';
 require_once __DIR__ . '/MarineDeliveryService.php';
+require_once __DIR__ . '/MarineHistoryService.php';
 
 final class LogisticsPageController
 {
@@ -67,6 +68,9 @@ final class LogisticsPageController
         'marineBuffers',
         'marineMinLoadBbl',
         'marineHistory',
+    'marineHistoryPage',
+    'marineHistoryTotalPages',
+    'marineHistoryTotal',
         'marineInTransitBbl',
         'storageBbl',
         'storagePct',

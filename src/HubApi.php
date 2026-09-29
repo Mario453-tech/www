@@ -386,6 +386,10 @@ try {
             $hub = $hubSvc->getHubForPlayer($hubId, $playerId);
             if (!$hub) hubApiOut(['success' => false, 'error' => t('common.access_denied')], 403);
             $wells = $hubSvc->getHubWellsForPlayer($hubId, $playerId);
+            foreach ($wells as &$well) {
+                $well = array_merge($well, $assignSvc->transferAvailability($playerId, (int)$well['id'], $hubId, (int)$well['region_id']));
+            }
+            unset($well);
             hubApiOut(['success' => true, 'wells' => $wells, 'hub' => $hub]);
 
  // GET: hubs available for well assignment

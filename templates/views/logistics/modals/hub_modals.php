@@ -5,7 +5,7 @@
     <div class="logistics-modal-box">
         <div class="logistics-modal-hdr">
             <span id="hub-wells-modal-title"> <?= t('logistics.hub.wells_modal_title') ?></span>
-            <button class="logistics-modal-close" type="button" data-hub-modal-close="hub-wells-modal"></button>
+            <button class="logistics-modal-close" type="button" data-hub-modal-close="hub-wells-modal" aria-label="<?= htmlspecialchars(t('common.close'), ENT_QUOTES, 'UTF-8') ?>">&times;</button>
         </div>
         <div id="hub-wells-modal-body" class="logistics-loading"><?= t('logistics.loading') ?></div>
         <div class="logistics-modal-footer">
