@@ -40,6 +40,32 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
      data-success="<?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?>"></div>
 <?php endif ?>
 
+<div id="legal-design-root" hidden
+     data-title="<?= htmlspecialchars(t('legal.design.title'), ENT_QUOTES, 'UTF-8') ?>"
+     data-subtitle="<?= htmlspecialchars(t('legal.design.subtitle'), ENT_QUOTES, 'UTF-8') ?>"
+     data-drilling="<?= htmlspecialchars(t('legal.design.drilling'), ENT_QUOTES, 'UTF-8') ?>"
+     data-local="<?= htmlspecialchars(t('legal.design.local'), ENT_QUOTES, 'UTF-8') ?>"
+     data-regions="<?= htmlspecialchars(t('legal.design.regions'), ENT_QUOTES, 'UTF-8') ?>"
+     data-attention="<?= htmlspecialchars(t('legal.design.attention'), ENT_QUOTES, 'UTF-8') ?>"
+     data-reputation="<?= htmlspecialchars(t('legal.design.reputation'), ENT_QUOTES, 'UTF-8') ?>"
+     data-all="<?= htmlspecialchars(t('legal.design.all'), ENT_QUOTES, 'UTF-8') ?>"
+     data-active="<?= htmlspecialchars(t('legal.design.active'), ENT_QUOTES, 'UTF-8') ?>"
+     data-open="<?= htmlspecialchars(t('legal.design.open'), ENT_QUOTES, 'UTF-8') ?>"
+     data-history="<?= htmlspecialchars(t('legal.design.history'), ENT_QUOTES, 'UTF-8') ?>"
+     data-current="<?= htmlspecialchars(t('legal.design.current'), ENT_QUOTES, 'UTF-8') ?>"
+     data-prior="<?= htmlspecialchars(t('legal.design.prior'), ENT_QUOTES, 'UTF-8') ?>"
+     data-no-prior="<?= htmlspecialchars(t('legal.design.no_prior'), ENT_QUOTES, 'UTF-8') ?>"
+     data-submitted="<?= htmlspecialchars(t('legal.design.submitted'), ENT_QUOTES, 'UTF-8') ?>"
+     data-due="<?= htmlspecialchars(t('legal.design.due'), ENT_QUOTES, 'UTF-8') ?>"
+     data-decided="<?= htmlspecialchars(t('legal.design.decided'), ENT_QUOTES, 'UTF-8') ?>"
+     data-no-decision="<?= htmlspecialchars(t('legal.design.no_decision'), ENT_QUOTES, 'UTF-8') ?>"
+     data-back="<?= htmlspecialchars(t('legal.design.back'), ENT_QUOTES, 'UTF-8') ?>"
+     data-close="<?= htmlspecialchars(t('legal.design.close'), ENT_QUOTES, 'UTF-8') ?>"
+     data-risk="<?= htmlspecialchars(t('legal.design.risk'), ENT_QUOTES, 'UTF-8') ?>"
+     data-not-applicable="<?= htmlspecialchars(t('legal.design.not_applicable'), ENT_QUOTES, 'UTF-8') ?>"
+     data-status="<?= htmlspecialchars(t('legal.design.status'), ENT_QUOTES, 'UTF-8') ?>"
+     data-needs-attention="<?= htmlspecialchars(t('legal.design.needs_attention'), ENT_QUOTES, 'UTF-8') ?>"></div>
+
 <!-- Company credibility card -->
 <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
 
@@ -73,7 +99,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $permit = $entry['permit'];
         $app    = $permit['application'];
         ?>
-        <div class="legal-region-card legal-region-card--active">
+        <div class="legal-region-card legal-region-card--active"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge legal-badge--granted"><?= t('legal.status.' . $permit['status']) ?></span>
@@ -152,7 +187,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             default       => '',
         };
         ?>
-        <div class="legal-region-card legal-region-card--pending">
+        <div class="legal-region-card legal-region-card--pending"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.status.' . $permit['status']) ?></span>
@@ -187,7 +231,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $canAfford = ($bankBalance ?? 0.0) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
-        <div class="legal-region-card legal-region-card--available">
+        <div class="legal-region-card legal-region-card--available"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <?php if ($wasRefused): ?>
@@ -239,7 +292,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $cooldownDt  = $entry['cooldown_until'];
         $remainMin   = (int)ceil(($cooldownDt->getTimestamp() - time()) / 60);
         ?>
-        <div class="legal-region-card legal-region-card--locked">
+        <div class="legal-region-card legal-region-card--locked"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
@@ -267,7 +329,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $cfg = $entry['config'];
         $reqLevel = (int)$entry['required_legal_level'];
         ?>
-        <div class="legal-region-card legal-region-card--level-locked">
+        <div class="legal-region-card legal-region-card--level-locked"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge legal-badge--level-locked"><?= t('legal.badge_level_locked') ?></span>
@@ -295,7 +366,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $cfg = $entry['config'];
         $reqCredibility = (int)$entry['required_company_credibility'];
         ?>
-        <div class="legal-region-card legal-region-card--credibility-locked">
+        <div class="legal-region-card legal-region-card--credibility-locked"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge legal-badge--credibility-locked"><?= t('legal.badge_credibility_locked') ?></span>
@@ -324,7 +404,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $reqCap  = (float)$entry['required_capital'];
         $missing = max(0.0, $reqCap - ($cash + ($bankBalance ?? 0.0)));
         ?>
-        <div class="legal-region-card legal-region-card--capital-locked">
+        <div class="legal-region-card legal-region-card--capital-locked"
+             data-legal-kind="drilling"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <span class="legal-badge legal-badge--locked"><?= t('legal.badge_high_risk') ?></span>
@@ -364,7 +453,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
     <div class="legal-region-list">
     <?php foreach ($hubActive as $entry): ?>
         <?php $cfg = $entry['config']; $permit = $entry['permit']; $app = $permit['application']; ?>
-        <div class="legal-region-card legal-region-card--active">
+        <div class="legal-region-card legal-region-card--active"
+             data-legal-kind="local"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--granted"><?= t('legal.hub.status.granted') ?></span>
@@ -398,7 +496,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             default       => '',
         };
         ?>
-        <div class="legal-region-card legal-region-card--pending">
+        <div class="legal-region-card legal-region-card--pending"
+             data-legal-kind="local"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge <?= $badgeCss ?>"><?= t('legal.hub.status.' . $permit['status']) ?></span>
@@ -431,7 +538,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $canAfford = ($bankBalance ?? 0.0) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
-        <div class="legal-region-card legal-region-card--available">
+        <div class="legal-region-card legal-region-card--available"
+             data-legal-kind="local"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <?php if ($wasRefused): ?>
@@ -478,7 +594,16 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $cooldownDt = $entry['cooldown_until'];
         $remainMin  = (int)ceil(($cooldownDt->getTimestamp() - time()) / 60);
         ?>
-        <div class="legal-region-card legal-region-card--locked">
+        <div class="legal-region-card legal-region-card--locked"
+             data-legal-kind="local"
+             data-legal-region="<?= (int)$cfg['region_id'] ?>"
+             data-legal-name="<?= htmlspecialchars((string)($cfg['region_name'] ?? ('Region ' . $cfg['region_id'])), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-risk="<?= htmlspecialchars((string)($cfg['risk_level'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-status="<?= htmlspecialchars((string)($permit['status'] ?? 'none'), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-submitted="<?= htmlspecialchars((string)($permit['application']['submitted_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-due="<?= htmlspecialchars((string)($permit['application']['decision_due_at'] ?? $permit['application']['upgrade_decision_due_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-decided="<?= htmlspecialchars((string)($permit['application']['decided_at'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+             data-legal-cost="<?= htmlspecialchars((string)($permit['application']['cost'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
             <div class="legal-region-name">
                 <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.hub.status.refused') ?></span>
