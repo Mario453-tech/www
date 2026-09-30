@@ -327,6 +327,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
     <?php foreach ($levelLocked as $entry): ?>
         <?php
         $cfg = $entry['config'];
+        $permit = $entry['permit'];
         $reqLevel = (int)$entry['required_legal_level'];
         ?>
         <div class="legal-region-card legal-region-card--level-locked"
@@ -364,6 +365,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
     <?php foreach ($credibilityLocked as $entry): ?>
         <?php
         $cfg = $entry['config'];
+        $permit = $entry['permit'];
         $reqCredibility = (int)$entry['required_company_credibility'];
         ?>
         <div class="legal-region-card legal-region-card--credibility-locked"
@@ -401,6 +403,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
     <?php foreach ($capitalLocked as $entry): ?>
         <?php
         $cfg     = $entry['config'];
+        $permit  = $entry['permit'];
         $reqCap  = (float)$entry['required_capital'];
         $missing = max(0.0, $reqCap - ($cash + ($bankBalance ?? 0.0)));
         ?>
@@ -591,6 +594,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
     <?php foreach ($hubLocked as $entry): ?>
         <?php
         $cfg        = $entry['config'];
+        $permit     = $entry['permit'];
         $cooldownDt = $entry['cooldown_until'];
         $remainMin  = (int)ceil(($cooldownDt->getTimestamp() - time()) / 60);
         ?>
