@@ -208,7 +208,7 @@ return [
     'legal.design.history' => 'Historia wniosku',
     'legal.design.current' => 'Bieżący wniosek',
     'legal.design.prior' => 'Wcześniejsze wnioski',
-    'legal.design.no_prior' => 'Brak zapisanej historii wcześniejszych prób',
+    'legal.design.no_prior' => 'Starsze wnioski nie są zapisywane w obecnym systemie. Widoczny jest tylko ostatni wniosek.',
     'legal.design.submitted' => 'Złożono',
     'legal.design.due' => 'Planowany termin decyzji',
     'legal.design.decided' => 'Decyzja wydana',
