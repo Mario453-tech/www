@@ -26,6 +26,29 @@ final class LegalSectionTest extends SqliteIntegrationTestCase
 
     // ---------------------------------------------------------- granted (default)
 
+    /** @dataProvider upgradeOutcomes */
+    public function testUpgradePreservesDeadlineAndProcessesOnlyOnce(int $noDecision, int $refused, int $delayed, string $expected): void
+    {
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_pending INTEGER DEFAULT 0');
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_decision_due_at TEXT');
+        $this->insertRegionConfig(1, 'medium', $noDecision, $refused, $delayed, 30, 30, 120);
+        $this->insertApplication(101, 1, 'transitional', '-1 day');
+        $this->db->exec("UPDATE drilling_permit_applications SET upgrade_pending=1, upgrade_decision_due_at='2026-01-01 13:00:00', submitted_at='2026-01-01 12:00:00'");
+        $section = new LegalSection($this->db, new DateTime('2026-01-01 13:05:00'));
+        $section->run();
+        $row = $this->fetchByPlayer(101);
+        $this->assertSame($expected, $row['status']);
+        $this->assertSame($delayed ? '2026-01-01 13:35:00' : '2026-01-01 13:00:00', $row['upgrade_decision_due_at']);
+        $this->assertSame($delayed ? 1 : 0, (int)$row['upgrade_pending']);
+        $section->run();
+        $this->assertSame(1, $section->decided);
+    }
+
+    public static function upgradeOutcomes(): array
+    {
+        return [[100,0,0,'transitional'], [0,100,0,'refused'], [0,0,0,'granted'], [0,0,100,'transitional']];
+    }
+
     public function testRunGrantsApplicationWhenAllRisksZero(): void
     {
         $this->insertApplication(101, 1, 'pending', '-10 minutes');

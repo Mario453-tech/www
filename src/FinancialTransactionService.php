@@ -49,7 +49,7 @@ class FinancialTransactionService
      */
     public function legalFeesForPlayer(int $playerId): array
     {
-        $query = $this->db->prepare("SELECT reference_id, reference_type, amount, created_at
+        $query = $this->db->prepare("SELECT id, reference_id, reference_type, amount, created_at
             FROM bank_transactions WHERE from_player_id = ? AND transaction_type = 'legal_fee'
             AND reference_type IN ('legal_region', 'legal_hub_region') ORDER BY id DESC");
         $query->execute([$playerId]);

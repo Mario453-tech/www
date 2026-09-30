@@ -21,10 +21,15 @@ async function run() {
                 for (const js of ['modal', 'legal', 'legal_design']) await page.addScriptTag({path: path.join(repo, 'assets/js/' + js + '.js')});
                 const L = await page.locator('#legal-design-root').evaluate(el => ({...el.dataset}));
                 if (process.env.LEGAL_SCREENSHOTS && locale === 'pl' && width === 1440) await page.screenshot({path: path.join(process.env.LEGAL_SCREENSHOTS, 'legal-overview.png')});
-                assert.equal(await page.locator('.legal-design-stat strong').nth(1).innerText(), '1 / 4');
+                assert.equal(await page.locator('.legal-design-stat strong').nth(1).innerText(), '1 / 6');
                 assert.equal(await page.locator('.legal-design-stat strong').nth(2).innerText(), '1 / 3');
                 assert.equal(await page.locator('.legal-design-stat small').count(), 0);
                 assert(!(await page.locator('#legal-design-root').innerText()).includes('undefined'));
+                await page.locator('.legal-design-row').filter({hasText: 'Nowy region'}).click();
+                assert.equal(await page.locator('dialog').evaluate(el => el.open), true);
+                assert.equal(await page.locator('dialog .legal-submit-form button:enabled').count(), 1);
+                assert.equal(await page.locator('dialog .legal-design-history-button').count(), 0);
+                await page.keyboard.press('Escape');
                 await page.locator('.legal-design-row').filter({hasText: 'Bliski Wschód'}).click();
                 const dialog = page.locator('dialog');
                 assert.equal(await dialog.locator('.legal-design-permit').count(), 2);
@@ -54,10 +59,17 @@ async function run() {
                 await dialog.locator('.legal-design-permit').nth(1).locator('.legal-design-history-button').click();
                 assert.equal(await dialog.locator('.legal-design-timeline-row--decision span').innerText(), L.noDecision);
                 await page.keyboard.press('Escape');
-                await page.locator('.legal-design-row').filter({hasText: 'Upgrade'}).click();
+                await page.locator('.legal-design-row').filter({hasText: 'Upgrade'}).filter({hasNotText: 'bez decyzji'}).click();
                 await dialog.locator('.legal-design-history-button').click();
                 assert.equal(await dialog.locator('.legal-design-history-summary .legal-design-badge').evaluate(el => el.classList.contains('legal-design-status--pending')), true);
                 assert.equal(await dialog.locator('.legal-design-timeline-row--overdue span').innerText(), '29.09.2026, 01:51 · ' + L.overdue.toLowerCase());
+                await page.keyboard.press('Escape');
+                await page.locator('.legal-design-row').filter({hasText: 'Upgrade bez decyzji'}).click();
+                assert.equal(await dialog.locator('.legal-submit-form button:enabled').count(), 1);
+                await dialog.locator('.legal-design-history-button').click();
+                assert.equal(await dialog.locator('.legal-design-history-summary .legal-design-badge').textContent(), JSON.parse(L.historyStatuses).no_decision);
+                assert.equal(await dialog.locator('.legal-design-timeline-row--decision span').innerText(), L.noDecision);
+                assert.equal(await dialog.locator('.legal-design-timeline-row--due span').innerText(), '29.09.2026, 01:51');
                 await page.keyboard.press('Escape');
                 await page.locator('.legal-design-row').filter({hasText: 'Afryka Subsaharyjska'}).click();
                 await page.evaluate(() => {

@@ -11,7 +11,7 @@ function url(string $path, array $params = []): string { return '/' . $path; }
 function entry(int $id, string $name, string $status, float $cost, array $app = []): array {
     return ['config' => ['region_id' => $id, 'region_name' => $name, 'risk_level' => 'critical',
         'application_cost' => $cost, 'base_review_minutes' => 120, 'hub_permit_cost' => $cost,
-        'hub_review_minutes' => 120], 'permit' => ['status' => $status, 'application' => $app]];
+        'hub_review_minutes' => 120], 'permit' => ['status' => $status, 'application' => $app ? ($app + ['status' => $status]) : null]];
 }
 $application = ['submitted_at' => '2026-09-28 21:51:00', 'decision_due_at' => '2026-09-28 23:51:00',
     'decided_at' => null, 'cost' => 1000000];
@@ -28,6 +28,9 @@ $viewData['active'] = [entry(1, 'Bliski Wschód', 'transitional', 1000000, ['dec
 $viewData['hubActive'] = [entry(2, 'Afryka Subsaharyjska', 'granted', 500000, ['decided_at' => '2026-09-23 23:36:00'])];
 $viewData['hubInProgress'] = [entry(1, 'Bliski Wschód', 'pending', 1000000, $application)];
 $viewData['hubAvailable'] = [entry(3, 'Rosja / Syberia', 'no_decision', 500000, array_replace($application, ['decided_at' => '2026-09-29 00:00:00']))];
+$viewData['active'][] = entry(6, 'Upgrade bez decyzji', 'transitional', 500000, array_replace($application, [
+    'upgrade_pending'=>0, 'upgrade_decision_due_at'=>'2026-09-29 01:51:00', 'decided_at'=>'2026-09-29 02:00:00']));
+$viewData['available'] = [entry(5, 'Nowy region', 'none', 100000)];
 $viewData['legalHistory'] = [1 => ['local' => [
     ['source' => 'archive', 'status' => 'refused', 'cost' => 500000, 'submitted_at' => '2026-09-26 10:00:00', 'decision_due_at' => '2026-09-26 12:00:00', 'decided_at' => '2026-09-26 12:00:00'],
     ['source' => 'fee', 'status' => 'submitted', 'cost' => 500000, 'submitted_at' => '2026-09-25 10:00:00', 'decision_due_at' => null, 'decided_at' => null],

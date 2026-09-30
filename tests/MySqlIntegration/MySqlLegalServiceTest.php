@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/MySqlIntegrationTestCase.php';
 require_once dirname(__DIR__, 2) . '/src/init.php';
 require_once dirname(__DIR__, 2) . '/src/LegalService.php';
+require_once dirname(__DIR__, 2) . '/src/Tick/LegalSection.php';
 
 /**
  * Etap 1 działu prawnego na prawdziwym MySQL:
@@ -115,12 +116,23 @@ final class MySqlLegalServiceTest extends MySqlIntegrationTestCase
         $this->insertConfig($this->legalRegionId, 'medium', 250000, 60, 0);
         $first = new DateTimeImmutable('2026-01-01 12:00:00');
         $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first)['success']);
+        $firstApplication = $this->service->getPermitStatus($playerId, $this->legalRegionId)['application'];
+        $this->assertGreaterThan(0, (int)$firstApplication['fee_transaction_id']);
+        $this->db->prepare("UPDATE bank_transactions SET created_at='2026-01-01 12:01:00' WHERE id=? AND from_player_id=?")
+            ->execute([$firstApplication['fee_transaction_id'], $playerId]);
         $this->db->prepare("UPDATE drilling_permit_applications SET status='no_decision' WHERE player_id=? AND region_id=?")->execute([$playerId, $this->legalRegionId]);
         $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first->modify('+1 day'))['success']);
         $current = $this->service->getPermitStatus($playerId, $this->legalRegionId)['application'];
         $reader = new LegalApplicationHistory($this->db);
         $history = $reader->forPlayer($playerId, [$this->legalRegionId => ['drilling' => $current]]);
         $this->assertSame('no_decision', $history[$this->legalRegionId]['drilling'][0]['status']);
+        $this->assertCount(1, $history[$this->legalRegionId]['drilling']);
+        $this->assertSame((int)$firstApplication['fee_transaction_id'], (int)$history[$this->legalRegionId]['drilling'][0]['fee_transaction_id']);
+        $this->db->beginTransaction();
+        $reader->ensureSchema();
+        $this->assertTrue($this->db->inTransaction());
+        $this->db->rollBack();
+
         $this->assertSame([], $reader->forPlayer($playerId + 1, []));
         $this->assertSame('in_progress', $this->service->submitApplication($playerId, $this->legalRegionId)['code']);
     }
@@ -139,8 +151,37 @@ final class MySqlLegalServiceTest extends MySqlIntegrationTestCase
         $history = (new LegalApplicationHistory($this->db))->forPlayer($playerId, [$this->legalRegionId => ['local' => $current]]);
         $this->assertCount(1, $history[$this->legalRegionId]['local']);
         $this->assertSame('no_decision', $history[$this->legalRegionId]['local'][0]['status']);
+        $this->assertGreaterThan(0, (int)$history[$this->legalRegionId]['local'][0]['fee_transaction_id']);
+        $this->assertNotSame($history[$this->legalRegionId]['local'][0]['fee_transaction_id'], $current['fee_transaction_id']);
         $this->assertArrayNotHasKey('drilling', $history[$this->legalRegionId]);
         $this->assertSame('in_progress', $this->service->submitHubApplication($playerId, $this->legalRegionId)['code']);
+    }
+
+    public function testUpgradeOutcomeAndDeadlineSurviveRetryOnRealMySql(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->insertRegion($this->legalRegionId, 2);
+        $this->insertConfig($this->legalRegionId, 'medium', 250000, 60, 0);
+        $this->insertApplication($playerId, $this->legalRegionId, 'transitional');
+        $this->db->prepare("UPDATE drilling_permit_applications SET submitted_at=NULL WHERE player_id=? AND region_id=?")->execute([$playerId, $this->legalRegionId]);
+        $first = new DateTimeImmutable('2026-01-01 12:00:00');
+        $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first)['success']);
+        $app = $this->service->getPermitStatus($playerId, $this->legalRegionId)['application'];
+        $app += ['no_decision_risk_pct'=>100, 'refusal_risk_pct'=>0, 'delay_risk_pct'=>0,
+            'delay_min_minutes'=>10, 'delay_max_minutes'=>30, 'refusal_cooldown_minutes'=>120, 'risk_level'=>'medium'];
+        $section = new LegalSection($this->db, new DateTime('2026-01-01 13:00:00'));
+        (new ReflectionMethod($section, 'processTransitionalUpgrade'))->invoke($section, $app, '2026-01-01 13:00:00');
+        $finished = $this->service->getPermitStatus($playerId, $this->legalRegionId);
+        $this->assertTrue($finished['has_active']);
+        $this->assertSame('no_decision', LegalApplicationHistory::applicationStatus($finished['application']));
+        $this->assertSame('2026-01-01 13:00:00', $finished['application']['upgrade_decision_due_at']);
+        $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first->modify('+1 day'))['success']);
+        $current = $this->service->getPermitStatus($playerId, $this->legalRegionId)['application'];
+        $rows = (new LegalApplicationHistory($this->db))->forPlayer($playerId, [$this->legalRegionId=>['drilling'=>$current]])[$this->legalRegionId]['drilling'];
+        $this->assertSame('no_decision', $rows[0]['status']);
+        $this->assertSame('2026-01-01 13:00:00', $rows[0]['decision_due_at']);
+        $this->assertSame((int)$app['fee_transaction_id'], (int)$rows[0]['fee_transaction_id']);
+        $this->assertNull($current['decided_at']);
     }
 
     private function insertRegion(int $regionId, int $politicalRisk): void

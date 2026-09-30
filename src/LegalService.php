@@ -638,7 +638,7 @@ class LegalService
                     $this->db->prepare(
                         "UPDATE drilling_permit_applications
                             SET cost = ?, submitted_at = ?, upgrade_pending = 1,
-                                upgrade_decision_due_at = ?, delay_count = 0,
+                                upgrade_decision_due_at = ?, decided_at = NULL, delay_count = 0,
                                 source = 'player', updated_at = ?
                           WHERE player_id = ? AND region_id = ?"
                     )->execute([$applicationCost, $nowStr, $dueStr, $nowStr, $playerId, $regionId]);
@@ -658,6 +658,13 @@ class LegalService
                      VALUES (?, ?, 'pending', ?, ?, ?, 'player', ?, ?)"
                 )->execute([$playerId, $regionId, $applicationCost, $nowStr, $dueStr, $nowStr, $nowStr]);
             }
+
+            if ($existingStatus !== self::STATUS_TRANSITIONAL && array_key_exists('upgrade_decision_due_at', $existing ?? [])) {
+                $this->db->prepare('UPDATE drilling_permit_applications SET upgrade_pending=0, upgrade_decision_due_at=NULL WHERE player_id=? AND region_id=?')
+                    ->execute([$playerId, $regionId]);
+            }
+            $this->db->prepare('UPDATE drilling_permit_applications SET fee_transaction_id=? WHERE player_id=? AND region_id=?')
+                ->execute([$payment['transaction_id'], $playerId, $regionId]);
 
             $this->db->commit();
         } catch (Throwable $e) {

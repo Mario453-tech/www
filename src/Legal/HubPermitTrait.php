@@ -354,6 +354,9 @@ trait LegalHubPermitTrait
                 )->execute([$playerId, $regionId, $applicationCost, $nowStr, $dueStr, $nowStr, $nowStr]);
             }
 
+            $this->db->prepare('UPDATE hub_permit_applications SET fee_transaction_id=? WHERE player_id=? AND region_id=?')
+                ->execute([$payment['transaction_id'], $playerId, $regionId]);
+
             $this->db->commit();
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) {

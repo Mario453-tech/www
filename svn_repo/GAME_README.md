@@ -1141,3 +1141,13 @@ Walidacja lokalna: Unit+Integration 836 testow / 8356 asercji OK. MySQL: 317 tes
   testy MySQL obejmuja oba rodzaje zezwolen. UI: PL/EN i 320-1440 px.
 - Wycofanie: revert kodu. Tabele archiwum pozostawic, bez kasowania danych.
   Nie zmieniono uprawnien ani widocznosci danych innych graczy.
+
+
+### Regresje historii wnioskow (2026-10-01)
+
+- Okno regionu dziala takze przed pierwszym wnioskiem; przycisk historii nie przeslania danych archiwum w JavaScript.
+- Wniosek i jego archiwum zapisuja `fee_transaction_id` w tej samej transakcji co oplate. Deduplikacja nowych wpisow opiera sie na ID audytu, nie na roznicy czasu. Starsze rekordy bez ID dopasowuja najwyzej jedna oplate danego gracza/regionu/typu/kwoty w przedziale do nastepnego wniosku.
+- Tick zachowuje `upgrade_decision_due_at` po zakonczeniu pelnego wniosku. Przejscie `upgrade_pending=1` na `0` przy zachowanym statusie `transitional` i zapisanej dacie zakonczenia oznacza brak decyzji w historii, bez odebrania dostepu do regionu. Ponowny wniosek zeruje stara date decyzji; zwykla proba po odmowie zeruje stary termin upgrade.
+- Rozszerzenie schematu jest addytywne: nullable `fee_transaction_id` w obu tabelach wnioskow i archiwum, bootstrap przed transakcja. Nie zmienia uprawnien ani kolejnosci ticka; lock `oilcorp_tick` i liczniki pozostaja bez zmian.
+- Historycznych terminow skasowanych przed poprawka nie odtwarzamy. Wczesniejsze oplaty nadal sa widoczne bez dopisywania decyzji.
+- Regresje: pierwszy wniosek, zakonczony upgrade, cztery wyniki ticka, opozniony zapis oplaty, retry, MySQL i PL/EN przy 320/360/390/768/1024/1440 px. Wycofanie przez revert kodu; dodatkowe nullable kolumny pozostawic, bez usuwania danych.

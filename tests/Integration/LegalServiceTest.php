@@ -22,6 +22,82 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $this->service = new LegalService($this->db);
     }
 
+    public function testDelayedFeeTimestampDoesNotDuplicateArchivedAttempt(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000);
+        $this->assertTrue($this->service->submitApplication(100, 1, new DateTimeImmutable('2026-01-01 12:00:00'))['success']);
+        $first = $this->service->getPermitStatus(100, 1)['application'];
+        $this->assertGreaterThan(0, (int)($first['fee_transaction_id'] ?? 0));
+        $this->db->exec("UPDATE bank_transactions SET created_at='2026-01-01 12:00:10'");
+        $this->db->exec("UPDATE drilling_permit_applications SET status='no_decision', decided_at='2026-01-01 13:00:00'");
+        $this->assertTrue($this->service->submitApplication(100, 1, new DateTimeImmutable('2026-01-02 12:00:00'))['success']);
+        $current = $this->service->getPermitStatus(100, 1)['application'];
+        $history = (new LegalApplicationHistory($this->db))->forPlayer(100, [1 => ['drilling' => $current]]);
+        $this->assertCount(1, $history[1]['drilling']);
+        $this->assertSame('archive', $history[1]['drilling'][0]['source']);
+        $this->assertSame((int)$first['fee_transaction_id'], (int)$history[1]['drilling'][0]['fee_transaction_id']);
+        $this->assertNotSame($first['fee_transaction_id'], $current['fee_transaction_id']);
+    }
+
+    public function testLegacyDelayedFeeIsMatchedWithoutHidingOlderFees(): void
+    {
+        $this->seedPlayer(100, 1000000);
+        $fts = new FinancialTransactionService($this->db);
+        foreach (['2025-12-31 12:00:00', '2026-01-01 12:00:10'] as $date) {
+            $fts->logTransaction(100, null, 250000, FinancialTransactionService::TYPE_LEGAL_FEE, 'fixture', 'legal_region', 1);
+            $this->db->prepare('UPDATE bank_transactions SET created_at=? WHERE id=?')->execute([$date, $this->db->lastInsertId()]);
+        }
+        $reader = new LegalApplicationHistory($this->db);
+        $this->db->beginTransaction();
+        $reader->archive(100, 1, 'drilling', ['player_id'=>100, 'region_id'=>1, 'status'=>'refused', 'cost'=>250000, 'submitted_at'=>'2026-01-01 12:00:00']);
+        $this->db->commit();
+        $rows = $reader->forPlayer(100, [1=>['drilling'=>['submitted_at'=>'2026-01-02 12:00:00']]])[1]['drilling'];
+        $this->assertCount(2, $rows);
+        $this->assertSame(['archive', 'fee'], array_column($rows, 'source'));
+        $this->assertSame('2025-12-31 12:00:00', $rows[1]['submitted_at']);
+    }
+
+    public function testUpgradeRetryArchivesActualOutcomeAndDeadline(): void
+    {
+        $this->seedRegions(); $this->seedConfig(1); $this->seedPlayer(100, 1000000);
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_pending INTEGER DEFAULT 0');
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_decision_due_at TEXT');
+        $this->insertApplication(100, 1, 'transitional');
+        $this->db->exec("UPDATE drilling_permit_applications SET submitted_at='2026-01-01 12:00:00', decision_due_at='2025-12-01 12:00:00', upgrade_decision_due_at='2026-01-01 14:00:00', decided_at='2026-01-01 14:05:00'");
+        $this->assertTrue($this->service->submitApplication(100, 1, new DateTimeImmutable('2026-01-02 12:00:00'))['success']);
+        $current = $this->service->getPermitStatus(100, 1);
+        $this->assertTrue($current['has_active']);
+        $this->assertSame('transitional', $current['status']);
+        $this->assertNull($current['application']['decided_at']);
+        $history = (new LegalApplicationHistory($this->db))->forPlayer(100, [1=>['drilling'=>$current['application']]]);
+        $this->assertSame('no_decision', $history[1]['drilling'][0]['status']);
+        $this->assertSame('2026-01-01 14:00:00', $history[1]['drilling'][0]['decision_due_at']);
+    }
+
+    public function testRetryAfterRefusedUpgradeClearsOldUpgradeDeadline(): void
+    {
+        $this->seedRegions(); $this->seedConfig(1); $this->seedPlayer(100, 1000000);
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_pending INTEGER DEFAULT 0');
+        $this->db->exec('ALTER TABLE drilling_permit_applications ADD COLUMN upgrade_decision_due_at TEXT');
+        $this->insertApplication(100, 1, 'refused');
+        $this->db->exec("UPDATE drilling_permit_applications SET submitted_at='2026-01-01 12:00:00', upgrade_decision_due_at='2026-01-01 14:00:00', decided_at='2026-01-01 14:05:00'");
+        $this->assertTrue($this->service->submitApplication(100, 1, new DateTimeImmutable('2026-01-02 12:00:00'))['success']);
+        $current = $this->service->getPermitStatus(100, 1)['application'];
+        $this->assertSame('pending', $current['status']);
+        $this->assertNull($current['upgrade_decision_due_at']);
+        $this->assertSame('2026-01-02 13:00:00', $current['decision_due_at']);
+    }
+
+    public function testHistorySchemaBootstrapDoesNotCommitExistingTransaction(): void
+    {
+        $this->db->beginTransaction();
+        (new LegalApplicationHistory($this->db))->ensureSchema();
+        $this->assertTrue($this->db->inTransaction());
+        $this->db->rollBack();
+    }
+
     public function testRiskLevelFromPoliticalMapsAllBands(): void
     {
         $this->assertSame('low', LegalService::riskLevelFromPolitical(1));

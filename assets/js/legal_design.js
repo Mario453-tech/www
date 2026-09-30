@@ -120,6 +120,7 @@
             return node('span', 'legal-design-badge legal-design-status--' + status(card), statusText(card));
         }
         function applicationBadge(card) {
+            if (card.dataset.legalApplicationStatus === 'no_decision') return node('span', 'legal-design-badge legal-design-status--no_decision', historyStatuses.no_decision);
             var upgrade = card.querySelector('.legal-upgrade-pending .legal-badge');
             return upgrade ? node('span', 'legal-design-badge legal-design-status--pending', upgrade.textContent.trim()) : badge(card);
         }
@@ -173,7 +174,7 @@
             body.appendChild(node('h3', '', L.historySubtitle));
             body.appendChild(node('p', 'legal-design-muted', L.timelineIntro));
             var timeline = node('ol', 'legal-design-timeline');
-            var hasDecision = ['granted', 'refused', 'transitional'].indexOf(status(card)) !== -1 && card.dataset.legalUpgradePending !== '1';
+            var hasDecision = ['granted', 'refused', 'transitional'].indexOf(card.dataset.legalApplicationStatus || status(card)) !== -1 && card.dataset.legalUpgradePending !== '1';
             [
                 [L.submitted, card.dataset.legalSubmitted, 'submitted'],
                 [L.due, card.dataset.legalDue, overdue(card) ? 'overdue' : 'due'],
@@ -256,10 +257,10 @@
                 actions.appendChild(finance);
             }
             if (card.dataset.legalSubmitted || card.dataset.legalDecided || pending(card) || ((history[region.id] || {})[kind] || []).length) {
-                var history = node('button', 'legal-design-history-button', L.history);
-                history.type = 'button';
-                history.addEventListener('click', function () { showHistory(region, card, kind); });
-                actions.appendChild(history);
+                var historyButton = node('button', 'legal-design-history-button', L.history);
+                historyButton.type = 'button';
+                historyButton.addEventListener('click', function () { showHistory(region, card, kind); });
+                actions.appendChild(historyButton);
             }
             panel.appendChild(actions);
             var bribe = card.querySelector('.legal-bribe');

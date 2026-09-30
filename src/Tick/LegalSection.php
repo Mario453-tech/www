@@ -347,7 +347,7 @@ class LegalSection
             // No decision — stays transitional, upgrade_pending=0, can reapply.
             $this->db->prepare(
                 "UPDATE drilling_permit_applications
-                    SET upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                    SET upgrade_pending = 0,
                         decided_at = ?, updated_at = ?
                   WHERE id = ? AND player_id = ?"
             )->execute([$nowStr, $nowStr, $appId, $playerId]);
@@ -363,7 +363,7 @@ class LegalSection
             $cooldownUntil = $this->addMinutes($nowStr, $cooldownMin);
             $this->db->prepare(
                 "UPDATE drilling_permit_applications
-                    SET status = 'refused', upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                    SET status = 'refused', upgrade_pending = 0,
                         decided_at = ?, refusal_cooldown_until = ?, updated_at = ?
                   WHERE id = ? AND player_id = ?"
             )->execute([$nowStr, $cooldownUntil, $nowStr, $appId, $playerId]);
@@ -390,7 +390,7 @@ class LegalSection
         // Success — upgrade to 'granted', player retains and expands access.
         $this->db->prepare(
             "UPDATE drilling_permit_applications
-                SET status = 'granted', upgrade_pending = 0, upgrade_decision_due_at = NULL,
+                SET status = 'granted', upgrade_pending = 0,
                     decided_at = ?, updated_at = ?
               WHERE id = ? AND player_id = ?"
         )->execute([$nowStr, $nowStr, $appId, $playerId]);
