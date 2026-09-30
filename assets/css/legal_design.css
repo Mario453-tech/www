@@ -7,7 +7,7 @@
 #legal-design-root { color: #eeedf0; }
 #legal-design-root * { box-sizing: border-box; }
 .legal-design-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 0 0 22px; }
-.legal-design-header h1 { margin: 0 0 4px; font-size: clamp(24px, 2.4vw, 32px); line-height: 1.15; color: #f4f2f0; }
+.legal-design-header h1 { margin: 0 0 4px; font-size: 15px; line-height: 1.25; color: #f4f2f0; }
 .legal-design-header p { margin: 0; color: #9f9fab; font-size: 14px; }
 .legal-design-shortcut { border: 1px solid #454650; border-radius: 6px; padding: 11px 15px; background: #252630; color: #f4f2f0; text-decoration: none; white-space: nowrap; }
 .legal-design-shortcut:hover, .legal-design-shortcut:focus-visible { color: #d6b54f; border-color: #d6b54f; }
@@ -22,7 +22,7 @@
 .legal-design-stat--warning strong { color: #ef6976; }
 .legal-design-priority, .legal-design-list { margin-bottom: 18px; border: 1px solid #34343e; border-radius: 9px; background: #15161f; }
 .legal-design-priority { padding: 20px; }
-.legal-design-priority h2, .legal-design-list h2 { margin: 0; color: #d6b54f; font-size: 17px; }
+.legal-design-priority h2, .legal-design-list h2 { margin: 0; color: #d6b54f; font-size: 14px; }
 .legal-design-priority-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
 .legal-design-priority-item { min-width: 0; min-height: 94px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 15px 17px; border: 1px solid #5b4540; border-left: 3px solid #e9ae55; border-radius: 7px; background: #221f25; color: #f4f2f0; text-align: left; cursor: pointer; }
 .legal-design-priority-item strong { font-size: 15px; }
@@ -50,12 +50,12 @@
 .legal-design-dialog::backdrop { background: #000b; }
 .legal-design-dialog-inner { max-height: min(90vh, 900px); overflow: auto; }
 .legal-design-dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 22px 24px; border-bottom: 1px solid #363742; }
-.legal-design-dialog-head h2 { margin: 0; color: #d6b54f; font-size: 21px; }
+.legal-design-dialog-head h2 { margin: 0; color: #d6b54f; font-size: 16px; }
 .legal-design-close { width: 40px; height: 40px; border: 1px solid #444551; border-radius: 6px; background: #282934; color: #f4f2f0; font-size: 22px; cursor: pointer; }
 .legal-design-risk { margin: 0; padding: 15px 24px 0; color: #a5a4b0; font-size: 13px; }
 .legal-design-permits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding: 20px 24px 24px; }
 .legal-design-permit { min-width: 0; padding: 17px; border: 1px solid #393a46; border-radius: 7px; background: #1c1d27; }
-.legal-design-permit h3 { margin: 0 0 13px; color: #f4f2f0; font-size: 16px; }
+.legal-design-permit h3 { margin: 0 0 13px; color: #f4f2f0; font-size: 14px; }
 .legal-design-permit .legal-region-card { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .legal-design-permit .legal-region-name { gap: 8px; flex-wrap: wrap; }
 .legal-design-permit .legal-region-meta { flex-wrap: wrap; }
@@ -65,7 +65,7 @@
 .legal-design-back { margin: 18px 24px 0; }
 .legal-design-history-intro { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 18px 24px; padding: 18px; border: 1px solid #3a3b47; border-radius: 7px; background: #1d1e28; }
 .legal-design-eyebrow { color: #a5a4b0; font-size: 12px; text-transform: uppercase; font-weight: 800; letter-spacing: .08em; }
-.legal-design-subhead { margin: 24px 24px 12px; color: #f4f2f0; font-size: 16px; }
+.legal-design-subhead { margin: 24px 24px 12px; color: #f4f2f0; font-size: 14px; }
 .legal-design-timeline { margin: 0 24px; border: 1px solid #393a46; border-radius: 7px; overflow: hidden; }
 .legal-design-timeline-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 17px; border-top: 1px solid #393a46; }
 .legal-design-timeline-row:first-child { border-top: 0; }
@@ -96,5 +96,5 @@
     .legal-design-dialog { width: calc(100vw - 16px); max-height: calc(100dvh - 16px); }
     .legal-design-dialog-inner { max-height: calc(100dvh - 16px); }
     .legal-design-dialog-head { padding: 16px; }
-    .legal-design-dialog-head h2 { font-size: 18px; }
+    .legal-design-dialog-head h2 { font-size: 16px; }
 }
