@@ -9,6 +9,7 @@ require_once __DIR__ . '/Employee/EmployeeSystemConfigService.php';
 require_once __DIR__ . '/HR/StrikeEffectService.php';
 require_once __DIR__ . '/Legal/HubPermitTrait.php';
 require_once __DIR__ . '/Legal/BriberyTrait.php';
+require_once __DIR__ . '/Legal/ApplicationHistory.php';
 
 /**
  * LegalService — Dział prawny P1+P2a: zezwolenia na wiercenie i huby per region.
@@ -99,6 +100,7 @@ class LegalService
             new EmployeeSystemConfigService($this->db)
         );
         $this->ensureSchema();
+        (new LegalApplicationHistory($this->db))->ensureSchema();
         $this->autoSeedIfEmpty();
     }
 
@@ -629,6 +631,7 @@ class LegalService
             // Jeden wiersz na pare (gracz, region) — wstaw lub zaktualizuj po odmowie.
             // One row per (player, region) pair — insert or update after refusal.
             if ($existing) {
+                (new LegalApplicationHistory($this->db))->archive($playerId, $regionId, 'drilling', $existing);
                 if ($existingStatus === self::STATUS_TRANSITIONAL) {
                     // Gracz ma transitional — zachowaj status, oznacz upgrade w toku.
                     // Player has transitional — keep status, mark upgrade as pending.

@@ -108,6 +108,41 @@ final class MySqlLegalServiceTest extends MySqlIntegrationTestCase
         )->execute([$regionId, $risk, $cost, $reviewMin, $reqCapital]);
     }
 
+    public function testRetryPreservesHistoryOnRealMySql(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->insertRegion($this->legalRegionId, 2);
+        $this->insertConfig($this->legalRegionId, 'medium', 250000, 60, 0);
+        $first = new DateTimeImmutable('2026-01-01 12:00:00');
+        $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first)['success']);
+        $this->db->prepare("UPDATE drilling_permit_applications SET status='no_decision' WHERE player_id=? AND region_id=?")->execute([$playerId, $this->legalRegionId]);
+        $this->assertTrue($this->service->submitApplication($playerId, $this->legalRegionId, $first->modify('+1 day'))['success']);
+        $current = $this->service->getPermitStatus($playerId, $this->legalRegionId)['application'];
+        $reader = new LegalApplicationHistory($this->db);
+        $history = $reader->forPlayer($playerId, [$this->legalRegionId => ['drilling' => $current]]);
+        $this->assertSame('no_decision', $history[$this->legalRegionId]['drilling'][0]['status']);
+        $this->assertSame([], $reader->forPlayer($playerId + 1, []));
+        $this->assertSame('in_progress', $this->service->submitApplication($playerId, $this->legalRegionId)['code']);
+    }
+
+    public function testLocalPermitRetryArchivesOnlyThisPlayersAttempt(): void
+    {
+        $playerId = $this->seedPlayer();
+        $this->insertRegion($this->legalRegionId, 2);
+        $this->insertConfig($this->legalRegionId, 'medium', 250000, 60, 0);
+        $this->db->prepare('UPDATE legal_region_config SET hub_permit_enabled=1, hub_permit_cost=250000, hub_review_minutes=120 WHERE region_id=?')->execute([$this->legalRegionId]);
+        $first = new DateTimeImmutable('2026-01-01 12:00:00');
+        $this->assertTrue($this->service->submitHubApplication($playerId, $this->legalRegionId, $first)['success']);
+        $this->db->prepare("UPDATE hub_permit_applications SET status='no_decision' WHERE player_id=? AND region_id=?")->execute([$playerId, $this->legalRegionId]);
+        $this->assertTrue($this->service->submitHubApplication($playerId, $this->legalRegionId, $first->modify('+1 day'))['success']);
+        $current = $this->service->getHubPermitStatus($playerId, $this->legalRegionId)['application'];
+        $history = (new LegalApplicationHistory($this->db))->forPlayer($playerId, [$this->legalRegionId => ['local' => $current]]);
+        $this->assertCount(1, $history[$this->legalRegionId]['local']);
+        $this->assertSame('no_decision', $history[$this->legalRegionId]['local'][0]['status']);
+        $this->assertArrayNotHasKey('drilling', $history[$this->legalRegionId]);
+        $this->assertSame('in_progress', $this->service->submitHubApplication($playerId, $this->legalRegionId)['code']);
+    }
+
     private function insertRegion(int $regionId, int $politicalRisk): void
     {
         $this->db->prepare(
@@ -130,6 +165,9 @@ final class MySqlLegalServiceTest extends MySqlIntegrationTestCase
         try {
             $this->db->prepare("DELETE FROM drilling_permit_applications WHERE player_id = ? OR region_id = ?")
                 ->execute([$playerId, $this->legalRegionId]);
+            $this->db->prepare('DELETE FROM hub_permit_applications WHERE player_id=? OR region_id=?')->execute([$playerId, $this->legalRegionId]);
+            $exists = $this->db->query("SHOW TABLES LIKE 'legal_application_history'")->fetchColumn();
+            if ($exists) $this->db->prepare('DELETE FROM legal_application_history WHERE player_id=? OR region_id=?')->execute([$playerId, $this->legalRegionId]);
             $this->db->prepare("DELETE FROM legal_region_config WHERE region_id = ?")
                 ->execute([$this->legalRegionId]);
             $this->db->prepare("DELETE FROM world_regions WHERE id = ?")

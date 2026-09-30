@@ -1122,3 +1122,22 @@ bootstrap WellService, preload WellLoopSection i opisy PL/EN.
   Nie usuwac historii ani nowej kolumny przy rollbacku.
 
 Walidacja lokalna: Unit+Integration 836 testow / 8356 asercji OK. MySQL: 317 testow / 5888 asercji, bez bledow, 35 pominietych przez istniejace blokady nazwy bazy i hosta (izolowana instancja na porcie 13367). Wszystkie 13 nowych przypadkow cooldownu wykonane. Targeted PHPStan poziom 6, lint 10 plikow, encoding i niezalezny review OK. Poprawka przygotowana lokalnie; paczka zawiera osiem zmienionych plikow aplikacji.
+
+### Historia wnioskow prawnych i ponowne skladanie (2026-10-01)
+
+- `LegalApplicationHistory` tworzy dodatkowa tabele `legal_application_history` (InnoDB).
+  Zachowuje poprzedni wniosek przy ponownej probie, w tej samej transakcji co oplata
+  i zapis nowego wniosku. Blad archiwizacji cofa cala operacje.
+- Odczyt archiwum filtruje `player_id`, region i rodzaj zezwolenia. Starsze wpisy
+  oplat sa pobierane przez kontrakt `FinancialTransactionService::legalFeesForPlayer`.
+  Pokazujemy date i kwote oplaty, bez odtwarzania niezapisanych decyzji. Wpis oplaty
+  odpowiadajacy zarchiwizowanemu wnioskowi nie jest wyswietlany drugi raz.
+- Status `no_decision` dopuszcza ponowny wniosek, zgodnie z istniejaca walidacja
+  serwisu. `pending`/`delayed` oraz pelny wniosek przejsciowy w toku pozostaja
+  chronione przed ponowna oplata. UI uwzglednia gotowke i bank, tak jak serwis.
+- Widok pokazuje historie tylko wtedy, gdy istnieja wczesniejsze wpisy. Liczniki
+  zezwolen sa kompaktowe (aktywne / regiony), bez dodatkowych opisow wiarygodnosci.
+- Regresje obejmuja retry, izolacje graczy, rollback, stare oplaty i deduplikacje;
+  testy MySQL obejmuja oba rodzaje zezwolen. UI: PL/EN i 320-1440 px.
+- Wycofanie: revert kodu. Tabele archiwum pozostawic, bez kasowania danych.
+  Nie zmieniono uprawnien ani widocznosci danych innych graczy.

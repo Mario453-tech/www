@@ -7,6 +7,9 @@ declare(strict_types=1);
  */
 
 return [
+    'legal.btn_retry' => 'Apply again',
+    'legal.history.fee_record' => 'Earlier application fee',
+    'legal.history.fee_date' => 'Payment date',
     'legal.page_title'   => 'Legal department',
     'legal.page_intro'   => 'Here you can submit a drilling permit application for the selected region. A permit is required before buying a well. The decision is made automatically after the review time passes.',
     'legal.section_active'         => 'Active permits',
@@ -170,7 +173,7 @@ return [
     'legal.design.full_fee' => 'Full application fee',
     'legal.design.application_fee' => 'Application fee',
     'legal.design.insufficient' => 'Insufficient funds',
-    'legal.design.insufficient_hint' => 'The application becomes available once your bank balance covers the fee.',
+    'legal.design.insufficient_hint' => 'The application becomes available once you have enough funds for the fee.',
     'legal.design.finance' => 'Finance',
     'legal.design.apply_full' => 'Submit full application',
     'legal.design.apply' => 'Submit application',

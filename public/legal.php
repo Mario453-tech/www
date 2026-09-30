@@ -124,7 +124,7 @@ foreach ($configs as $cfg) {
 
     if ($permit['has_active']) {
         $active[] = ['config' => $cfg, 'permit' => $permit];
-    } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
+    } elseif (in_array($status, ['pending', 'delayed'], true)) {
         $inProgress[] = ['config' => $cfg, 'permit' => $permit];
     } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])
               && new DateTime((string)$permit['application']['refusal_cooldown_until']) > $now) {
@@ -186,7 +186,7 @@ if (!empty($hubRegionIds)) {
 
         if ($permit['has_active']) {
             $hubActive[] = ['config' => $cfg, 'permit' => $permit];
-        } elseif (in_array($status, ['pending', 'delayed', 'no_decision'], true)) {
+        } elseif (in_array($status, ['pending', 'delayed'], true)) {
             $hubInProgress[] = ['config' => $cfg, 'permit' => $permit];
         } elseif ($status === 'refused' && !empty($permit['application']['refusal_cooldown_until'])) {
             $cooldown = new DateTime((string)$permit['application']['refusal_cooldown_until']);
@@ -209,7 +209,7 @@ $bribery        = new BriberyService($db);
 $briberyEnabled = $bribery->config()->isEnabled();
 $bribeQuotes    = []; // [region_id => ['cost'=>int,'catch_pct'=>int,'level'=>string]]
 if ($briberyEnabled) {
-    foreach ($inProgress as $entry) {
+    foreach (array_merge($inProgress, $available) as $entry) {
         if (!in_array($entry['permit']['status'], ['pending', 'delayed', 'no_decision'], true)) {
             continue;
         }
@@ -248,12 +248,21 @@ try {
     GameLog::error('legal.php', 'SabotageService failed', $e, ['player_id' => $playerId]);
 }
 
+$legalCurrentApplications = [];
+foreach (array_merge($active, $inProgress, $available, $locked, $capitalLocked, $credibilityLocked, $levelLocked) as $entry) {
+    $legalCurrentApplications[(int)$entry['config']['region_id']]['drilling'] = $entry['permit']['application'];
+}
+foreach (array_merge($hubActive, $hubInProgress, $hubAvailable, $hubLocked) as $entry) {
+    $legalCurrentApplications[(int)$entry['config']['region_id']]['local'] = $entry['permit']['application'];
+}
+$legalHistory = (new LegalApplicationHistory($db))->forPlayer($playerId, $legalCurrentApplications);
+
 $viewData = compact(
     'active', 'inProgress', 'available', 'locked', 'capitalLocked', 'credibilityLocked', 'levelLocked',
     'hubActive', 'hubInProgress', 'hubAvailable', 'hubLocked', 'hasHubSection',
     'cash', 'bankBalance', 'legalLevel', 'error', 'success',
     'credibilityScore', 'credibilityLevel', 'credibilityMin',
-    'briberyEnabled', 'bribeQuotes', 'sabotageModuleEnabled'
+    'briberyEnabled', 'bribeQuotes', 'sabotageModuleEnabled', 'legalHistory'
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 

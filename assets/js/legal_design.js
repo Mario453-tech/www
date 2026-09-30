@@ -28,6 +28,8 @@
         if (!cards.length) return;
 
         var L = root.dataset;
+        var history = JSON.parse(L.historyData || '{}');
+        var historyStatuses = JSON.parse(L.historyStatuses || '{}');
         var regionMap = new Map();
         cards.forEach(function (card) {
             var id = card.dataset.legalRegion;
@@ -54,7 +56,7 @@
             var badge = card.querySelector('.legal-region-name .legal-badge');
             return badge ? badge.textContent.trim() : (card.dataset.legalStatus || '—');
         }
-        function pending(card) { return ['pending', 'delayed', 'no_decision'].indexOf(status(card)) !== -1 || !!card && card.dataset.legalUpgradePending === '1'; }
+        function pending(card) { return ['pending', 'delayed'].indexOf(status(card)) !== -1 || !!card && card.dataset.legalUpgradePending === '1'; }
         function overdue(card) { return !!card && pending(card) && Number(card.dataset.legalDueEpoch) > 0 && Number(card.dataset.legalDueEpoch) * 1000 < Date.now(); }
         function requiresAttention(region) {
             if (attentionStatus[status(region.drilling)] || attentionStatus[status(region.local)]) return true;
@@ -94,10 +96,10 @@
         var activeDrilling = regions.filter(function (r) { return status(r.drilling) === 'granted'; }).length;
         var activeLocal = regions.filter(function (r) { return status(r.local) === 'granted'; }).length;
         var attentionCount = regions.filter(requiresAttention).length;
-        stat(L.reputation, credibility ? credibility.textContent.trim() : '—', 'good', (shell.querySelector('.credibility-desc') || {}).textContent);
-        stat(L.drilling, activeDrilling, 'gold', L.full + ' · ' + regions.filter(function (r) { return status(r.drilling) === 'transitional'; }).length + ' ' + L.transitionalCount);
-        stat(L.local, activeLocal, 'blue', L.activeCount + ' · ' + regions.filter(function (r) { return r.local && status(r.local) !== 'granted'; }).length + ' ' + L.checkCount);
-        stat(L.attention, attentionCount, attentionCount ? 'warning' : 'good', L.casesCount);
+        stat(L.reputation, credibility ? credibility.textContent.trim() : '—', 'good');
+        stat(L.drilling, activeDrilling + ' / ' + regions.filter(function (r) { return r.drilling; }).length, 'gold');
+        stat(L.local, activeLocal + ' / ' + regions.filter(function (r) { return r.local; }).length, 'blue');
+        stat(L.attention, attentionCount, attentionCount ? 'warning' : 'good');
         root.appendChild(stats);
 
         var dialog = node('dialog', 'legal-design-dialog');
@@ -186,14 +188,22 @@
             });
             body.appendChild(timeline);
             dialogInner.appendChild(body);
-            var earlier = node('section', 'legal-design-earlier');
-            earlier.appendChild(node('h3', '', L.prior));
-            var empty = node('div', 'legal-design-empty');
-            empty.appendChild(node('strong', '', L.noHistory));
-            empty.appendChild(node('p', '', L.noPrior));
-            earlier.appendChild(empty);
-            dialogInner.appendChild(earlier);
-            footer(L.recordOnly, L.back, function () { showRegion(region); });
+            var previous = (history[region.id] || {})[kind] || [];
+            if (previous.length) {
+                var earlier = node('section', 'legal-design-earlier');
+                earlier.appendChild(node('h3', '', L.prior));
+                previous.forEach(function (attempt) {
+                    var item = node('article', 'legal-design-history-attempt');
+                    item.appendChild(node('strong', '', attempt.source === 'fee' ? L.feeRecord : (historyStatuses[attempt.status] || L.history)));
+                    if (attempt.submitted_at) item.appendChild(node('p', '', (attempt.source === 'fee' ? L.feeDate : L.submitted) + ': ' + dateLabel(attempt.submitted_at)));
+                    if (attempt.source === 'archive' && attempt.decision_due_at) item.appendChild(node('p', '', L.due + ': ' + dateLabel(attempt.decision_due_at)));
+                    if (attempt.source === 'archive' && ['granted', 'refused', 'transitional'].indexOf(attempt.status) !== -1 && attempt.decided_at) item.appendChild(node('p', '', L.decided + ': ' + dateLabel(attempt.decided_at)));
+                    item.appendChild(node('p', '', L.applicationFee + ': ' + Number(attempt.cost).toLocaleString(L.locale, {maximumFractionDigits: 2}) + ' ' + L.currency));
+                    earlier.appendChild(item);
+                });
+                dialogInner.appendChild(earlier);
+            }
+            footer('', L.back, function () { showRegion(region); });
             revealDialog();
         }
         function permitPanel(region, card, kind) {
@@ -236,15 +246,16 @@
             }
             var actions = node('div', 'legal-design-permit-actions');
             card.querySelectorAll('form.legal-submit-form').forEach(function (form) { actions.appendChild(form.cloneNode(true)); });
+            if (state === 'no_decision') actions.querySelectorAll('form.legal-submit-form button').forEach(function (button) { button.textContent = L.retry; });
             if (needsFunds) {
-                var disabled = node('button', 'legal-design-disabled-action', state === 'transitional' ? L.applyFull : L.apply);
+                var disabled = node('button', 'legal-design-disabled-action', state === 'transitional' ? L.applyFull : state === 'no_decision' ? L.retry : L.apply);
                 disabled.type = 'button'; disabled.disabled = true;
                 actions.appendChild(disabled);
                 var finance = node('a', 'legal-design-finance', L.finance + ' →');
                 finance.href = L.financeUrl;
                 actions.appendChild(finance);
             }
-            if (card.dataset.legalSubmitted || card.dataset.legalDecided || pending(card)) {
+            if (card.dataset.legalSubmitted || card.dataset.legalDecided || pending(card) || ((history[region.id] || {})[kind] || []).length) {
                 var history = node('button', 'legal-design-history-button', L.history);
                 history.type = 'button';
                 history.addEventListener('click', function () { showHistory(region, card, kind); });

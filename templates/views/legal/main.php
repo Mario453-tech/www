@@ -41,6 +41,13 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
 <?php endif ?>
 
 <div id="legal-design-root" hidden
+     data-history-data="<?= htmlspecialchars(json_encode($legalHistory ?? [], JSON_THROW_ON_ERROR), ENT_QUOTES, 'UTF-8') ?>"
+     data-history-statuses="<?= htmlspecialchars(json_encode(array_combine(['pending','delayed','no_decision','granted','refused','transitional'], array_map(static fn($state) => tPlain('legal.status.' . $state), ['pending','delayed','no_decision','granted','refused','transitional'])), JSON_THROW_ON_ERROR), ENT_QUOTES, 'UTF-8') ?>"
+     data-fee-record="<?= htmlspecialchars(tPlain('legal.history.fee_record'), ENT_QUOTES, 'UTF-8') ?>"
+     data-fee-date="<?= htmlspecialchars(tPlain('legal.history.fee_date'), ENT_QUOTES, 'UTF-8') ?>"
+     data-retry="<?= htmlspecialchars(tPlain('legal.btn_retry'), ENT_QUOTES, 'UTF-8') ?>"
+     data-currency="<?= htmlspecialchars($currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
+     data-locale="<?= htmlspecialchars($locale, ENT_QUOTES, 'UTF-8') ?>"
      data-title="<?= htmlspecialchars(t('legal.design.title'), ENT_QUOTES, 'UTF-8') ?>"
      data-subtitle="<?= htmlspecialchars(t('legal.design.subtitle'), ENT_QUOTES, 'UTF-8') ?>"
      data-drilling="<?= htmlspecialchars(t('legal.design.drilling'), ENT_QUOTES, 'UTF-8') ?>"
@@ -108,7 +115,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--active"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -148,7 +155,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
             <?php
             $__trCost   = (float)$cfg['application_cost'];
             $__trReview = (int)$cfg['base_review_minutes'];
-            $__trAfford = ($bankBalance ?? 0.0) >= $__trCost;
+            $__trAfford = (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= $__trCost;
             $__trName   = (string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id']);
             ?>
             <p class="legal-region-note"><?= t('legal.transitional_apply_warn') ?></p>
@@ -200,7 +207,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--pending"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -242,13 +249,13 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $permit = $entry['permit'];
         $cost   = (float)$cfg['application_cost'];
         $reviewMin = (int)$cfg['base_review_minutes'];
-        $canAfford = ($bankBalance ?? 0.0) >= $cost;
+        $canAfford = (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
         <div class="legal-region-card legal-region-card--available"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -263,6 +270,8 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <span class="legal-region-name__text"><?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?></span>
                 <?php if ($wasRefused): ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.status.refused') ?></span>
+                <?php elseif ($permit['status'] === 'no_decision'): ?>
+                <span class="legal-badge legal-badge--no-decision"><?= t('legal.status.no_decision') ?></span>
                 <?php else: ?>
                 <span class="legal-badge legal-badge--none"><?= t('legal.status.none') ?></span>
                 <?php endif ?>
@@ -313,7 +322,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--locked"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -355,7 +364,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--level-locked"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -397,7 +406,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--credibility-locked"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -440,7 +449,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--capital-locked"
              data-legal-kind="drilling"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['application_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['application_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -493,7 +502,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--active"
              data-legal-kind="local"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['hub_permit_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -540,7 +549,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--pending"
              data-legal-kind="local"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['hub_permit_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -580,13 +589,13 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         $permit    = $entry['permit'];
         $cost      = (float)$cfg['hub_permit_cost'];
         $reviewMin = (int)$cfg['hub_review_minutes'];
-        $canAfford = ($bankBalance ?? 0.0) >= $cost;
+        $canAfford = (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= $cost;
         $wasRefused = ($permit['status'] === 'refused');
         ?>
         <div class="legal-region-card legal-region-card--available"
              data-legal-kind="local"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['hub_permit_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"
@@ -601,6 +610,8 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
                 <?= htmlspecialchars((string)($cfg['region_name'] ?? 'Region ' . $cfg['region_id'])) ?>
                 <?php if ($wasRefused): ?>
                 <span class="legal-badge legal-badge--refused"><?= t('legal.hub.status.refused') ?></span>
+                <?php elseif ($permit['status'] === 'no_decision'): ?>
+                <span class="legal-badge legal-badge--no-decision"><?= t('legal.hub.status.no_decision') ?></span>
                 <?php else: ?>
                 <span class="legal-badge legal-badge--none"><?= t('legal.hub.status.none') ?></span>
                 <?php endif ?>
@@ -647,7 +658,7 @@ $currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
         <div class="legal-region-card legal-region-card--locked"
              data-legal-kind="local"
              data-legal-application-cost="<?= htmlspecialchars(number_format((float)($cfg['hub_permit_cost'] ?? 0), 0, ',', ' ') . ' ' . $currencyLabel, ENT_QUOTES, 'UTF-8') ?>"
-             data-legal-affordable="<?= ($bankBalance ?? 0.0) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
+             data-legal-affordable="<?= (($cash ?? 0.0) + ($bankBalance ?? 0.0)) >= (float)($cfg['hub_permit_cost'] ?? 0) ? '1' : '0' ?>"
              data-legal-upgrade-pending="<?= !empty($permit['application']['upgrade_pending']) ? '1' : '0' ?>"
              data-legal-due-epoch="<?= !empty($permit['application']['upgrade_pending']) ? (int)strtotime((string)($permit['application']['upgrade_decision_due_at'] ?? '')) : (int)strtotime((string)($permit['application']['decision_due_at'] ?? '')) ?>"
              data-legal-region="<?= (int)$cfg['region_id'] ?>"

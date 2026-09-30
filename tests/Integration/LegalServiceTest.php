@@ -32,6 +32,57 @@ final class LegalServiceTest extends SqliteIntegrationTestCase
         $this->assertSame('critical', LegalService::riskLevelFromPolitical(9));
     }
 
+    public function testRetryArchivesPreviousAttemptAndRejectsDuplicatePayment(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000);
+        $first = new DateTimeImmutable('2026-01-01 12:00:00');
+        $this->assertTrue($this->service->submitApplication(100, 1, $first)['success']);
+        $this->db->exec("UPDATE drilling_permit_applications SET status='no_decision', decided_at='2026-01-01 13:00:00' WHERE player_id=100 AND region_id=1");
+        $this->assertTrue($this->service->submitApplication(100, 1, $first->modify('+1 day'))['success']);
+        $current = $this->service->getPermitStatus(100, 1)['application'];
+        $history = (new LegalApplicationHistory($this->db))->forPlayer(100, [1 => ['drilling' => $current]]);
+        $this->assertSame('no_decision', $history[1]['drilling'][0]['status']);
+        $this->assertSame('2026-01-01 12:00:00', $history[1]['drilling'][0]['submitted_at']);
+        $this->assertSame([], (new LegalApplicationHistory($this->db))->forPlayer(101, []));
+        $this->assertSame('in_progress', $this->service->submitApplication(100, 1, $first->modify('+1 day'))['code']);
+        $this->assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM legal_application_history')->fetchColumn());
+        $this->assertSame(2, (int)$this->db->query("SELECT COUNT(*) FROM bank_transactions WHERE transaction_type='legal_fee'")->fetchColumn());
+    }
+
+    public function testHistoryFailureRollsBackRetryFeeAndCurrentApplication(): void
+    {
+        $this->seedRegions();
+        $this->seedConfig(1);
+        $this->seedPlayer(100, 1000000);
+        $this->insertApplication(100, 1, 'no_decision');
+        $this->db->exec("CREATE TRIGGER history_failure BEFORE INSERT ON legal_application_history BEGIN SELECT RAISE(ABORT, 'fixture failure'); END");
+        $this->assertFalse($this->service->submitApplication(100, 1)['success']);
+        $this->assertSame(1000000.0, (float)$this->db->query('SELECT cash FROM players WHERE id=100')->fetchColumn());
+        $this->assertSame('no_decision', $this->service->getPermitStatus(100, 1)['status']);
+        $this->assertSame(0, (int)$this->db->query('SELECT COUNT(*) FROM legal_application_history')->fetchColumn());
+    }
+
+    public function testEarlierAuditedFeesAreShownWithoutInventedDecisionOrDuplicate(): void
+    {
+        $this->seedPlayer(100, 1000000);
+        $fts = new FinancialTransactionService($this->db);
+        $fts->logTransaction(100, null, 250000, FinancialTransactionService::TYPE_LEGAL_FEE, 'fixture', 'legal_region', 1);
+        $this->db->exec("UPDATE bank_transactions SET created_at='2026-01-01 12:00:00'");
+        $current = [1 => ['drilling' => ['submitted_at' => '2026-01-02 12:00:00']]];
+        $reader = new LegalApplicationHistory($this->db);
+        $history = $reader->forPlayer(100, $current);
+        $this->assertSame('fee', $history[1]['drilling'][0]['source']);
+        $this->assertNull($history[1]['drilling'][0]['decided_at']);
+        $this->db->beginTransaction();
+        $reader->archive(100, 1, 'drilling', ['player_id' => 100, 'region_id' => 1, 'status' => 'refused', 'submitted_at' => '2026-01-01 12:00:00']);
+        $this->db->commit();
+        $history = $reader->forPlayer(100, $current);
+        $this->assertCount(1, $history[1]['drilling']);
+        $this->assertSame('archive', $history[1]['drilling'][0]['source']);
+    }
+
     public function testSeedRegionConfigCreatesRowsMappedFromPoliticalRisk(): void
     {
         $this->seedRegions();

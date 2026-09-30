@@ -338,6 +338,7 @@ trait LegalHubPermitTrait
 
             // Jeden wiersz per (gracz, region) — wstaw lub zaktualizuj / One row per (player, region) — upsert
             if ($existing['application']) {
+                (new LegalApplicationHistory($this->db))->archive($playerId, $regionId, 'local', $existing['application']);
                 $this->db->prepare(
                     "UPDATE hub_permit_applications
                         SET status = 'pending', cost = ?, submitted_at = ?, decision_due_at = ?,

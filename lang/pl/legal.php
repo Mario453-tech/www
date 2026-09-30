@@ -7,6 +7,9 @@ declare(strict_types=1);
  */
 
 return [
+    'legal.btn_retry' => 'Złóż ponownie',
+    'legal.history.fee_record' => 'Opłata za wcześniejszy wniosek',
+    'legal.history.fee_date' => 'Data opłaty',
 
     // --- Strona gracza (etap 5) ---
     'legal.page_title'   => 'Dział prawny',
@@ -231,7 +234,7 @@ return [
     'legal.design.full_fee' => 'Opłata za pełny wniosek',
     'legal.design.application_fee' => 'Opłata za wniosek',
     'legal.design.insufficient' => 'Niewystarczające środki',
-    'legal.design.insufficient_hint' => 'Wniosek będzie dostępny po zgromadzeniu opłaty na koncie bankowym.',
+    'legal.design.insufficient_hint' => 'Wniosek będzie dostępny po zgromadzeniu środków na opłatę.',
     'legal.design.finance' => 'Finanse',
     'legal.design.apply_full' => 'Złóż pełny wniosek',
     'legal.design.apply' => 'Złóż wniosek',

@@ -42,6 +42,20 @@ require_once __DIR__ . '/FinancialTransaction/TickSettlementTrait.php';
  */
 class FinancialTransactionService
 {
+    /**
+     * Audited permit fees for this player, separated by reference type.
+     * Audytowane oplaty wnioskow gracza z rozroznieniem typu referencji.
+     * @return list<array<string,mixed>>
+     */
+    public function legalFeesForPlayer(int $playerId): array
+    {
+        $query = $this->db->prepare("SELECT reference_id, reference_type, amount, created_at
+            FROM bank_transactions WHERE from_player_id = ? AND transaction_type = 'legal_fee'
+            AND reference_type IN ('legal_region', 'legal_hub_region') ORDER BY id DESC");
+        $query->execute([$playerId]);
+        return $query->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     use TickSettlementTrait;
     /**
      * Dozwolone typy operacji (brief, sekcja "Historia operacji").
