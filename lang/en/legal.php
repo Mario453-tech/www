@@ -147,7 +147,7 @@ return [
     'legal.design.history' => 'Application history',
     'legal.design.current' => 'Current application',
     'legal.design.prior' => 'Earlier applications',
-    'legal.design.no_prior' => 'No earlier applications are recorded',
+    'legal.design.no_prior' => 'Earlier applications are not stored by the current system. Only the latest application is available.',
     'legal.design.submitted' => 'Submitted',
     'legal.design.due' => 'Expected decision',
     'legal.design.decided' => 'Decision issued',
