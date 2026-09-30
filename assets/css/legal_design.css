@@ -12,13 +12,13 @@
 .legal-design-shortcut { border: 1px solid #454650; border-radius: 6px; padding: 11px 15px; background: #252630; color: #f4f2f0; text-decoration: none; white-space: nowrap; }
 .legal-design-shortcut:hover, .legal-design-shortcut:focus-visible { color: #d6b54f; border-color: #d6b54f; }
 .legal-design-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
-.legal-design-stat { min-width: 0; min-height: 100px; display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid #34343e; border-top: 3px solid #858792; border-radius: 7px; background: #171820; }
+.legal-design-stat { min-width: 0; min-height: 76px; display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; border: 1px solid #34343e; border-top: 3px solid #858792; border-radius: 7px; background: #171820; }
 .legal-design-stat--good { border-top-color: #4dcb8e; }
 .legal-design-stat--gold { border-top-color: #d6b54f; }
 .legal-design-stat--blue { border-top-color: #87acf4; }
 .legal-design-stat--warning { border-top-color: #ef6976; }
 .legal-design-stat-label { color: #a3a3af; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
-.legal-design-stat strong { color: #f4f2f0; font-size: 26px; line-height: 1; }
+.legal-design-stat strong { color: #f4f2f0; font-size: 20px; line-height: 1; }
 .legal-design-stat--warning strong { color: #ef6976; }
 .legal-design-priority, .legal-design-list { margin-bottom: 18px; border: 1px solid #34343e; border-radius: 9px; background: #15161f; }
 .legal-design-priority { padding: 20px; }
@@ -86,7 +86,7 @@
 @media (max-width: 620px) {
     .legal-design-header { align-items: flex-start; flex-direction: column; }
     .legal-design-stats { gap: 8px; }
-    .legal-design-stat { min-height: 86px; padding: 12px; }
+    .legal-design-stat { min-height: 76px; padding: 12px; }
     .legal-design-stat strong { font-size: 20px; }
     .legal-design-list-head { align-items: flex-start; flex-direction: column; }
     .legal-design-row { grid-template-columns: 1fr; }
