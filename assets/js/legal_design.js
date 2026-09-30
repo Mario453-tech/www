@@ -112,7 +112,10 @@
         function dialogHeader(title) {
             dialogInner.replaceChildren();
             var bar = node('div', 'legal-design-dialog-head');
-            bar.appendChild(node('h2', '', title));
+            var heading = node('h2', '', title);
+            heading.id = 'legal-design-dialog-title';
+            dialog.setAttribute('aria-labelledby', heading.id);
+            bar.appendChild(heading);
             var close = node('button', 'legal-design-close', '×');
             close.type = 'button';
             close.setAttribute('aria-label', L.close || 'Close');
