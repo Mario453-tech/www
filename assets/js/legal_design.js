@@ -54,12 +54,11 @@
             var badge = card.querySelector('.legal-region-name .legal-badge');
             return badge ? badge.textContent.trim() : (card.dataset.legalStatus || '—');
         }
+        function pending(card) { return ['pending', 'delayed', 'no_decision'].indexOf(status(card)) !== -1 || !!card && card.dataset.legalUpgradePending === '1'; }
+        function overdue(card) { return !!card && pending(card) && Number(card.dataset.legalDueEpoch) > 0 && Number(card.dataset.legalDueEpoch) * 1000 < Date.now(); }
         function requiresAttention(region) {
             if (attentionStatus[status(region.drilling)] || attentionStatus[status(region.local)]) return true;
-            if (status(region.local) === 'pending') {
-                var due = region.local && region.local.dataset.legalDue;
-                return due && new Date(due.replace(' ', 'T')).getTime() < Date.now();
-            }
+            if (overdue(region.local) || overdue(region.drilling)) return true;
             return false;
         }
         regions.sort(function (a, b) {
@@ -85,19 +84,20 @@
         root.appendChild(header);
 
         var stats = node('div', 'legal-design-stats');
-        function stat(label, value, tone) {
+        function stat(label, value, tone, hint) {
             var item = node('div', 'legal-design-stat legal-design-stat--' + tone);
             item.appendChild(node('span', 'legal-design-stat-label', label));
             item.appendChild(node('strong', '', value));
+            if (hint) item.appendChild(node('small', '', hint));
             stats.appendChild(item);
         }
         var activeDrilling = regions.filter(function (r) { return status(r.drilling) === 'granted'; }).length;
         var activeLocal = regions.filter(function (r) { return status(r.local) === 'granted'; }).length;
         var attentionCount = regions.filter(requiresAttention).length;
-        stat(L.reputation, credibility ? credibility.textContent.trim() : '—', 'good');
-        stat(L.drilling, activeDrilling + ' / ' + regions.length, 'gold');
-        stat(L.local, activeLocal + ' / ' + regions.filter(function (r) { return !!r.local; }).length, 'blue');
-        stat(L.attention, attentionCount, attentionCount ? 'warning' : 'good');
+        stat(L.reputation, credibility ? credibility.textContent.trim() : '—', 'good', (shell.querySelector('.credibility-desc') || {}).textContent);
+        stat(L.drilling, activeDrilling, 'gold', L.full + ' · ' + regions.filter(function (r) { return status(r.drilling) === 'transitional'; }).length + ' ' + L.transitionalCount);
+        stat(L.local, activeLocal, 'blue', L.activeCount + ' · ' + regions.filter(function (r) { return r.local && status(r.local) !== 'granted'; }).length + ' ' + L.checkCount);
+        stat(L.attention, attentionCount, attentionCount ? 'warning' : 'good', L.casesCount);
         root.appendChild(stats);
 
         var dialog = node('dialog', 'legal-design-dialog');
@@ -108,93 +108,188 @@
         dialog.addEventListener('click', function (event) {
             if (event.target === dialog) closeDialog();
         });
+        // Release the native top layer for the game's confirmation modal.
+        // Zwolnij natywna warstwe okna dla potwierdzenia akcji w grze.
+        dialog.addEventListener('submit', function (event) {
+            if (event.defaultPrevented && event.target.matches('.legal-submit-form, .legal-bribe-form')) closeDialog();
+        });
 
-        function dialogHeader(title) {
+        function badge(card) {
+            return node('span', 'legal-design-badge legal-design-status--' + status(card), statusText(card));
+        }
+        function applicationBadge(card) {
+            var upgrade = card.querySelector('.legal-upgrade-pending .legal-badge');
+            return upgrade ? node('span', 'legal-design-badge legal-design-status--pending', upgrade.textContent.trim()) : badge(card);
+        }
+        function dialogHeader(title, subtitle, risk) {
             dialogInner.replaceChildren();
-            var bar = node('div', 'legal-design-dialog-head');
+            var bar = node('header', 'legal-design-dialog-head');
+            var titles = node('div', 'legal-design-dialog-titles');
             var heading = node('h2', '', title);
             heading.id = 'legal-design-dialog-title';
             dialog.setAttribute('aria-labelledby', heading.id);
-            bar.appendChild(heading);
+            titles.appendChild(heading);
+            if (subtitle) titles.appendChild(node('p', '', subtitle));
+            bar.appendChild(titles);
+            if (risk) bar.appendChild(node('span', 'legal-design-risk-pill', risk));
             var close = node('button', 'legal-design-close', '×');
             close.type = 'button';
-            close.setAttribute('aria-label', L.close || 'Close');
+            close.setAttribute('aria-label', L.close);
             close.addEventListener('click', closeDialog);
             bar.appendChild(close);
             dialogInner.appendChild(bar);
         }
-
+        function footer(text, label, handler) {
+            var foot = node('footer', 'legal-design-dialog-footer');
+            foot.appendChild(node('p', '', text));
+            var button = node('button', 'legal-design-footer-action', label);
+            button.type = 'button';
+            button.addEventListener('click', handler);
+            foot.appendChild(button);
+            dialogInner.appendChild(foot);
+        }
+        function revealDialog() {
+            if (!dialog.open) dialog.showModal();
+            dialogInner.scrollTop = 0;
+            dialog.querySelector('.legal-design-close').focus();
+        }
         function showHistory(region, card, kind) {
-            dialogHeader(L.history + ' · ' + region.name);
-            var back = node('button', 'legal-design-back', '← ' + L.back);
-            back.type = 'button';
-            back.addEventListener('click', function () { showRegion(region); });
-            dialogInner.appendChild(back);
-            var intro = node('div', 'legal-design-history-intro');
-            intro.appendChild(node('span', 'legal-design-eyebrow', kind === 'drilling' ? L.drilling : L.local));
-            intro.appendChild(node('strong', 'legal-design-status legal-design-status--' + status(card), statusText(card)));
-            dialogInner.appendChild(intro);
-            var timeline = node('div', 'legal-design-timeline');
+            dialogHeader(L.history, region.name + ' · ' + (kind === 'drilling' ? L.permitDrilling : L.permitLocal));
+            var summary = node('section', 'legal-design-history-summary');
+            var current = node('div');
+            current.appendChild(node('span', 'legal-design-eyebrow', L.status));
+            current.appendChild(applicationBadge(card));
+            summary.appendChild(current);
+            var due = node('div');
+            due.appendChild(node('span', 'legal-design-eyebrow', L.due));
+            due.appendChild(node('strong', '', card.dataset.legalDue ? dateLabel(card.dataset.legalDue) : L.missingDate));
+            summary.appendChild(due);
+            if (overdue(card)) summary.appendChild(node('span', 'legal-design-overdue', L.overdue));
+            summary.appendChild(node('p', 'legal-design-status-note', L.statusNote));
+            dialogInner.appendChild(summary);
+            var body = node('section', 'legal-design-history-body');
+            body.appendChild(node('h3', '', L.historySubtitle));
+            body.appendChild(node('p', 'legal-design-muted', L.timelineIntro));
+            var timeline = node('ol', 'legal-design-timeline');
+            var hasDecision = ['granted', 'refused', 'transitional'].indexOf(status(card)) !== -1 && card.dataset.legalUpgradePending !== '1';
             [
-                [L.submitted, card.dataset.legalSubmitted],
-                [L.due, card.dataset.legalDue],
-                [L.decided, card.dataset.legalDecided || L.noDecision]
+                [L.submitted, card.dataset.legalSubmitted, 'submitted'],
+                [L.due, card.dataset.legalDue, overdue(card) ? 'overdue' : 'due'],
+                [hasDecision ? L.decided : L.decision, hasDecision ? card.dataset.legalDecided : '', 'decision']
             ].forEach(function (item) {
-                var row = node('div', 'legal-design-timeline-row');
-                row.appendChild(node('span', '', item[0]));
-                row.appendChild(node('strong', '', item[1] === L.noDecision ? item[1] : dateLabel(item[1])));
+                var row = node('li', 'legal-design-timeline-row legal-design-timeline-row--' + item[2] + (item[1] ? ' has-date' : ''));
+                row.appendChild(node('strong', '', item[0]));
+                var value = item[1] ? dateLabel(item[1]) : item[2] === 'decision' ? L.noDecision : L.missingDate;
+                if (item[2] === 'overdue') value += ' · ' + L.overdue.toLowerCase();
+                row.appendChild(node('span', '', value));
                 timeline.appendChild(row);
             });
-            dialogInner.appendChild(node('h3', 'legal-design-subhead', L.current));
-            dialogInner.appendChild(timeline);
-            dialogInner.appendChild(node('h3', 'legal-design-subhead', L.prior));
-            dialogInner.appendChild(node('p', 'legal-design-empty', L.noPrior));
-            if (!dialog.open) dialog.showModal();
+            body.appendChild(timeline);
+            dialogInner.appendChild(body);
+            var earlier = node('section', 'legal-design-earlier');
+            earlier.appendChild(node('h3', '', L.prior));
+            var empty = node('div', 'legal-design-empty');
+            empty.appendChild(node('strong', '', L.noHistory));
+            empty.appendChild(node('p', '', L.noPrior));
+            earlier.appendChild(empty);
+            dialogInner.appendChild(earlier);
+            footer(L.recordOnly, L.back, function () { showRegion(region); });
+            revealDialog();
         }
-
         function permitPanel(region, card, kind) {
             var panel = node('section', 'legal-design-permit');
-            panel.appendChild(node('h3', '', kind === 'drilling' ? L.drilling : L.local));
+            panel.appendChild(node('h3', '', kind === 'drilling' ? L.permitDrilling : L.permitLocal));
             if (!card) {
                 panel.appendChild(node('p', 'legal-design-empty', L.notApplicable));
                 return panel;
             }
-            var copy = card.cloneNode(true);
-            copy.removeAttribute('data-legal-region');
-            panel.appendChild(copy);
-            if (card.dataset.legalSubmitted || card.dataset.legalDecided) {
-                var history = node('button', 'legal-design-history-button', L.history + ' →');
+            panel.appendChild(badge(card));
+            if (card.dataset.legalUpgradePending === '1') panel.appendChild(applicationBadge(card));
+            var state = status(card);
+            var description = kind === 'local' ? L.localDescription : state === 'transitional' ? L.drillingDescription
+                : pending(card) ? L.reviewDescription : (card.querySelector('.legal-region-unlocks') || {}).textContent;
+            if (description) panel.appendChild(node('p', 'legal-design-permit-description', description.trim()));
+            // Preserve real blocking reasons and existing authorised actions.
+            // Zachowaj prawdziwe przyczyny blokad i istniejace autoryzowane akcje.
+            card.querySelectorAll('.legal-region-note:not(.legal-region-note--transitional), .legal-cooldown').forEach(function (note) {
+                if (state !== 'transitional') panel.appendChild(node('p', 'legal-design-permit-reason', note.textContent.trim()));
+            });
+            var information = node('div', 'legal-design-permit-information');
+            if (pending(card)) {
+                information.appendChild(node('span', 'legal-design-eyebrow', L.dueShort));
+                information.appendChild(node('strong', '', card.dataset.legalDue ? dateLabel(card.dataset.legalDue) : L.missingDate));
+            } else if (state !== 'granted') {
+                information.appendChild(node('span', 'legal-design-eyebrow', state === 'transitional' ? L.fullFee : L.applicationFee));
+                information.appendChild(node('strong', '', card.dataset.legalApplicationCost || '—'));
+            } else if (card.dataset.legalDecided) {
+                information.appendChild(node('span', 'legal-design-eyebrow', L.decided));
+                information.appendChild(node('strong', '', dateLabel(card.dataset.legalDecided)));
+            }
+            if (information.childElementCount) panel.appendChild(information);
+            var needsFunds = !pending(card) && state !== 'granted' && card.dataset.legalAffordable === '0'
+                && (state === 'transitional' || card.classList.contains('legal-region-card--available'));
+            if (needsFunds || overdue(card)) {
+                var alert = node('div', 'legal-design-permit-alert' + (needsFunds ? ' is-danger' : ''));
+                alert.appendChild(node('strong', '', needsFunds ? L.insufficient : L.overdue));
+                alert.appendChild(node('p', '', needsFunds ? L.insufficientHint : L.overdueHint));
+                panel.appendChild(alert);
+            }
+            var actions = node('div', 'legal-design-permit-actions');
+            card.querySelectorAll('form.legal-submit-form').forEach(function (form) { actions.appendChild(form.cloneNode(true)); });
+            if (needsFunds) {
+                var disabled = node('button', 'legal-design-disabled-action', state === 'transitional' ? L.applyFull : L.apply);
+                disabled.type = 'button'; disabled.disabled = true;
+                actions.appendChild(disabled);
+                var finance = node('a', 'legal-design-finance', L.finance + ' →');
+                finance.href = L.financeUrl;
+                actions.appendChild(finance);
+            }
+            if (card.dataset.legalSubmitted || card.dataset.legalDecided || pending(card)) {
+                var history = node('button', 'legal-design-history-button', L.history);
                 history.type = 'button';
                 history.addEventListener('click', function () { showHistory(region, card, kind); });
-                panel.appendChild(history);
+                actions.appendChild(history);
             }
+            panel.appendChild(actions);
+            var bribe = card.querySelector('.legal-bribe');
+            if (bribe) panel.appendChild(bribe.cloneNode(true));
             return panel;
         }
-
         function showRegion(region) {
-            dialogHeader(region.name);
-            var risk = node('p', 'legal-design-risk', L.risk + ': ' + (region.risk || '—'));
-            dialogInner.appendChild(risk);
+            dialogHeader(region.name, L.regionSubtitle, region.risk);
             var columns = node('div', 'legal-design-permits');
             columns.appendChild(permitPanel(region, region.drilling, 'drilling'));
             columns.appendChild(permitPanel(region, region.local, 'local'));
             dialogInner.appendChild(columns);
-            if (!dialog.open) dialog.showModal();
+            footer(L.separateNote, L.close, closeDialog);
+            revealDialog();
         }
 
         var priority = regions.filter(requiresAttention).slice(0, 3);
         if (priority.length) {
             var priorityPanel = node('section', 'legal-design-priority');
             priorityPanel.appendChild(node('h2', '', L.needsAttention));
+            priorityPanel.appendChild(node('p', 'legal-design-priority-hint', L.priorityHint));
             var priorityGrid = node('div', 'legal-design-priority-grid');
             priority.forEach(function (region) {
                 var item = node('button', 'legal-design-priority-item');
                 item.type = 'button';
-                item.appendChild(node('strong', '', region.name));
-                var issue = attentionStatus[status(region.drilling)]
+                var itemHead = node('span', 'legal-design-priority-head');
+                itemHead.appendChild(node('strong', '', region.name));
+                itemHead.appendChild(node('span', 'legal-design-detail-link', L.details + ' ›'));
+                item.appendChild(itemHead);
+                var drillingIssue = attentionStatus[status(region.drilling)] || overdue(region.drilling);
+                var issue = drillingIssue
                     ? L.drilling + ': ' + statusText(region.drilling)
                     : L.local + ': ' + statusText(region.local);
-                item.appendChild(node('span', '', issue));
+                item.appendChild(node('span', 'legal-design-priority-issue', issue));
+                var mainCard = drillingIssue ? region.drilling : region.local;
+                if (mainCard && status(mainCard) === 'transitional' && !pending(mainCard)) {
+                    item.appendChild(node('small', '', L.fullFee + ': ' + mainCard.dataset.legalApplicationCost + (mainCard.dataset.legalAffordable === '0' ? ' · ' + L.insufficient.toLowerCase() : '')));
+                } else if (overdue(mainCard)) {
+                    item.appendChild(node('small', '', L.overdue + ' · ' + L.overdueHint));
+                }
+                if (mainCard && status(mainCard) === 'no_decision') item.classList.add('is-no-decision');
                 item.addEventListener('click', function () { showRegion(region); });
                 priorityGrid.appendChild(item);
             });
