@@ -257,8 +257,8 @@ $viewData = compact(
 );
 $viewData = array_merge($viewData, GameShell::data($playerId));
 
-$extraCss = ['/assets/css/legal.css', '/assets/css/credibility.css'];
-$extraJs  = ['/assets/js/legal.js'];
+$extraCss = ['/assets/css/legal.css', '/assets/css/credibility.css', '/assets/css/legal_design.css'];
+$extraJs  = ['/assets/js/legal.js', '/assets/js/legal_design.js'];
 require_once __DIR__ . '/../templates/header.php';
 extract($viewData, EXTR_SKIP);
 $gameShellTitle = t('legal.page_title');
