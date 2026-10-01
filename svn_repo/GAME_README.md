@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-01 - Historia ticków bez konserwacji schematu przy odczycie
+
+- Oba widoki historii (`admin/logs.php?tab=tick` oraz `admin/tick_log.php`) używają `TickHistoryQuery`. Otwieranie historii nie uruchamia konstruktora repozytorium zapisującego ticki, kontroli schematu, usuwania duplikatów ani zmiany indeksów.
+- Lista pobiera wyłącznie wyświetlane metryki, bez dużych pól diagnostycznych `module_stats_data` i `module_runs_data`. Zachowuje prawdziwe liczniki, filtry źródła, 50 wpisów na stronę i podsumowanie ostatnich 24 godzin. Kolejność ticków z tym samym czasem jest stabilna; numer strony jest ograniczany przed obliczeniem przesunięcia.
+- Testy regresji: odczyt SQLite w trybie tylko do odczytu, duże pola diagnostyczne, filtry, kolejne strony i podsumowanie; MySQL z natywnymi zapytaniami przygotowanymi oraz ścisłym trybem dat. Bez migracji, zmian uprawnień i zmian wykonywania ticków. Wycofanie: revert commita.
+
 ### 2026-10-01 - Panel logów bez oczekiwania na czyszczenie
 
 - Otwieranie zakładek logów i zapisywanie retencji nie wykonuje czyszczenia przed odpowiedzią. Na produkcyjnym PHP-FPM konserwacja startuje dopiero po `session_write_close()` i `fastcgi_finish_request()`.

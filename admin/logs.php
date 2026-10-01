@@ -8,6 +8,7 @@ AdminAuth::requireLogin();
 require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
 require_once __DIR__ . '/../src/AdminLogs/GameLogReader.php';
 require_once __DIR__ . '/../src/AdminLogs/LogRetentionService.php';
+require_once __DIR__ . '/../src/AdminLogs/TickHistoryQuery.php';
 
 $db     = Database::getInstance()->getConnection();
 $tab    = in_array($_GET['tab'] ?? 'admin', ['admin', 'game', 'tick']) ? ($_GET['tab'] ?? 'admin') : 'admin';
@@ -196,27 +197,17 @@ if ($tab === 'admin') {
     $logs = $stmt->fetchAll();
 }
 
-// DANE: TICK LOG (aduj tylko gdy tab=tick) 
+// Load read-only tick history only for its tab.
+// Wczytaj historie tickow tylko do odczytu i tylko w jej zakladce.
 if ($tab === 'tick') {
-    $tickRepo ??= new TickStatsRepository($db);
-    $tickSummary24h = $tickRepo->getSummary24h();
+    $tickHistory = new TickHistoryQuery($db);
+    $tickSummary24h = $tickHistory->summary24h();
     $tickPerPage    = 50;
-    $tickWhere      = $tickFilterSource ? "WHERE source = :src" : "";
-
-    $cntStmt = $db->prepare("SELECT COUNT(*) FROM tick_stats {$tickWhere}");
-    if ($tickFilterSource) $cntStmt->bindValue(':src', $tickFilterSource);
-    $cntStmt->execute();
-    $tickTotalRows  = (int)$cntStmt->fetchColumn();
-    $tickTotalPages = max(1, (int)ceil($tickTotalRows / $tickPerPage));
-    $tickPage       = max(1, min($page, $tickTotalPages));
-    $tickOffset     = ($tickPage - 1) * $tickPerPage;
-
-    $lstStmt = $db->prepare("SELECT * FROM tick_stats {$tickWhere} ORDER BY ran_at DESC LIMIT :lim OFFSET :off");
-    if ($tickFilterSource) $lstStmt->bindValue(':src', $tickFilterSource);
-    $lstStmt->bindValue(':lim', $tickPerPage, PDO::PARAM_INT);
-    $lstStmt->bindValue(':off', $tickOffset,  PDO::PARAM_INT);
-    $lstStmt->execute();
-    $ticks = $lstStmt->fetchAll();
+    $tickResult = $tickHistory->page($tickFilterSource, $page, $tickPerPage);
+    $tickTotalRows = $tickResult['total'];
+    $tickTotalPages = $tickResult['pages'];
+    $tickPage = $tickResult['page'];
+    $ticks = $tickResult['rows'];
 } else {
     $tickPage = 1;
 }

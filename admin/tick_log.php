@@ -6,9 +6,10 @@ require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 
 require_once __DIR__ . '/../src/Tick/TickStatsRepository.php';
+require_once __DIR__ . '/../src/AdminLogs/TickHistoryQuery.php';
 
 $db   = Database::getInstance()->getConnection();
-$repo = new TickStatsRepository();
+$history = new TickHistoryQuery($db);
 
 // Filtr source 
 $filterSource = in_array($_GET['source'] ?? '', ['cron','force']) ? $_GET['source'] : '';
@@ -16,28 +17,17 @@ $filterSource = in_array($_GET['source'] ?? '', ['cron','force']) ? $_GET['sourc
 // Paginacja 
 $perPage = 50;
 $page    = max(1, (int)($_GET['page'] ?? 1));
-$offset  = ($page - 1) * $perPage;
 
-// Dane: lista tickw 
-$whereSource = $filterSource ? "WHERE source = :src" : "";
-$countSql    = "SELECT COUNT(*) FROM tick_stats {$whereSource}";
-$listSql     = "SELECT * FROM tick_stats {$whereSource} ORDER BY ran_at DESC LIMIT :lim OFFSET :off";
-
-$countStmt = $db->prepare($countSql);
-if ($filterSource) $countStmt->bindValue(':src', $filterSource);
-$countStmt->execute();
-$totalRows = (int)$countStmt->fetchColumn();
-$totalPages = max(1, (int)ceil($totalRows / $perPage));
-
-$listStmt = $db->prepare($listSql);
-if ($filterSource) $listStmt->bindValue(':src', $filterSource);
-$listStmt->bindValue(':lim',  $perPage, PDO::PARAM_INT);
-$listStmt->bindValue(':off',  $offset,  PDO::PARAM_INT);
-$listStmt->execute();
-$ticks = $listStmt->fetchAll();
+// Read only the summary columns needed by the view.
+// Odczytaj tylko kolumny podsumowania potrzebne w widoku.
+$result = $history->page($filterSource, $page, $perPage);
+$totalRows = $result['total'];
+$totalPages = $result['pages'];
+$page = $result['page'];
+$ticks = $result['rows'];
 
 // Dane: podsumowanie 24h
-$summary24h = $repo->getSummary24h();
+$summary24h = $history->summary24h();
 
 // Dane: ostatni tick (status + czas)
 $lastTickRow = null;
@@ -70,15 +60,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cleanup_days'])) {
         $cleanupMsg = 'error:' . t('common.csrf_error');
     } else {
         $days    = max(1, min(365, (int)$_POST['cleanup_days']));
-        $deleted = $repo->cleanup($days);
+        $deleted = (new TickStatsRepository($db))->cleanup($days);
         AdminLog::log('tick_log_cleanup', "Cleanup tick_stats: usunieto {$deleted} wpisow starszych niz {$days} dni", null, AdminAuth::getAdminUsername());
         $cleanupMsg = 'ok:' . t('admin.tick_log.msg_cleanup', ['count' => $deleted, 'days' => $days]);
- // Przelicz po cleanup
-        $countStmt->execute();
-        $totalRows  = (int)$countStmt->fetchColumn();
-        $totalPages = max(1, (int)ceil($totalRows / $perPage));
-        $listStmt->execute();
-        $ticks = $listStmt->fetchAll();
+        // Refresh the page after cleanup. / Odswiez strone po czyszczeniu.
+        $result = $history->page($filterSource, $page, $perPage);
+        $totalRows = $result['total'];
+        $totalPages = $result['pages'];
+        $page = $result['page'];
+        $ticks = $result['rows'];
     }
 }
 
