@@ -20,15 +20,15 @@ final class GameLogContentionTest extends BaseTestCase
         }
     }
 
-    public function testBusyLogDoesNotBlockRequestAndPreservesEntryInErrorLog(): void
+    public function testBusyLogDoesNotBlockRequestAndPreservesEntryInProtectedFallback(): void
     {
         $path = tempnam(sys_get_temp_dir(), 'game-lock-');
-        $fallback = tempnam(sys_get_temp_dir(), 'game-fallback-');
+        $fallback = $path . '.fallback.log';
         $handle = fopen($path, 'ab');
         self::assertTrue(flock($handle, LOCK_EX));
         $code = 'require ' . var_export(dirname(__DIR__, 2) . '/src/GameLog.php', true) . ';'
-            . 'ini_set("error_log", $argv[2]); GameLog::init($argv[1]); GameLog::info("test", "contention-probe");';
-        $process = proc_open([PHP_BINARY, '-r', $code, $path, $fallback], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
+            . 'GameLog::init($argv[1]); GameLog::info("test", "contention-probe");';
+        $process = proc_open([PHP_BINARY, '-r', $code, $path], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
         self::assertIsResource($process);
         try {
             $deadline = microtime(true) + 2;
@@ -48,7 +48,7 @@ final class GameLogContentionTest extends BaseTestCase
             flock($handle, LOCK_UN);
             fclose($handle);
             unlink($path);
-            unlink($fallback);
+            if (is_file($fallback)) { unlink($fallback); }
         }
     }
 }

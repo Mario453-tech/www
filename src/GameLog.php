@@ -48,21 +48,21 @@ class GameLog
             : '';
         $line   = "[{$ts}] [{$level}] [{$module}] {$message}{$ctxStr} [mem={$mem}MB]\n";
 
-        // Never stall a page behind maintenance; preserve busy-file entries in PHP's error log.
-        // Nie zatrzymuj strony przez konserwacje; zachowaj wpisy w logu bledow PHP.
+        // Never stall a page behind maintenance; use a fallback covered by the .log access rule.
+        // Nie zatrzymuj strony przez konserwacje; uzyj logu zapasowego chronionego regula .log.
         $handle = @fopen(self::$logFile, 'ab');
         if ($handle === false) {
-            @error_log(rtrim($line, "\n"));
+            @error_log($line, 3, self::$logFile . '.fallback.log');
             return;
         }
         try {
             if (!flock($handle, LOCK_EX | LOCK_NB)) {
-                @error_log(rtrim($line, "\n"));
+                @error_log($line, 3, self::$logFile . '.fallback.log');
                 return;
             }
             try {
                 if (@fwrite($handle, $line) !== strlen($line)) {
-                    @error_log(rtrim($line, "\n"));
+                    @error_log($line, 3, self::$logFile . '.fallback.log');
                 }
             } finally {
                 flock($handle, LOCK_UN);
