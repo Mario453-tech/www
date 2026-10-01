@@ -23,7 +23,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
         $historyStmt = $db->prepare(
             "
             SELECT
-                DATE_FORMAT(tick_at, '%d.%m %H:%i') AS label,
+                DATE_FORMAT(MIN(tick_at), '%d.%m %H:%i') AS label,
                 SUM(revenue)                        AS revenue,
                 SUM(net_profit)                     AS net_profit,
                 SUM(loss_value)                     AS loss_value,
@@ -31,7 +31,7 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             FROM finance_logs
             WHERE tick_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)
             GROUP BY DATE_FORMAT(tick_at, '%Y-%m-%d %H:%i')
-            ORDER BY tick_at ASC
+            ORDER BY MIN(tick_at) ASC
             "
         );
         $historyStmt->execute([$hours]);
@@ -235,8 +235,8 @@ function adminFinanceBuildViewData(PDO $db, FinanceService $finSvc, FinancePolic
             $cash = (float)($policyRow['cash'] ?? 0.0);
 
             $policySnapshot = $policySvc->getPolicySnapshot($playerId, $hourlyCost, $cash);
-            $liquidity = $finSvc->getLiquidityOverview($playerId, $settings, $last, $summary24);
-            $impact = $finSvc->getPolicyImpactOverview($playerId, $settings, $last, $summary24, $policySnapshot);
+            $liquidity = $finSvc->getLiquidityOverview($playerId, $settings, $last, $summary24, $policySvc);
+            $impact = $finSvc->getPolicyImpactOverview($playerId, $settings, $last, $summary24, $policySnapshot, $policySvc);
             $recommendation = $finSvc->getPolicyRecommendationOverview($settings, $liquidity, $summary24, $impact);
 
             $tick = (array)($impact['tick'] ?? []);

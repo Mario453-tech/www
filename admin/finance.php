@@ -14,8 +14,10 @@ try {
     require_once __DIR__ . '/partials/finance_admin_actions.php';
     require_once __DIR__ . '/partials/finance_admin_metrics.php';
 
-    $finSvc = new FinanceService();
-    $policySvc = new FinancePolicyService($db);
+    // Dashboard reads must not backfill the entire ledger or alter its schema.
+    // Odczyt panelu nie moze uzupelniac calej historii ani zmieniac schematu.
+    $finSvc = new FinanceService(false);
+    $policySvc = new FinancePolicyService($db, false);
 
     $msg = '';
     $err = '';

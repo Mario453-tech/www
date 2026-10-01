@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-01 - Odczyt finansów administratora bez aktualizacji historii
+
+- `admin/finance.php` tworzy istniejące serwisy finansów i polityk w trybie bez inicjalizacji schematu. Otwarcie panelu nie wykonuje dwóch aktualizacji całej tabeli `finance_logs` ani kontroli i zmian schematu. Zapisy ticków zachowują dotychczasową inicjalizację; odczyt starych wolumenów korzysta z istniejącego fallbacku.
+- Obliczenia płynności i skutków polityk otrzymują wspólny serwis odczytu, aby nie inicjalizować schematu ponownie. Wykres używa agregacji czasu zgodnej z `ONLY_FULL_GROUP_BY`.
+- Regresja obejmuje połączenie serwisów oraz pełne obliczenia panelu na MySQL dla 24h/7 dni/30 dni: liczniki poleceń UPDATE/INSERT/DELETE/DDL pozostają bez zmian, stare wpisy nie są modyfikowane, przychody i wynik pozostają poprawne. Bez migracji i zmian uprawnień. Wycofanie: revert commita. Pomiar czasu zalogowanego panelu na produkcji wymaga sesji administratora.
+
 ### 2026-10-01 - Automatyczna retencja historii ticków
 
 - Rozdzielono wiek zachowywanej historii (48 godzin) od częstotliwości czyszczenia (co godzinę przy zakończeniu pełnego ticka). Poprzedni odstęp 48 godzin pozwalał na pozostawanie wpisów przez niemal cztery dni.
