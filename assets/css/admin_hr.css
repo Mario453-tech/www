@@ -237,7 +237,7 @@
 
 .hr-config-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
     gap: 12px;
     margin-bottom: 14px;
 }
@@ -250,8 +250,31 @@
 }
 
 .hr-config-grid small {
-    color: rgba(255, 255, 255, .52);
-    line-height: 1.4;
+    color: rgba(255, 255, 255, .75);
+    font-size: 12px;
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.hr-config-grid label > span:first-child {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.hr-config-grid input[type="number"] {
+    min-height: 44px;
+    font-size: 14px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.hr-settings-help {
+    max-width: 100ch;
+    margin: 0 0 18px;
+    color: rgba(255, 255, 255, .78);
+    font-size: 13px;
+    line-height: 1.65;
 }
 
 .hr-dialogue-form {

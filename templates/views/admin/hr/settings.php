@@ -9,6 +9,7 @@
             <input type="hidden" name="action" value="save_settings">
             <input type="hidden" name="return_tab" value="settings">
             <input type="hidden" name="config_group" value="<?= $esc($group) ?>">
+            <p class="hr-settings-help"><?= t('admin.hr.config_help.' . $group) ?></p>
             <div class="hr-config-grid">
                 <?php foreach ($settingGroup['definitions'] as $key => $definition): ?>
                 <label>
@@ -26,7 +27,7 @@
                            step="<?= $esc($definition['step']) ?>" required>
                     <?php endif ?>
                     <small><?= t((string)$definition['description_key']) ?></small>
-                    <small><?= t('admin.hr.recommended_value', ['value' => $definition['default']]) ?></small>
+                    <small><?= t('admin.hr.recommended_value', ['value' => $definition['type'] === 'bool' ? t(!empty($definition['default']) ? 'admin.hr.config_value_on' : 'admin.hr.config_value_off') : $definition['default']]) ?></small>
                 </label>
                 <?php endforeach ?>
             </div>
