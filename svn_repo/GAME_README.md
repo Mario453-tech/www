@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-10-01 - Naprawa układu konfiguracji zadań administratora
+
+- Uzupełniono pusty `admin_tasks.css`, którego brak reguł rozciągał każde pole na cały wiersz. Zadania mają wyrównane kolumny na szerokim ekranie i dwukolumnowe karty z etykietami pól na mniejszych ekranach; kontrolki mają co najmniej 44 px wysokości i widoczny fokus klawiatury.
+- Playwright/Edge na rzeczywistym szablonie z danymi syntetycznymi: PL i EN, 320/360/390/768/1024/1440/1920 px, brak poziomego przewijania i uciętych pól, etykiety, Tab oraz poprawny zestaw danych wysyłany przez formularz. Zapis do produkcyjnej bazy nie był wykonywany. Logika zapisu i wartości zadań pozostają bez zmian. Bez migracji. Wycofanie: revert commita.
+
 ### 2026-10-01 - Odczyt finansów administratora bez aktualizacji historii
 
 - `admin/finance.php` tworzy istniejące serwisy finansów i polityk w trybie bez inicjalizacji schematu. Otwarcie panelu nie wykonuje dwóch aktualizacji całej tabeli `finance_logs` ani kontroli i zmian schematu. Zapisy ticków zachowują dotychczasową inicjalizację; odczyt starych wolumenów korzysta z istniejącego fallbacku.

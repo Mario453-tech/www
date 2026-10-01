@@ -1,0 +1,61 @@
+/* Task configuration: mobile cards, aligned desktop columns.
+   Konfiguracja zadan: karty mobilne, wyrownane kolumny na komputerze. */
+.admin-tasks .admin-section { margin-top: 24px; }
+.task-config-grid { display: grid; gap: 12px; margin-top: 12px; }
+.task-config-header { display: none; }
+.task-config-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+    align-items: center;
+    padding: 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    min-width: 0;
+}
+.task-config-row > * { min-width: 0; }
+.task-config-row--modified { border-left: 3px solid var(--orange); }
+.task-config-name {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px 8px;
+    overflow-wrap: anywhere;
+}
+.task-config-field { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.task-config-field-label { flex-basis: 100%; color: var(--text); font-size: 12px; }
+.task-config-field .input-inline {
+    width: 0;
+    min-width: 0;
+    flex: 1 1 64px;
+    min-height: 44px;
+    font: inherit;
+    text-align: right;
+    padding: 8px;
+}
+.task-config-field .muted { color: var(--muted2); }
+.task-config-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
+.task-config-actions .btn { min-height: 44px; white-space: normal; }
+.admin-tasks :is(input, button):focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+@media (min-width: 1280px) {
+    .task-config-header, .task-config-row {
+        display: grid;
+        grid-template-columns: minmax(150px, 2fr) repeat(2, minmax(110px, 1fr)) repeat(2, minmax(70px, .65fr)) minmax(210px, 1.5fr);
+        gap: 12px;
+        padding: 12px 16px;
+    }
+    .task-config-header { font-size: 11px; color: var(--muted2); border-bottom: 1px solid var(--border); }
+    .task-config-name, .task-config-actions { grid-column: auto; }
+    .task-config-actions { justify-content: flex-end; }
+    .task-config-field { flex-wrap: nowrap; }
+    .task-config-field-label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
+    }
+}

@@ -69,7 +69,7 @@ $adminExtraCss = ['/assets/css/admin_tasks.css'];
 require_once __DIR__ . '/partials/header.php';
 ?>
 
-<div class="admin-content">
+<div class="admin-content admin-tasks">
     <div class="page-header">
         <h1><?= t('admin.tasks.page_title') ?></h1>
         <p class="muted"><?= t('admin.tasks.page_desc') ?></p>
@@ -125,30 +125,34 @@ require_once __DIR__ . '/partials/header.php';
                     <span class="badge badge-inactive"><?= htmlspecialchars($def['icon']) ?></span>
                     <?php if ($hasOverride): ?><span class="badge badge-active"><?= t('admin.tasks.badge_custom') ?></span><?php endif ?>
                 </span>
-                <span>
+                <label class="task-config-field">
+                    <span class="task-config-field-label"><?= t('admin.tasks.col_cost_min') ?></span>
                     <input type="number" name="cost_min" value="<?= (int)$cur['cost_min'] ?>"
                            min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_cost_min')) ?>">
                     <span class="muted font-xs"><?= t('admin.tasks.currency') ?></span>
-                </span>
-                <span>
+                </label>
+                <label class="task-config-field">
+                    <span class="task-config-field-label"><?= t('admin.tasks.col_cost_max') ?></span>
                     <input type="number" name="cost_max" value="<?= (int)$cur['cost_max'] ?>"
                            min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_cost_max')) ?>">
                     <span class="muted font-xs"><?= t('admin.tasks.currency') ?></span>
-                </span>
-                <span>
+                </label>
+                <label class="task-config-field">
+                    <span class="task-config-field-label"><?= t('admin.tasks.col_hours_min') ?></span>
                     <input type="number" name="hours_min" value="<?= (int)$cur['hours_min'] ?>"
                            min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_hours_min')) ?>">
                     <span class="muted font-xs">h</span>
-                </span>
-                <span>
+                </label>
+                <label class="task-config-field">
+                    <span class="task-config-field-label"><?= t('admin.tasks.col_hours_max') ?></span>
                     <input type="number" name="hours_max" value="<?= (int)$cur['hours_max'] ?>"
                            min="1" step="1" class="input-sm input-inline"
                            title="<?= htmlspecialchars(t('admin.tasks.col_hours_max')) ?>">
                     <span class="muted font-xs">h</span>
-                </span>
+                </label>
                 <span class="task-config-actions">
                     <button type="submit" class="btn btn-sm btn-primary"><?= t('common.save') ?></button>
                     <?php if ($hasOverride): ?>
