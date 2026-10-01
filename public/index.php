@@ -3,6 +3,12 @@ require_once __DIR__ . '/../src/init.php';
 
 $_pageStart = GameLog::pageStart('public/index.php');
 
+if (!Auth::isLoggedIn() && !Auth::tryRememberMe()) {
+    require __DIR__ . '/../templates/views/public/home/main.php';
+    GameLog::pageEnd('public/index.php', $_pageStart);
+    exit;
+}
+
 Auth::requireLogin();
 
 function pluralTimeWord(int $value, string $one, string $few, string $many): string

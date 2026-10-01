@@ -782,7 +782,9 @@ class Auth
                         COALESCE(p.email_verified, 1) AS email_verified
                  FROM player_remember_tokens rt
                  JOIN players p ON p.id = rt.player_id
-                 WHERE rt.token_hash = ? AND rt.expires_at > NOW()
+                 WHERE rt.token_hash = ?
+                   AND rt.expires_at > NOW()
+                   AND p.status = 'active'
                  LIMIT 1"
             );
             $stmt->execute([$tokenHash]);
