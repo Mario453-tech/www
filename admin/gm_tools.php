@@ -25,6 +25,16 @@ AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
 $msg = $msgType = '';
+$deleteFlash = $_SESSION['gm_delete_flash'] ?? null;
+unset($_SESSION['gm_delete_flash']);
+if (is_array($deleteFlash)) {
+    $msg = (string)($deleteFlash['message'] ?? '');
+    $msgType = (string)($deleteFlash['type'] ?? '');
+}
+$selectedDeleteIds = array_values(array_unique(array_filter(
+    array_map('intval', array_filter((array)($_GET['selected'] ?? []), 'is_scalar')),
+    static fn(int $id): bool => $id > 0
+)));
 $walletSvc = new WalletService($db);
 
 // AKCJE POST 
@@ -313,6 +323,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $who = AdminAuth::getAdminUsername();
                 AdminLog::log('delete_players', "Usunieto {$deleted} kont graczy: " . implode(', ', $deleteIds), null, $who);
                 $msg = t('admin.gm.delete_players_ok', ['count' => $deleted]); $msgType = 'success';
+                $selectedDeleteIds = array_values(array_diff($selectedDeleteIds, $deleteIds));
  // Odswierz liste graczy po usunieciu.
  // Refresh player list after deletion.
                 $players = $db->query("SELECT id, email FROM players ORDER BY id")->fetchAll();
@@ -494,6 +505,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_players') {
+    $_SESSION['gm_delete_flash'] = ['message' => $msg, 'type' => $msgType];
+    $redirectQuery = ['delete_page' => max(1, (int)($_GET['delete_page'] ?? 1))];
+    if ($msgType !== 'success') {
+        $redirectQuery['selected'] = array_values(array_unique(array_filter(
+            array_map('intval', array_filter((array)($_POST['player_ids'] ?? []), 'is_scalar')),
+            static fn(int $id): bool => $id > 0
+        )));
+    }
+    header('Location: /admin/gm_tools.php?' . http_build_query($redirectQuery) . '#form-delete-players');
+    exit;
+}
+
 // DANE 
 
 // Globalna ekonomia
@@ -536,6 +560,17 @@ $staffStats = $db->query("
 $market = $db->query("SELECT current_price FROM market_state WHERE id = 1")->fetch();
 
 $players = $db->query("SELECT id, email FROM players ORDER BY id")->fetchAll();
+$deletePlayersPerPage = 10;
+$deletePlayersTotal = (int)$db->query('SELECT COUNT(*) FROM players')->fetchColumn();
+$deletePlayersPages = max(1, (int)ceil($deletePlayersTotal / $deletePlayersPerPage));
+$deletePlayersPage = max(1, min((int)($_GET['delete_page'] ?? 1), $deletePlayersPages));
+$deletePlayersOffset = ($deletePlayersPage - 1) * $deletePlayersPerPage;
+$deletePlayersStmt = $db->prepare('SELECT id, email FROM players ORDER BY id LIMIT :limit OFFSET :offset');
+$deletePlayersStmt->bindValue(':limit', $deletePlayersPerPage, PDO::PARAM_INT);
+$deletePlayersStmt->bindValue(':offset', $deletePlayersOffset, PDO::PARAM_INT);
+$deletePlayersStmt->execute();
+$deletePlayers = $deletePlayersStmt->fetchAll(PDO::FETCH_ASSOC);
+$deletePlayersVisibleIds = array_map('intval', array_column($deletePlayers, 'id'));
 
 $cronCheck = $db->query("SELECT MAX(last_tick_at) AS lt FROM players")->fetch();
 $lastTickAgo = $cronCheck['lt'] ? round((time() - strtotime($cronCheck['lt'])) / 60) : 999;
@@ -549,10 +584,18 @@ $viewData = [
     'staffStats'  => $staffStats,
     'market'      => $market,
     'players'     => $players,
+    'deletePlayers' => $deletePlayers,
+    'deletePlayersTotal' => $deletePlayersTotal,
+    'deletePlayersPerPage' => $deletePlayersPerPage,
+    'deletePlayersPage' => $deletePlayersPage,
+    'deletePlayersPages' => $deletePlayersPages,
+    'deletePlayersVisibleIds' => $deletePlayersVisibleIds,
+    'selectedDeleteIds' => $selectedDeleteIds,
     'lastTickAgo' => $lastTickAgo,
 ];
 
 $pageTitle = 'GM Tools';
+$adminExtraCss = ['/assets/css/admin_gm.css'];
 $extraJs   = ['/assets/js/admin_gm.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/gm_tools/main.php';

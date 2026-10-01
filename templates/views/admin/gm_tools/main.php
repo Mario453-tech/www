@@ -173,26 +173,70 @@
 </section>
 
 <!--  Usuwanie kont graczy  -->
-<section class="panel panel-danger" aria-label="<?= t('admin.gm.delete_players_title') ?>">
+<section class="panel panel-danger gm-delete-panel" aria-label="<?= t('admin.gm.delete_players_title') ?>">
     <p class="panel-title panel-title-danger"><?= t('admin.gm.delete_players_title') ?></p>
     <p class="muted text-sm"><?= t('admin.gm.delete_players_desc') ?></p>
-    <form method="post" id="form-delete-players" data-gm-delete-form>
+    <form method="post" id="form-delete-players" data-gm-delete-form
+          data-confirm="<?= htmlspecialchars(t('admin.gm.delete_players_confirm'), ENT_QUOTES, 'UTF-8') ?>"
+          data-confirm-title="<?= htmlspecialchars(t('admin.gm.delete_players_confirm_title'), ENT_QUOTES, 'UTF-8') ?>"
+          data-confirm-label="<?= htmlspecialchars(t('admin.gm.delete_players_confirm_btn'), ENT_QUOTES, 'UTF-8') ?>">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="delete_players">
-        <div class="gm-delete-list">
+        <?php foreach (array_diff($selectedDeleteIds, $deletePlayersVisibleIds) as $selectedId): ?>
+        <input type="hidden" name="player_ids[]" value="<?= (int)$selectedId ?>" data-gm-carried-selection>
+        <?php endforeach ?>
+        <div class="gm-delete-toolbar">
             <label class="gm-delete-row gm-delete-row--header">
                 <input type="checkbox" id="gm-select-all">
-                <span class="muted text-sm"><?= t('admin.gm.delete_players_select_all') ?></span>
+                <span><?= t('admin.gm.delete_players_select_page') ?></span>
             </label>
-            <?php foreach ($players as $p): ?>
+            <p class="gm-delete-selected" data-gm-selected-count data-label="<?= htmlspecialchars(t('admin.gm.delete_players_selected_count')) ?>"><?= htmlspecialchars(t('admin.gm.delete_players_selected_count', ['count' => count($selectedDeleteIds)])) ?></p>
+        </div>
+        <div class="gm-delete-list">
+            <?php foreach ($deletePlayers as $p): ?>
             <label class="gm-delete-row">
-                <input type="checkbox" name="player_ids[]" value="<?= $p['id'] ?>">
+                <input type="checkbox" name="player_ids[]" value="<?= (int)$p['id'] ?>"<?= in_array((int)$p['id'], $selectedDeleteIds, true) ? ' checked' : '' ?>>
                 <span>#<?= $p['id'] ?> — <?= htmlspecialchars($p['email']) ?></span>
             </label>
             <?php endforeach ?>
         </div>
-        <button type="submit" class="btn btn-danger" style="margin-top:0.75rem"
-                onclick="confirmAction('<?= t('admin.gm.delete_players_confirm') ?>', () => this.form.submit(), {type:'danger', title:'<?= t('admin.gm.delete_players_confirm_title') ?>', confirmLabel:'<?= t('admin.gm.delete_players_confirm_btn') ?>'}); return false;">
+        <div class="gm-delete-pagination" data-gm-delete-pagination>
+            <span class="gm-delete-results">
+                <?php $deleteFirst = $deletePlayersTotal === 0 ? 0 : $deletePlayersOffset + 1; $deleteLast = min($deletePlayersOffset + $deletePlayersPerPage, $deletePlayersTotal); ?>
+                <?= t('admin.gm.delete_players_results', ['first' => $deleteFirst, 'last' => $deleteLast, 'total' => $deletePlayersTotal]) ?>
+            </span>
+            <?php if ($deletePlayersPages > 1): ?>
+            <nav class="gm-delete-pages" aria-label="<?= t('admin.gm.delete_players_pagination') ?>">
+                <?php
+                $pageStart = max(1, $deletePlayersPage - 2);
+                $pageEnd = min($deletePlayersPages, $deletePlayersPage + 2);
+                $deletePageUrl = static function (int $target) use ($selectedDeleteIds): string {
+                    $query = ['delete_page' => $target];
+                    if ($selectedDeleteIds !== []) $query['selected'] = $selectedDeleteIds;
+                    return '/admin/gm_tools.php?' . http_build_query($query) . '#form-delete-players';
+                };
+                ?>
+                <?php if ($deletePlayersPage > 1): ?>
+                <a class="gm-page-link" href="<?= htmlspecialchars($deletePageUrl($deletePlayersPage - 1)) ?>"><?= t('common.previous') ?></a>
+                <?php endif ?>
+                <?php if ($pageStart > 1): ?>
+                <a class="gm-page-link" href="<?= htmlspecialchars($deletePageUrl(1)) ?>">1</a>
+                <?php if ($pageStart > 2): ?><span class="gm-page-ellipsis" aria-hidden="true">…</span><?php endif ?>
+                <?php endif ?>
+                <?php for ($pageNumber = $pageStart; $pageNumber <= $pageEnd; $pageNumber++): ?>
+                <a class="gm-page-link<?= $pageNumber === $deletePlayersPage ? ' is-active' : '' ?>" href="<?= htmlspecialchars($deletePageUrl($pageNumber)) ?>"<?= $pageNumber === $deletePlayersPage ? ' aria-current="page"' : '' ?>><?= $pageNumber ?></a>
+                <?php endfor ?>
+                <?php if ($pageEnd < $deletePlayersPages): ?>
+                <?php if ($pageEnd < $deletePlayersPages - 1): ?><span class="gm-page-ellipsis" aria-hidden="true">…</span><?php endif ?>
+                <a class="gm-page-link" href="<?= htmlspecialchars($deletePageUrl($deletePlayersPages)) ?>"><?= $deletePlayersPages ?></a>
+                <?php endif ?>
+                <?php if ($deletePlayersPage < $deletePlayersPages): ?>
+                <a class="gm-page-link" href="<?= htmlspecialchars($deletePageUrl($deletePlayersPage + 1)) ?>"><?= t('common.next') ?></a>
+                <?php endif ?>
+            </nav>
+            <?php endif ?>
+        </div>
+        <button type="submit" class="btn btn-danger gm-delete-submit">
             <?= t('admin.gm.delete_players_submit') ?>
         </button>
     </form>

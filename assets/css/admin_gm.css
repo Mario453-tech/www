@@ -314,3 +314,47 @@
         background: rgba(224, 85, 85, .08);
         color: #fff !important;
     }
+/* Paged account selection / Wybor kont na stronach. */
+.gm-delete-toolbar, .gm-delete-pagination, .gm-delete-pages {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.gm-delete-toolbar, .gm-delete-pagination { justify-content: space-between; margin: 14px 0; }
+.gm-delete-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.gm-delete-panel .gm-delete-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 13px !important;
+}
+.gm-delete-row span { min-width: 0; overflow-wrap: anywhere; }
+.gm-delete-row input { flex: 0 0 auto; width: 18px; height: 18px; accent-color: var(--orange, #ff9800); }
+.gm-delete-selected { margin: 0; color: var(--muted2, #aaa); }
+.gm-delete-results { font-size: 12px; color: var(--muted2, #aaa); }
+.gm-page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+    padding: 8px 12px;
+    border: 1px solid var(--brd2, #444);
+    border-radius: 5px;
+    background: var(--bg3, #222);
+    color: var(--text, #eee);
+    text-decoration: none;
+}
+.gm-page-link.is-active { border-color: var(--orange, #ff9800); color: var(--orange, #ff9800); }
+.gm-delete-panel :focus-visible { outline: 2px solid var(--orange, #ff9800); outline-offset: 3px; }
+.gm-delete-submit { min-height: 44px; margin-top: 8px; }
+@media (min-width: 900px) {
+    .gm-delete-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
