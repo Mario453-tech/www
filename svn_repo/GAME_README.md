@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-01 - Automatyczna retencja historii ticków
+
+- Rozdzielono wiek zachowywanej historii (48 godzin) od częstotliwości czyszczenia (co godzinę przy zakończeniu pełnego ticka). Poprzedni odstęp 48 godzin pozwalał na pozostawanie wpisów przez niemal cztery dni.
+- Nieprawidłowy lub przyszły czas ostatniej konserwacji nie blokuje kolejnej próby. Reguła dotyczy `tick_stats` oraz `tick_module_run_logs`; świeższe wpisy pozostają. Czyszczenie działa w istniejącej blokadzie `oilcorp_tick`, nie podczas otwierania panelu. Wymaga działającego crona i zakończenia pełnego ticka; nie gwarantuje usunięcia dokładnie w sekundzie przekroczenia 48 godzin.
+- Test MySQL odtwarza pominięte sprzątanie po dwóch godzinach, niedawne sprzątanie, czas przyszły i nieprawidłowy. Brak migracji lub zmian dostępu. Wycofanie: revert commita przywraca poprzedni harmonogram; usuniętej zgodnie z retencją historii nie odtwarza.
+
 ### 2026-10-01 - Historia ticków bez konserwacji schematu przy odczycie
 
 - Oba widoki historii (`admin/logs.php?tab=tick` oraz `admin/tick_log.php`) używają `TickHistoryQuery`. Otwieranie historii nie uruchamia konstruktora repozytorium zapisującego ticki, kontroli schematu, usuwania duplikatów ani zmiany indeksów.

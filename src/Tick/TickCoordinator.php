@@ -407,11 +407,14 @@ final class TickCoordinator
     private function cleanupTickHistoryIfDue(): void
     {
         $keepDays = 2;
+        $now = new DateTimeImmutable();
+        // Retention age and maintenance interval are separate: keep 48h, check hourly.
+        // Wiek historii i odstep konserwacji sa osobne: zachowaj 48h, sprawdzaj co godzine.
         $lastCleanupAt = $this->configString('tick_history_cleanup_at', '');
         if ($lastCleanupAt !== '') {
             try {
                 $lastCleanup = new DateTimeImmutable($lastCleanupAt);
-                if ($lastCleanup > new DateTimeImmutable("-{$keepDays} days")) {
+                if ($lastCleanup <= $now && $lastCleanup > $now->modify('-1 hour')) {
                     return;
                 }
             } catch (Throwable) {
@@ -423,7 +426,7 @@ final class TickCoordinator
             $logsDeleted = (new TickModuleConfigRepository($this->db))->cleanupLogs($keepDays);
             $this->safeUpsertConfig(
                 'tick_history_cleanup_at',
-                (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+                $now->format('Y-m-d H:i:s'),
                 'Last tick history cleanup timestamp',
                 'system',
                 'tick_history_cleanup_at save FAILED'
