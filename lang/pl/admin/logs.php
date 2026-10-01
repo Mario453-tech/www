@@ -40,7 +40,7 @@ return [
     'admin.logs.retention_admin_label' => 'Logi admina — usuń starsze niż',
     'admin.logs.retention_game_hint' => '0 = wyłączone (plik rośnie bez ograniczeń)',
     'admin.logs.retention_game_label' => 'Game log — przycinaj po',
-    'admin.logs.retention_hint' => '0 = wyłączone, czyszczenie przy każdym otwarciu strony',
+    'admin.logs.retention_hint' => '0 = wyłączone. Czyszczenie działa w tle po wyświetleniu strony, najwyżej raz na godzinę.',
     'admin.logs.retention_title' => 'Automatyczne czyszczenie logów',
     'admin.logs.tab_admin' => 'Logi administracyjne',
     'admin.logs.tab_game' => 'Game log (debug)',

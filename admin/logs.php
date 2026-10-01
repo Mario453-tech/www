@@ -41,13 +41,16 @@ $gameLogFile = __DIR__ . '/../game_debug.log';
 $gameLogReader = new GameLogReader();
 $retentionService = new LogRetentionService($db, $gameLogReader);
 
-// AUTO-CZYSZCZENIE przy kadym daniu (jeli ustawione) 
-if ($retentionAdmin > 0) {
-    try {
-        $retentionService->cleanupAdminLogs($retentionAdmin);
-    } catch (Throwable $e) {
-        GameLog::warn('admin/logs.php', 'Admin log retention failed', ['error' => $e->getMessage()]);
-    }
+// Finish the response and release the session before any expensive maintenance.
+// Zakoncz odpowiedz i zwolnij sesje przed kosztowna konserwacja.
+if (function_exists('fastcgi_finish_request')) {
+    register_shutdown_function(static function () use ($retentionService, $gameLogFile, &$retentionAdmin, &$retentionGame): void {
+        try {
+            $retentionService->cleanupAfterResponse($gameLogFile, $retentionAdmin, $retentionGame, 'fastcgi_finish_request');
+        } catch (Throwable $e) {
+            error_log('[admin/logs.php] Deferred log retention failed: ' . get_class($e));
+        }
+    });
 }
 
 // DANE: TICK LOG 
@@ -134,11 +137,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $upd->execute(['log_retention_admin_days', $rAdmin, $who]);
             $upd->execute(['log_retention_game_days', $rGame, $who]);
             $db->commit();
-            $deletedAdmin = $retentionService->cleanupAdminLogs($rAdmin);
-            $deletedGame = $retentionService->cleanupGameLog($gameLogFile, $rGame);
+            $retentionAdmin = $rAdmin;
+            $retentionGame = $rGame;
             AdminLog::log(
                 'log_retention_saved',
-                "Log retention saved: admin={$rAdmin}d, game={$rGame}d, deleted_admin={$deletedAdmin}, deleted_game={$deletedGame}"
+                "Log retention saved: admin={$rAdmin}d, game={$rGame}d"
             );
             $_SESSION['admin_logs_flash'] = [
                 'type' => 'success',
@@ -224,13 +227,6 @@ $gameLogSize  = 0;
 $gameLogHasMore = false;
 
 if ($tab === 'game') {
-    if ($retentionGame > 0) {
-        try {
-            $retentionService->cleanupGameLog($gameLogFile, $retentionGame);
-        } catch (Throwable $e) {
-            GameLog::warn('admin/logs.php', 'Game log retention failed', ['error' => $e->getMessage()]);
-        }
-    }
     $gamePage = $gameLogReader->readPage($gameLogFile, $page, $limit);
     $gameLogLines = $gamePage['lines'];
     $gameLogHasMore = $gamePage['has_more'];

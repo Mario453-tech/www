@@ -40,7 +40,7 @@ return [
     'admin.logs.retention_admin_label' => 'Admin logs - delete entries older than',
     'admin.logs.retention_game_hint' => '0 = disabled (the file grows without limits)',
     'admin.logs.retention_game_label' => 'Game log - trim after',
-    'admin.logs.retention_hint' => '0 = disabled, cleanup runs on every page load',
+    'admin.logs.retention_hint' => '0 = disabled. Cleanup runs in the background after the page is sent, at most once an hour.',
     'admin.logs.retention_title' => 'Automatic log cleanup',
     'admin.logs.tab_admin' => 'Administrative logs',
     'admin.logs.tab_game' => 'Game log (debug)',

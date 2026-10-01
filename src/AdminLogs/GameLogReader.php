@@ -100,11 +100,11 @@ final class GameLogReader
         if ($source === false) {
             throw new RuntimeException('Unable to open game log for retention');
         }
-        if (!flock($source, LOCK_EX)) {
+        if (!flock($source, LOCK_EX | LOCK_NB)) {
             if (is_resource($source)) {
                 fclose($source);
             }
-            throw new RuntimeException('Unable to lock game log for retention');
+            return 0;
         }
 
         $tempPath = $path . '.prune-' . bin2hex(random_bytes(6)) . '.tmp';

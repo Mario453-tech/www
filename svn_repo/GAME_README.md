@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-10-01 - Panel logów bez oczekiwania na czyszczenie
+
+- Otwieranie zakładek logów i zapisywanie retencji nie wykonuje czyszczenia przed odpowiedzią. Na produkcyjnym PHP-FPM konserwacja startuje dopiero po `session_write_close()` i `fastcgi_finish_request()`.
+- Plik `game_debug.log.retention.log` ogranicza próby konserwacji do jednej na godzinę dla danych ustawień i zapobiega równoległym przebiegom. Zmiana okresu retencji pozwala na nową próbę. W środowisku bez `fastcgi_finish_request` automatyczna konserwacja jest pomijana; metody `LogRetentionService` pozostają dostępne dla osobnego zadania CLI.
+- Zapis GameLog nie czeka na blokadę pliku: w razie zajętego lub niedostępnego pliku zachowuje wpis w skonfigurowanym logu błędów PHP (na produkcji `error_log`). Ręczne czyszczenie zachowuje ochronę logowania i CSRF.
+- Testy obejmują zapis w osobnym procesie podczas blokady, zapis bez blokady, odczyt i pominięcie zajętego pliku oraz godzinny odstęp konserwacji. Wycofanie: revert commita; brak migracji i zmian konfiguracji retencji.
+
 ### 2026-09-23 - Naprawy po przeglądzie całej gry
 
 - Sprzedaż ropy, anulowanie ofert, spłaty kredytów, pozwolenia i zakup odwiertu ponownie sprawdzają stan pod blokadą i rozliczają pieniądze atomowo.

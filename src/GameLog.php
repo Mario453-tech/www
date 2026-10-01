@@ -48,7 +48,28 @@ class GameLog
             : '';
         $line   = "[{$ts}] [{$level}] [{$module}] {$message}{$ctxStr} [mem={$mem}MB]\n";
 
-        @file_put_contents(self::$logFile, $line, FILE_APPEND | LOCK_EX);
+        // Never stall a page behind maintenance; preserve busy-file entries in PHP's error log.
+        // Nie zatrzymuj strony przez konserwacje; zachowaj wpisy w logu bledow PHP.
+        $handle = @fopen(self::$logFile, 'ab');
+        if ($handle === false) {
+            @error_log(rtrim($line, "\n"));
+            return;
+        }
+        try {
+            if (!flock($handle, LOCK_EX | LOCK_NB)) {
+                @error_log(rtrim($line, "\n"));
+                return;
+            }
+            try {
+                if (@fwrite($handle, $line) !== strlen($line)) {
+                    @error_log(rtrim($line, "\n"));
+                }
+            } finally {
+                flock($handle, LOCK_UN);
+            }
+        } finally {
+            fclose($handle);
+        }
     }
 
  // Log levels

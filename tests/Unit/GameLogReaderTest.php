@@ -92,4 +92,21 @@ final class GameLogReaderTest extends BaseTestCase
             file_get_contents($this->logPath)
         );
     }
+
+    public function testBusyFileIsPreservedAndRetentionDoesNotQueue(): void
+    {
+        file_put_contents($this->logPath, "[2020-01-01 00:00:00] keep while busy\n");
+        $lock = fopen($this->logPath, 'rb');
+        flock($lock, LOCK_EX);
+        try {
+            $reader = new GameLogReader();
+            self::assertSame(0, $reader->pruneOlderThan($this->logPath, new DateTimeImmutable('2026-01-01')));
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
+        // Windows locks also deny reads; verify the retained contents after releasing the lock.
+        // Blokady Windows zabraniaja tez odczytu; sprawdz zachowana tresc po zwolnieniu blokady.
+        self::assertSame(['[2020-01-01 00:00:00] keep while busy'], $reader->readPage($this->logPath, 1, 100)['lines']);
+    }
 }
