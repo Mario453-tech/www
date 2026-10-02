@@ -3,7 +3,7 @@ require_once __DIR__ . '/../src/init.php';
 
 $_pageStart = GameLog::pageStart('public/index.php');
 
-if (!Auth::isLoggedIn() && !Auth::tryRememberMe()) {
+if (!Auth::isLoggedIn() && !Auth::tryRememberMe() && PublicHomepageSettings::isEnabled(Database::getInstance()->getConnection())) {
     require __DIR__ . '/../templates/views/public/home/main.php';
     GameLog::pageEnd('public/index.php', $_pageStart);
     exit;

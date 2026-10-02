@@ -5,8 +5,8 @@
 <h1> <?= t('admin.template_editor.heading') ?></h1>
 <p class="muted te-desc"><?= t('admin.template_editor.desc') ?></p>
 
-<?php if ($msg): ?><p class="alert alert-success"> <?= htmlspecialchars($msg) ?></p><?php endif ?>
-<?php if ($err): ?><p class="alert alert-error"> <?= htmlspecialchars($err) ?></p><?php endif ?>
+<?php if ($msg): ?><p class="alert alert-success" role="status" aria-live="polite"> <?= htmlspecialchars($msg) ?></p><?php endif ?>
+<?php if ($err): ?><p class="alert alert-error" role="alert"> <?= htmlspecialchars($err) ?></p><?php endif ?>
 
 <div class="te-tabs">
     <a href="?tab=nav<?= $editNavId ? '&nav='.$editNavId : '' ?>" class="te-tab <?= $activeTab === 'nav' ? 'active' : '' ?>"> <?= t('admin.template_editor.tab_nav') ?></a>
@@ -452,6 +452,31 @@
 <?php else: ?>
 <!--  ZAKADKA: NAGWEK & STOPKA  -->
 <div class="te-config-wrap">
+    <?php $publicHomepageEnabled = ($cfgRows['public_homepage_enabled'] ?? '1') === '1'; ?>
+    <div class="panel te-panel">
+        <h2 class="panel-title"><?= t('admin.template_editor.public_homepage_title') ?></h2>
+        <p class="muted"><?= t('admin.template_editor.public_homepage_description') ?></p>
+        <form method="post">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="save_public_homepage">
+            <div class="te-visible-row">
+                <label>
+                    <input type="checkbox" name="public_homepage_enabled" value="1" <?= $publicHomepageEnabled ? 'checked' : '' ?>>
+                    <?= t('admin.template_editor.public_homepage_label') ?>
+                </label>
+            </div>
+            <p class="muted">
+                <?= t($publicHomepageEnabled
+                    ? 'admin.template_editor.public_homepage_status_enabled'
+                    : 'admin.template_editor.public_homepage_status_disabled') ?>
+            </p>
+            <div class="form-row">
+                <button type="submit" class="btn btn-primary"><?= t('admin.template_editor.public_homepage_save') ?></button>
+                <a href="/" target="_blank" rel="noopener" class="btn btn-secondary"><?= t('admin.template_editor.btn_preview_site') ?></a>
+            </div>
+        </form>
+    </div>
+
     <form method="post">
         <?= CSRF::field() ?>
         <input type="hidden" name="action" value="save_config">

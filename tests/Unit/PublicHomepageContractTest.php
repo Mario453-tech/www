@@ -10,7 +10,7 @@ final class PublicHomepageContractTest extends TestCase
         $root = dirname(__DIR__, 2);
         $entrypoint = (string) file_get_contents($root . '/public/index.php');
 
-        $landingBranch = strpos($entrypoint, 'if (!Auth::isLoggedIn() && !Auth::tryRememberMe())');
+        $landingBranch = strpos($entrypoint, 'if (!Auth::isLoggedIn() && !Auth::tryRememberMe() && PublicHomepageSettings::isEnabled(');
         $loginGuard = strpos($entrypoint, 'Auth::requireLogin();');
 
         self::assertNotFalse(
@@ -67,5 +67,24 @@ final class PublicHomepageContractTest extends TestCase
         self::assertStringNotContainsString('data-home-panel="management" hidden', $template);
         self::assertStringContainsString('activateTab(tabs[0]);', $javascript);
         self::assertStringContainsString('@media (prefers-reduced-motion: reduce)', $css);
+    }
+
+    public function testTemplateEditorCanToggleThePublicHomepageSafely(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $controller = (string) file_get_contents($root . '/admin/template_editor.php');
+        $template = (string) file_get_contents($root . '/templates/views/admin/template_editor/main.php');
+
+        self::assertStringContainsString("['public_homepage_enabled', '1']", $controller);
+        self::assertStringContainsString("\$action === 'save_public_homepage'", $controller);
+        self::assertStringContainsString("if ((\$_POST['action'] ?? '') === 'save_public_homepage')", $controller);
+        self::assertStringContainsString('AdminLog::log(', $controller);
+        self::assertStringContainsString("'public_homepage_visibility_update'", $controller);
+        self::assertStringContainsString("header('Location: /admin/template_editor.php?tab=config')", $controller);
+        self::assertStringContainsString('name="public_homepage_enabled"', $template);
+        self::assertStringContainsString("t('admin.template_editor.public_homepage_title')", $template);
+        self::assertStringContainsString('role="status" aria-live="polite"', $template);
+        self::assertStringContainsString('role="alert"', $template);
+        self::assertStringContainsString('<h2 class="panel-title">', $template);
     }
 }

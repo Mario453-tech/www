@@ -61,6 +61,16 @@ $db  = Database::getInstance()->getConnection();
 $msg = '';
 $err = '';
 
+$templateEditorFlash = $_SESSION['template_editor_flash'] ?? null;
+unset($_SESSION['template_editor_flash']);
+if (is_array($templateEditorFlash)) {
+    if (($templateEditorFlash['type'] ?? '') === 'success') {
+        $msg = (string)($templateEditorFlash['message'] ?? '');
+    } else {
+        $err = (string)($templateEditorFlash['message'] ?? '');
+    }
+}
+
 // Bootstrap tabel 
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS `site_config` (
@@ -102,6 +112,7 @@ try {
         ['site_tagline', 'Strategiczna gra naftowa'],
         ['footer_text',  '&copy; {year} OilCorp. Wszystkie prawa zastrzeone.'],
         ['footer_js',    '/assets/js/game.js'],
+        ['public_homepage_enabled', '1'],
         ['nav_items_seeded', '0'],
         ['legal_nav_ensured', '0'],
         ['nav_icon_col_dropped', '0'],
@@ -229,12 +240,49 @@ try {
 // POST 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        if (($_POST['action'] ?? '') === 'save_public_homepage') {
+            $_SESSION['template_editor_flash'] = [
+                'type' => 'error',
+                'message' => t('common.csrf_error'),
+            ];
+            header('Location: /admin/template_editor.php?tab=config');
+            exit;
+        }
         $err = t('common.csrf_error');
     } else {
         $action = $_POST['action'] ?? '';
         $who    = AdminAuth::getAdminUsername();
 
-        if ($action === 'save_config') {
+        if ($action === 'save_public_homepage') {
+            try {
+                $enabled = isset($_POST['public_homepage_enabled']) ? '1' : '0';
+                $upd = $db->prepare(
+                    "INSERT INTO site_config (`key`,`value`,`updated_by`) VALUES (?,?,?)
+                     ON DUPLICATE KEY UPDATE `value`=VALUES(`value`), updated_by=VALUES(updated_by)"
+                );
+                $upd->execute([PublicHomepageSettings::KEY, $enabled, $who]);
+                AdminLog::log(
+                    'public_homepage_visibility_update',
+                    'Public homepage ' . ($enabled === '1' ? 'enabled' : 'disabled')
+                );
+                $_SESSION['template_editor_flash'] = [
+                    'type' => 'success',
+                    'message' => t($enabled === '1'
+                        ? 'admin.template_editor.public_homepage_enabled'
+                        : 'admin.template_editor.public_homepage_disabled'),
+                ];
+            } catch (Throwable $e) {
+                GameLog::error('admin/template_editor', 'Public homepage setting update failed', $e);
+                $_SESSION['template_editor_flash'] = [
+                    'type' => 'error',
+                    'message' => t('admin.template_editor.public_homepage_error'),
+                ];
+            }
+
+            header('Location: /admin/template_editor.php?tab=config');
+            exit;
+
+        } elseif ($action === 'save_config') {
             $keys = ['site_name', 'site_tagline', 'footer_text', 'footer_js'];
             $upd  = $db->prepare("INSERT INTO site_config (`key`,`value`,`updated_by`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`), updated_by=VALUES(updated_by)");
             foreach ($keys as $k) {
