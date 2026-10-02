@@ -334,7 +334,7 @@ body.public-home {
 }
 
 .home-hero__note {
-    margin: 54px 0 0;
+    margin: clamp(84px, 10vh, 120px) 0 0;
     color: #7b7987;
     font: 10px/1.4 ui-monospace, "SF Mono", Consolas, monospace;
     letter-spacing: 0.18em;
@@ -616,28 +616,6 @@ body.public-home {
     font-style: italic;
 }
 
-.home-screen__open {
-    position: absolute;
-    right: 12px;
-    bottom: 12px;
-    padding: 6px 12px;
-    border: 1px solid rgba(200, 168, 75, 0.5);
-    border-radius: 4px;
-    background: rgba(9, 10, 14, 0.92);
-    color: var(--home-gold-light);
-    font-size: 11px;
-    font-weight: 600;
-    cursor: pointer;
-    opacity: 0;
-    transform: translateY(4px);
-    transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.home-screen--hero:hover .home-screen__open,
-.home-screen--hero:focus-within .home-screen__open {
-    opacity: 1;
-    transform: translateY(0);
-}
 
 /* --------------------------------------------------------------------------
    BRIDGE DIVIDER / ROZDZIELACZ
@@ -1473,6 +1451,9 @@ body.public-home {
     }
     .home-text-link {
         justify-content: center;
+    }
+    .home-hero__note {
+        margin-top: 36px;
     }
     .home-mockup__body {
         grid-template-columns: 1fr;

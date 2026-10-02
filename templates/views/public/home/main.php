@@ -198,9 +198,6 @@ $homeRedirect = $_SERVER['REQUEST_URI'] ?? '/';
                             <span class="home-mockup__motto"><?= t('home.mockup_motto') ?></span>
                         </footer>
                     </article>
-                    <button class="home-screen__open" type="button" data-home-preview-src="<?= asset('/assets/images/home/game-overview.png') ?>" data-home-preview-alt="<?= t('home.hero_preview_alt') ?>" aria-label="<?= t('home.preview_open') ?>">
-                        <?= t('home.preview_open') ?>
-                    </button>
                 </div>
             </div>
         </div>
