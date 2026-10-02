@@ -1,7 +1,7 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 <?php
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
 $profileAvatarAlt = $locale === 'en' ? 'Avatar' : 'Awatar';
 $profileFallbackInitial = $locale === 'en' ? 'P' : 'G';
 $profileFallbackUser = $locale === 'en' ? 'Player' : 'Gracz';

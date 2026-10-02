@@ -99,7 +99,7 @@ return [
     'well_grid.tier_black_market' => 'Czarny rynek',
     'well_grid.tier_standard' => 'Standard',
     'well_grid.tier_premium' => 'Premium',
-    'well_grid.tier_confirm' => 'Zmienić sprzęt na :tier? Koszt: $:costPoziom ulepszenia zostanie zresetowany do 0.',
+    'well_grid.tier_confirm' => 'Zmienić sprzęt na :tier? Koszt: $:cost. Poziom ulepszenia zostanie zresetowany do 0.',
     'well_grid.tier_change_title' => 'Zmiana jakości sprzętu',
     'well_grid.upgrade_confirm' => 'Wykonać ulepszenie sprzętu? Koszt: $:cost',
     'well_grid.upgrade_title' => 'Potwierdź ulepszenie sprzętu',

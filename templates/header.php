@@ -79,7 +79,7 @@ try {
     <div class="auth-bg">
         <?php
             $__authCurrentLocale = (string)($_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl');
-            if (!in_array($__authCurrentLocale, ['pl', 'en'], true)) {
+            if (!in_array($__authCurrentLocale, ['pl', 'en', 'de'], true)) {
                 $__authCurrentLocale = 'pl';
             }
             $__authLanguageRedirect = $_SERVER['REQUEST_URI'] ?? '/';
@@ -91,6 +91,7 @@ try {
             <select id="auth-locale" name="locale" class="auth-language-select" data-language-switcher>
                 <option value="pl"<?= $__authCurrentLocale === 'pl' ? ' selected' : '' ?>>PL</option>
                 <option value="en"<?= $__authCurrentLocale === 'en' ? ' selected' : '' ?>>EN</option>
+                <option value="de"<?= $__authCurrentLocale === 'de' ? ' selected' : '' ?>>DE</option>
             </select>
             <noscript>
                 <button type="submit" class="btn btn-sm btn-secondary"><?= t('language.change') ?></button>
@@ -209,7 +210,7 @@ try {
 
                 <?php
                     $__currentLocale = (string)($_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl');
-                    if (!in_array($__currentLocale, ['pl', 'en'], true)) {
+                    if (!in_array($__currentLocale, ['pl', 'en', 'de'], true)) {
                         $__currentLocale = 'pl';
                     }
                     $__languageRedirect = $_SERVER['REQUEST_URI'] ?? '/';
@@ -221,6 +222,7 @@ try {
                     <select id="topbar-locale" name="locale" class="hdr-language-select" data-language-switcher>
                         <option value="pl"<?= $__currentLocale === 'pl' ? ' selected' : '' ?>>PL</option>
                         <option value="en"<?= $__currentLocale === 'en' ? ' selected' : '' ?>>EN</option>
+                        <option value="de"<?= $__currentLocale === 'de' ? ' selected' : '' ?>>DE</option>
                     </select>
                     <noscript>
                         <button type="submit" class="btn btn-sm btn-secondary"><?= t('language.change') ?></button>

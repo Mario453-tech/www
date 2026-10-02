@@ -11,7 +11,7 @@ function _langLoad(): array
 {
     static $langByLocale = [];
     $locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-    $allowed = ['pl', 'en'];
+    $allowed = ['pl', 'en', 'de'];
     if (!in_array($locale, $allowed, true)) $locale = 'pl';
     if (!isset($langByLocale[$locale])) {
         $file = __DIR__ . '/../lang/' . $locale . '.php';

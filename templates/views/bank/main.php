@@ -11,7 +11,7 @@ $bankHistoryPage      = (int)($accountHistoryPage  ?? 1);
 $bankHistoryPerPage   = \BankDataLoader::HISTORY_PER_PAGE;
 $bankHistoryMaxPage   = max(1, (int)ceil($bankHistoryTotal / $bankHistoryPerPage));
 $bankLocale           = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel        = $bankLocale === 'en' ? 'USD' : 'PLN';
+$currencyLabel        = $bankLocale === 'en' ? 'USD' : ($bankLocale === 'de' ? 'EUR' : 'PLN');
 ?>
 
 <div class="fade-in">

@@ -13,7 +13,7 @@ if (empty($briberyEnabled)) {
     return;
 }
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
 $briberyRegionId = (int)$cfg['region_id'];
 if (!isset($bribeQuotes[$briberyRegionId])) {
     return;

@@ -22,7 +22,7 @@
 /** @var string $success */
 extract($viewData, EXTR_SKIP);
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
 ?>
 
 <div class="fade-in">

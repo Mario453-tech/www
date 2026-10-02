@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/init.php';
 
-$allowedLocales = ['pl', 'en'];
+$allowedLocales = ['pl', 'en', 'de'];
 $locale = (string)($_POST['locale'] ?? '');
 $redirect = (string)($_POST['redirect'] ?? '/');
 

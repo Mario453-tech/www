@@ -7,8 +7,15 @@ final class ApiErrorHandler
     public static function message(string $key): string
     {
         $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? null;
-        if (!in_array($locale, ['pl', 'en'], true)) {
-            $locale = preg_match('/^en\b/i', (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '')) ? 'en' : 'pl';
+        if (!in_array($locale, ['pl', 'en', 'de'], true)) {
+            $accept = (string) ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '');
+            if (preg_match('/^de\b/i', $accept)) {
+                $locale = 'de';
+            } elseif (preg_match('/^en\b/i', $accept)) {
+                $locale = 'en';
+            } else {
+                $locale = 'pl';
+            }
         }
         $messages = require __DIR__ . '/../lang/' . $locale . '/api.php';
         return $messages[$key] ?? $messages['error'];

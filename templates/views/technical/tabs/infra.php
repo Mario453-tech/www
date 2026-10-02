@@ -1,6 +1,6 @@
 <?php
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
 ?>
 <?php if (empty($pipelines)): ?>
 <div class="pipe-card">

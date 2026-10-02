@@ -1,6 +1,6 @@
 <?php
 $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : 'PLN';
+$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
 $hseActive    = $hseBonus['active_hse'] > 0;
 $failRedPct   = (int)round((1 - $hseBonus['failure_reduction'])  * 100);
 $catRedPct    = (int)round((1 - $hseBonus['catastrophe_mult'])   * 100);
