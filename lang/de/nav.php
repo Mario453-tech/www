@@ -30,6 +30,10 @@ return [
     'nav.action.sabotage' => 'Sabotage',
     'nav.footer.regulamin' => 'Nutzungsbedingungen',
     'nav.footer.polityka' => 'Datenschutzerklärung',
+    'nav.footer.cookies' => 'Cookie-Richtlinie',
+    'nav.footer.privacy_settings' => 'Datenschutzeinstellungen',
     'nav.footer.kontakt' => 'Kontakt',
     'nav.footer.help' => 'Spielanleitung',
+    'nav.footer_aria' => 'Fußzeilen-Links',
+    'nav.footer_copyright' => '© {year} OilEmpire. Alle Rechte vorbehalten.',
 ];

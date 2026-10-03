@@ -35,6 +35,10 @@ return [
     // Stopka / Footer
     'nav.footer.regulamin' => 'Regulamin',
     'nav.footer.polityka'  => 'Polityka prywatności',
+    'nav.footer.cookies'   => 'Polityka cookies',
+    'nav.footer.privacy_settings' => 'Ustawienia prywatności',
     'nav.footer.kontakt'   => 'Kontakt',
     'nav.footer.help'      => 'Instrukcja',
+    'nav.footer_aria'      => 'Linki stopki',
+    'nav.footer_copyright' => '© {year} OilEmpire. Wszystkie prawa zastrzeżone.',
 ];

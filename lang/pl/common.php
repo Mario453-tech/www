@@ -41,6 +41,8 @@ return [
     'language.polish' => 'Polski',
     'language.english' => 'English',
     'language.change' => 'Zmień język',
+    'header.site_name' => 'OilEmpire',
+    'header.site_tagline' => 'Strategiczna gra naftowa',
     'header.profile_title' => 'Profil gracza',
     'header.company_active' => 'Aktywna',
     'header.company_well_failure' => 'Awarie odwiertów: :count',
@@ -51,6 +53,11 @@ return [
     'header.company_recovery' => 'W restrukturyzacji',
     'header.company_paused' => 'Wstrzymana',
     'header.player_fallback' => 'Gracz #:id',
+    'header.logout_fallback' => 'Wyloguj',
+    'header.boardroom_link' => 'Sala Zarządu',
+    'header.bankruptcy_strong' => 'Firma w restrukturyzacji',
+    'header.bankruptcy_desc' => '- inwestycje i nowe kredyty zablokowane.',
+    'header.recovery_panel_link' => 'Panel ratunkowy',
     'header.open_menu' => 'Otwórz menu',
     'header.close_menu' => 'Zamknij menu',
     'header.nav_aria' => 'Nawigacja użytkownika',
@@ -70,4 +77,11 @@ return [
     'common.all' => 'Wszystkie',
     'common.yes' => 'Tak',
     'common.no'  => 'Nie',
+
+    // Strony statyczne / Static pages
+    'page.404_heading'   => 'Nie znaleziono strony',
+    'page.404_title'     => '404 - Nie znaleziono strony',
+    'page.404_not_found' => 'Strona ":slug" nie istnieje lub została usunięta.',
+    'page.last_updated'  => 'Ostatnia aktualizacja: :date',
+    'page.back_to_game'  => 'Wróć do gry',
 ];

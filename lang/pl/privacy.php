@@ -17,9 +17,14 @@ return [
     'privacy.category.marketing_desc'   => 'Używane do personalizacji treści. Aktualnie nieaktywne.',
 
     // Baner
-    'privacy.banner.heading'          => 'Twoja prywatność ma znaczenie',
-    'privacy.banner.aria_label'       => 'Baner cookies',
-    'privacy.banner.settings_link'    => 'Ustawienia prywatności',
+    'privacy.banner.heading'            => 'Twoja prywatność ma znaczenie',
+    'privacy.banner.aria_label'         => 'Baner cookies',
+    'privacy.banner.settings_link'      => 'Ustawienia prywatności',
+    'privacy.banner.policy_link'        => 'Polityka cookies',
+    'privacy.banner.btn_accept_all'     => 'Akceptuję wszystkie',
+    'privacy.banner.btn_necessary_only' => 'Tylko niezbędne',
+    'privacy.banner.btn_settings'       => 'Ustawienia',
+    'privacy.banner.description'        => 'Używamy cookies, aby gra działała poprawnie i była dla Ciebie wygodna. Wybierz które cookies akceptujesz.',
 
     // Modal ustawień
     'privacy.modal.title'             => 'Ustawienia cookies',
@@ -30,16 +35,22 @@ return [
     'privacy.modal.required_badge'    => 'Zawsze aktywne',
 
     // Strony publiczne
-    'privacy.page.cookies_title'      => 'Polityka cookies — OilCorp',
-    'privacy.page.cookies_heading'    => 'Polityka cookies',
-    'privacy.page.privacy_title'      => 'Polityka prywatności — OilCorp',
-    'privacy.page.privacy_heading'    => 'Polityka prywatności',
-    'privacy.page.settings_title'     => 'Ustawienia prywatności — OilCorp',
-    'privacy.page.settings_heading'   => 'Ustawienia prywatności',
-    'privacy.page.settings_intro'     => 'Tutaj możesz zarządzać swoimi ustawieniami cookies i prywatności.',
-    'privacy.page.no_policy'          => 'Treść polityki nie jest jeszcze dostępna.',
-    'privacy.page.back_to_game'       => 'Wróć do gry',
-    'privacy.page.consent_saved'      => 'Twoje ustawienia zostały zapisane.',
+    'privacy.page.cookies_title'         => 'Polityka cookies — OilEmpire',
+    'privacy.page.cookies_heading'       => 'Polityka cookies',
+    'privacy.page.privacy_title'         => 'Polityka prywatności — OilEmpire',
+    'privacy.page.privacy_heading'       => 'Polityka prywatności',
+    'privacy.page.settings_title'        => 'Ustawienia prywatności — OilEmpire',
+    'privacy.page.settings_heading'      => 'Ustawienia prywatności',
+    'privacy.page.settings_intro'        => 'Tutaj możesz zarządzać swoimi ustawieniami cookies i prywatności.',
+    'privacy.page.no_policy'             => 'Treść polityki nie jest jeszcze dostępna.',
+    'privacy.page.back_to_game'          => 'Wróć do gry',
+    'privacy.page.consent_saved'         => 'Twoje ustawienia zostały zapisane.',
+    'privacy.page.msg_withdrawn'         => 'Twoja zgoda została wycofana.',
+    'privacy.page.current_consent'       => 'Twoja aktualna zgoda (wersja :version, zapisana :date)',
+    'privacy.page.accepted_label'        => 'Zaakceptowane:',
+    'privacy.page.change_cookies_btn'    => 'Zmień ustawienia cookies',
+    'privacy.page.withdraw_consent_btn'  => 'Wycofaj zgodę',
+    'privacy.page.confirm_withdraw'      => 'Czy na pewno chcesz wycofać zgodę? Cookies niezbędne nadal będą działać.',
 
     // Komunikaty zgodowy przez API
     'privacy.consent.invalid_categories' => 'Nieprawidłowe kategorie cookies.',

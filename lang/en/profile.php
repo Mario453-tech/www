@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
 
-    'profile.page_title' => 'Profile - OilCorp',
+    'profile.page_title' => 'Profile - OilEmpire',
     'profile.section' => 'Profile',
     'profile.back_btn' => 'Dashboard',
     'profile.csrf_error' => 'Security error. Refresh the page.',
@@ -23,7 +23,7 @@ return [
     'profile.safety_level' => 'Level %d/5',
     'profile.company_title' => 'Company details',
     'profile.company_label' => 'Company name',
-    'profile.company_placeholder' => 'e.g. OilCorp Polska S.A.',
+    'profile.company_placeholder' => 'e.g. OilEmpire Polska S.A.',
     'profile.company_hint' => 'Displayed in the game instead of "Player #%d"',
     'profile.company_save_btn' => 'Save',
     'profile.password_title' => 'Change password',

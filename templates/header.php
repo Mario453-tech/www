@@ -1,14 +1,21 @@
 <?php
 // Load site config and header nav from DB (silent fallback) / Zaladuj konfiguracje serwisu i nawigacje naglowka z bazy (cichy fallback)
-$__siteName = 'OilCorp';
-$__siteTagline = 'Strategiczna gra naftowa';
+$__siteName = t('header.site_name');
+if ($__siteName === 'header.site_name' || $__siteName === '') {
+    $__siteName = 'OilEmpire';
+}
+$__siteTagline = t('header.site_tagline');
 $__navItems = [];
 
 try {
     $__cfgDb = Database::getInstance()->getConnection();
     $__cfgRow = $__cfgDb->query("SELECT `key`, `value` FROM site_config")->fetchAll(PDO::FETCH_KEY_PAIR);
-    $__siteName = $__cfgRow['site_name'] ?? $__siteName;
-    $__siteTagline = $__cfgRow['site_tagline'] ?? $__siteTagline;
+    if (!empty($__cfgRow['site_name']) && $__cfgRow['site_name'] !== 'OilCorp') {
+        $__siteName = $__cfgRow['site_name'];
+    }
+    if (!empty($__cfgRow['site_tagline']) && getLocale() === 'pl') {
+        $__siteTagline = $__cfgRow['site_tagline'];
+    }
     $__navItems = $__cfgDb
         ->query("SELECT * FROM nav_items WHERE active=1 AND location='header' ORDER BY sort_order ASC, id ASC")
         ->fetchAll();
@@ -232,7 +239,7 @@ try {
                 <?php if ($__logoutItem): ?>
                 <a href="<?= str_starts_with($__logoutItem['url_key'] ?? '', '/') ? $__logoutItem['url_key'] : url($__logoutItem['url_key'] ?? 'logout') ?>"
                    class="btn btn-sm btn-danger hdr-logout">
-                    <?= htmlspecialchars(!empty($__logoutItem['lang_key']) ? t($__logoutItem['lang_key']) : ($__logoutItem['label'] ?? 'Wyloguj')) ?>
+                    <?= htmlspecialchars(!empty($__logoutItem['lang_key']) ? t($__logoutItem['lang_key']) : ($__logoutItem['label'] ?? t('header.logout_fallback'))) ?>
                 </a>
                 <?php endif ?>
 
@@ -333,7 +340,7 @@ try {
         ?>
         <div class="alert-boardroom">
              <?= htmlspecialchars($_SESSION['board_access_denied']) ?>
-            <a href="/boardroom" class="alert-boardroom__link">Sala Zarzadu </a>
+            <a href="/boardroom" class="alert-boardroom__link"><?= t('header.boardroom_link') ?></a>
         </div>
         <?php
         unset($_SESSION['board_access_denied']);
@@ -359,8 +366,8 @@ try {
                 )):
         ?>
         <div class="header-bankruptcy-bar" role="alert">
-            <span>&#9888; <strong>Firma w restrukturyzacji</strong> - inwestycje i nowe kredyty zablokowane.</span>
-            <a href="<?= url('recovery') ?>">Panel ratunkowy </a>
+            <span>&#9888; <strong><?= t('header.bankruptcy_strong') ?></strong> <?= t('header.bankruptcy_desc') ?></span>
+            <a href="<?= url('recovery') ?>"><?= t('header.recovery_panel_link') ?></a>
         </div>
         <?php
                 endif;

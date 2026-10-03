@@ -77,7 +77,7 @@ return [
     'market.confirm_sell_btn' => 'Tak, sprzedaj',
     'market.confirm_create_offer' => 'Wystawić :bbl bbl z ceną limitu :price PLN/bbl? Ropa zostanie zablokowana w magazynie.',
     'market.confirm_offer_btn' => 'Tak, wystaw',
-    'market_offers.page_title' => 'Moje oferty - OilCorp',
+    'market_offers.page_title' => 'Moje oferty - OilEmpire',
     'market_offers.heading_my_offers' => 'Moje oferty sprzedaży',
     'market_offers.heading_new_offer' => 'Wystaw nową ofertę',
     'market_offers.label_amount' => 'Ilość ropy (baryłki):',

@@ -10,19 +10,21 @@
 
         <footer class="footer" role="contentinfo">
             <?php
-                $__footerText  = '&copy; {year} OilCorp. Wszystkie prawa zastrzeżone.';
+                $__footerText  = t('nav.footer_copyright', ['year' => date('Y')]);
                 $__footerJs    = '/assets/js/game.js';
                 $__footerLinks = [];
                 try {
                     $__fDb  = Database::getInstance()->getConnection();
                     $__fCfg = $__fDb->query("SELECT `key`, `value` FROM site_config WHERE `key` IN ('footer_text','footer_js')")->fetchAll(PDO::FETCH_KEY_PAIR);
-                    if (!empty($__fCfg['footer_text'])) $__footerText = $__fCfg['footer_text'];
+                    if (!empty($__fCfg['footer_text']) && getLocale() === 'pl') {
+                        $__footerText = str_ireplace('OilCorp', 'OilEmpire', str_replace('{year}', date('Y'), $__fCfg['footer_text']));
+                    }
                     if (isset($__fCfg['footer_js']))    $__footerJs   = $__fCfg['footer_js'];
                     $__footerLinks = $__fDb->query("SELECT label, lang_key, url_key, css_class FROM nav_items WHERE location='footer' AND active=1 ORDER BY sort_order ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
                 } catch (Throwable $__fEx) { /* fallback / fallback */ }
             ?>
             <?php if (!empty($__footerLinks)): ?>
-            <nav class="footer-nav" aria-label="Linki stopki">
+            <nav class="footer-nav" aria-label="<?= t('nav.footer_aria') ?>">
                 <?php foreach ($__footerLinks as $__fl):
                     $__flKey   = $__fl['url_key'];
                     $__flHref  = (str_starts_with($__flKey, '/')) ? $__flKey : (function_exists('url') ? url($__flKey) : '/' . $__flKey);
@@ -35,11 +37,11 @@
                 <?php endforeach ?>
             </nav>
             <?php endif ?>
-            <p><?= htmlspecialchars(str_replace('{year}', date('Y'), $__footerText)) ?></p>
+            <p><?= htmlspecialchars($__footerText) ?></p>
             <p>
-                <a href="/cookies-policy.php" class="privacy-footer-link"><?= t('privacy.page.cookies_title') !== 'privacy.page.cookies_title' ? 'Polityka cookies' : 'Polityka cookies' ?></a>
+                <a href="/cookies-policy.php" class="privacy-footer-link"><?= t('privacy.page.cookies_heading') ?></a>
                 &nbsp;·&nbsp;
-                <a href="/privacy-policy.php" class="privacy-footer-link">Polityka prywatności</a>
+                <a href="/privacy-policy.php" class="privacy-footer-link"><?= t('privacy.page.privacy_heading') ?></a>
                 &nbsp;·&nbsp;
                 <a href="#" class="privacy-footer-link" data-privacy-settings><?= t('privacy.banner.settings_link') ?></a>
             </p>

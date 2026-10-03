@@ -74,7 +74,7 @@ return [
     'market.confirm_sell_btn' => 'Yes, sell',
     'market.confirm_create_offer' => 'List :bbl bbl with a limit price of :price USD/bbl? Oil will be locked in storage.',
     'market.confirm_offer_btn' => 'Yes, list',
-    'market_offers.page_title' => 'My offers - OilCorp',
+    'market_offers.page_title' => 'My offers - OilEmpire',
     'market_offers.heading_my_offers' => 'My sale offers',
     'market_offers.heading_new_offer' => 'Create new offer',
     'market_offers.label_amount' => 'Oil amount (barrels):',

@@ -11,14 +11,45 @@ if (!$slug) {
     exit();
 }
 
+$locale = getLocale();
 $page = null;
-try {
-    $db = Database::getInstance()->getConnection();
-    $stmt = $db->prepare("SELECT * FROM static_pages WHERE slug=? AND active=1 LIMIT 1");
-    $stmt->execute([$slug]);
-    $page = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {
- // tabela nie istnieje lub blad 404
+
+if ($slug === 'regulamin') {
+    try {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM static_pages WHERE slug=? AND active=1 LIMIT 1");
+        $stmt->execute([$slug]);
+        $page = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable) {
+        $page = null;
+    }
+
+    $templateFile = __DIR__ . '/../templates/views/public/pages/regulamin_' . $locale . '.php';
+    if (!file_exists($templateFile)) {
+        $templateFile = __DIR__ . '/../templates/views/public/pages/regulamin_pl.php';
+    }
+
+    $termsTitle = t('nav.footer.regulamin');
+    if (file_exists($templateFile)) {
+        $page = [
+            'title'      => $termsTitle,
+            'icon'       => $page['icon'] ?? '',
+            'updated_at' => $page['updated_at'] ?? '2026-03-01 00:00:00',
+            'content'    => file_get_contents($templateFile),
+        ];
+    } elseif ($page) {
+        $page['title'] = $termsTitle;
+        $page['content'] = str_replace('OilCorp', 'OilEmpire', (string)$page['content']);
+    }
+} else {
+    try {
+        $db = Database::getInstance()->getConnection();
+        $stmt = $db->prepare("SELECT * FROM static_pages WHERE slug=? AND active=1 LIMIT 1");
+        $stmt->execute([$slug]);
+        $page = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        // tabela nie istnieje lub blad 404
+    }
 }
 
 if (!$page) {
@@ -30,14 +61,16 @@ if (!$page) {
     exit();
 }
 
-$pageTitle = htmlspecialchars($page['title']) . ' - OilCorp';
+$pageTitle = htmlspecialchars($page['title']) . ' - OilEmpire';
 require_once __DIR__ . '/../templates/header.php';
 ?>
 <link rel="stylesheet" href="/assets/css/static_page.css">
 
 <div class="static-page-wrap">
     <div class="static-page-hdr">
-        <span class="static-page-icon"><?= htmlspecialchars($page['icon']) ?></span>
+        <?php if (!empty($page['icon'])): ?>
+            <span class="static-page-icon"><?= htmlspecialchars($page['icon']) ?></span>
+        <?php endif ?>
         <h1><?= htmlspecialchars($page['title']) ?></h1>
         <p class="static-page-meta"><?= t('page.last_updated', ['date' => date('d.m.Y', strtotime($page['updated_at']))]) ?></p>
     </div>

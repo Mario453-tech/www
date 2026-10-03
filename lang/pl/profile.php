@@ -9,7 +9,7 @@ declare(strict_types=1);
 
 return [
 
-    'profile.page_title' => 'Profil - OilCorp',
+    'profile.page_title' => 'Profil - OilEmpire',
     'profile.section' => 'Profil',
     'profile.back_btn' => 'Dashboard',
     'profile.csrf_error' => 'Błąd bezpieczeństwa. Odśwież stronę.',
@@ -24,7 +24,7 @@ return [
     'profile.safety_level' => 'Poziom %d/5',
     'profile.company_title' => 'Dane firmy',
     'profile.company_label' => 'Nazwa firmy',
-    'profile.company_placeholder' => 'np. OilCorp Polska S.A.',
+    'profile.company_placeholder' => 'np. OilEmpire Polska S.A.',
     'profile.company_hint' => 'Wyświetlana w grze zamiast "Gracz #%d"',
     'profile.company_save_btn' => 'Zapisz',
     'profile.password_title' => 'Zmiana hasła',

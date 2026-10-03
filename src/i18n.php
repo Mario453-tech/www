@@ -2,17 +2,26 @@
 declare(strict_types=1);
 
 /**
- * laduje i zwraca tablice tlumaczen (jedna instancja per request).
+ * Returns current locale code (pl, en, de).
+ * Zwraca aktualny kod jezyka (pl, en, de).
+ */
+function getLocale(): string
+{
+    $locale  = (string)($_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl');
+    $allowed = ['pl', 'en', 'de'];
+    return in_array($locale, $allowed, true) ? $locale : 'pl';
+}
+
+/**
  * Loads and returns the translation array (one instance per request).
+ * Laduje i zwraca tablice tlumaczen (jedna instancja per request).
  *
  * @return array<string, string>
  */
 function _langLoad(): array
 {
     static $langByLocale = [];
-    $locale  = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-    $allowed = ['pl', 'en', 'de'];
-    if (!in_array($locale, $allowed, true)) $locale = 'pl';
+    $locale = getLocale();
     if (!isset($langByLocale[$locale])) {
         $file = __DIR__ . '/../lang/' . $locale . '.php';
         $langByLocale[$locale] = file_exists($file) ? (include $file) : [];

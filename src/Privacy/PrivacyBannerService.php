@@ -18,12 +18,35 @@ class PrivacyBannerService
      */
     public function getBannerData(): array
     {
+        $locale = function_exists('getLocale') ? getLocale() : 'pl';
+        $heading = (string)$this->settings->get('privacy.banner.heading', '');
+        $description = (string)$this->settings->get('privacy.banner.description', '');
+        $btnAcceptAll = (string)$this->settings->get('privacy.banner.btn_accept_all', '');
+        $btnNecessaryOnly = (string)$this->settings->get('privacy.banner.btn_necessary_only', '');
+        $btnSettings = (string)$this->settings->get('privacy.banner.btn_settings', '');
+
+        if ($locale !== 'pl' || $heading === '' || $heading === 'Twoja prywatność ma znaczenie') {
+            $heading = t('privacy.banner.heading');
+        }
+        if ($locale !== 'pl' || $description === '' || str_starts_with($description, 'Używamy cookies')) {
+            $description = t('privacy.banner.description');
+        }
+        if ($locale !== 'pl' || $btnAcceptAll === '' || $btnAcceptAll === 'Akceptuję wszystkie') {
+            $btnAcceptAll = t('privacy.banner.btn_accept_all');
+        }
+        if ($locale !== 'pl' || $btnNecessaryOnly === '' || $btnNecessaryOnly === 'Tylko niezbędne') {
+            $btnNecessaryOnly = t('privacy.banner.btn_necessary_only');
+        }
+        if ($locale !== 'pl' || $btnSettings === '' || $btnSettings === 'Ustawienia') {
+            $btnSettings = t('privacy.banner.btn_settings');
+        }
+
         return [
-            'heading'             => (string)$this->settings->get('privacy.banner.heading',          'Twoja prywatność ma znaczenie'),
-            'description'         => (string)$this->settings->get('privacy.banner.description',      ''),
-            'btn_accept_all'      => (string)$this->settings->get('privacy.banner.btn_accept_all',   'Akceptuję wszystkie'),
-            'btn_necessary_only'  => (string)$this->settings->get('privacy.banner.btn_necessary_only','Tylko niezbędne'),
-            'btn_settings'        => (string)$this->settings->get('privacy.banner.btn_settings',     'Ustawienia'),
+            'heading'             => $heading,
+            'description'         => $description,
+            'btn_accept_all'      => $btnAcceptAll,
+            'btn_necessary_only'  => $btnNecessaryOnly,
+            'btn_settings'        => $btnSettings,
             'show_decline_button' => (bool)  $this->settings->get('privacy.banner.show_decline_button', true),
             'policy_url'          => (string)$this->settings->get('privacy.banner.policy_url',       '/cookies-policy.php'),
             'privacy_url'         => (string)$this->settings->get('privacy.banner.privacy_url',      '/privacy-policy.php'),

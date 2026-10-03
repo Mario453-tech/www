@@ -46,7 +46,7 @@ return [
     'boardroom.admin_ph_code' => 'e.g. marketing',
     'boardroom.admin_ph_name' => 'e.g. Marketing Department',
     'boardroom.admin_ph_desc' => 'Role description...',
-    'boardroom.admin_ph_footer' => 'OilCorp - All rights reserved',
+    'boardroom.admin_ph_footer' => 'OilEmpire - All rights reserved',
     'boardroom.admin_file_hint' => 'JPG, PNG, WEBP - max 5 MB',
     'boardroom.admin_confirm_delete' => 'Delete role :name?',
     'boardroom.msg_config_saved' => 'Configuration saved.',

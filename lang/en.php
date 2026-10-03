@@ -42,5 +42,8 @@ if (file_exists(__DIR__ . '/en/training.php')) {
 if (file_exists(__DIR__ . '/en/privacy.php')) {
     $lang = array_replace($lang, require __DIR__ . '/en/privacy.php');
 }
+if (file_exists(__DIR__ . '/en/nav.php')) {
+    $lang = array_replace($lang, require __DIR__ . '/en/nav.php');
+}
 
 return $lang;

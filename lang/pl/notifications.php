@@ -31,7 +31,7 @@ return [
     'news.time_hours_ago_many' => ':count godzin temu',
     'news.time_day_ago' => '1 dzień temu',
     'news.time_days_ago' => ':count dni temu',
-    'email_template.default_footer' => 'Wiadomość wysłana automatycznie przez system OilCorp. Nie odpowiadaj na ten e-mail.',
+    'email_template.default_footer' => 'Wiadomość wysłana automatycznie przez system OilEmpire. Nie odpowiadaj na ten e-mail.',
     'email_template.btn_fallback_hint' => 'Jeśli przycisk nie działa, wklej ten link w przeglądarce:',
     'email_template.brand_subtitle' => 'Strategiczna gra naftowa',
     'geology.fallback_name' => 'Płytka',

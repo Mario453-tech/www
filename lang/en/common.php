@@ -41,6 +41,8 @@ return [
     'language.polish' => 'Polish',
     'language.english' => 'English',
     'language.change' => 'Change language',
+    'header.site_name' => 'OilEmpire',
+    'header.site_tagline' => 'Strategic oil industry game',
     'header.profile_title' => 'Player profile',
     'header.company_active' => 'Active',
     'header.company_well_failure' => 'Well failures: :count',
@@ -51,6 +53,11 @@ return [
     'header.company_recovery' => 'In recovery',
     'header.company_paused' => 'Paused',
     'header.player_fallback' => 'Player #:id',
+    'header.logout_fallback' => 'Logout',
+    'header.boardroom_link' => 'Boardroom',
+    'header.bankruptcy_strong' => 'Company under restructuring',
+    'header.bankruptcy_desc' => '- investments and new loans are blocked.',
+    'header.recovery_panel_link' => 'Recovery panel',
     'header.open_menu' => 'Open menu',
     'header.close_menu' => 'Close menu',
     'header.nav_aria' => 'User navigation',
@@ -70,4 +77,11 @@ return [
     'common.all' => 'All',
     'common.yes' => 'Yes',
     'common.no'  => 'No',
+
+    // Static pages
+    'page.404_heading'   => 'Page not found',
+    'page.404_title'     => '404 - Page not found',
+    'page.404_not_found' => 'The page ":slug" does not exist or has been removed.',
+    'page.last_updated'  => 'Last updated: :date',
+    'page.back_to_game'  => 'Back to game',
 ];

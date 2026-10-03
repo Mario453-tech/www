@@ -31,7 +31,7 @@ return [
     'news.time_hours_ago_many' => ':count hours ago',
     'news.time_day_ago' => '1 day ago',
     'news.time_days_ago' => ':count days ago',
-    'email_template.default_footer' => 'This message was sent automatically by the OilCorp system. Do not reply to this email.',
+    'email_template.default_footer' => 'This message was sent automatically by the OilEmpire system. Do not reply to this email.',
     'email_template.btn_fallback_hint' => 'If the button does not work, paste this link into your browser:',
     'email_template.brand_subtitle' => 'Strategic oil game',
     'geology.fallback_name' => 'Shallow',

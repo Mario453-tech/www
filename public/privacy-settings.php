@@ -46,7 +46,7 @@ require_once __DIR__ . '/../templates/header.php';
         <h1><?= t('privacy.page.settings_heading') ?></h1>
 
         <?php if (isset($_GET['withdrawn'])): ?>
-        <div class="alert alert-success" style="margin-bottom:20px;">Twoja zgoda została wycofana.</div>
+        <div class="alert alert-success" style="margin-bottom:20px;"><?= t('privacy.page.msg_withdrawn') ?></div>
         <?php endif ?>
 
         <p class="muted" style="margin-bottom:28px;"><?= t('privacy.page.settings_intro') ?></p>
@@ -54,8 +54,10 @@ require_once __DIR__ . '/../templates/header.php';
         <?php if ($consent): ?>
         <div class="consent-card" style="background:rgba(200,168,75,.06);border:1px solid rgba(200,168,75,.2);border-radius:12px;padding:20px 24px;margin-bottom:28px;">
             <p style="font-size:13px;color:rgba(232,232,240,.7);margin:0 0 8px;">
-                Twoja aktualna zgoda (wersja <?= htmlspecialchars($consent['consent_version']) ?>,
-                zapisana <?= htmlspecialchars(substr($consent['created_at'], 0, 10)) ?>)
+                <?= t('privacy.page.current_consent', [
+                    'version' => htmlspecialchars($consent['consent_version']),
+                    'date'    => htmlspecialchars(substr($consent['created_at'], 0, 10))
+                ]) ?>
             </p>
             <?php
             $accepted = json_decode($consent['accepted_categories_json'], true) ?? [];
@@ -67,31 +69,31 @@ require_once __DIR__ . '/../templates/header.php';
             ];
             ?>
             <p style="margin:0;font-size:14px;color:#e8e8f0;">
-                Zaakceptowane: <strong><?= htmlspecialchars(implode(', ', array_map(fn($c) => $catNames[$c] ?? $c, $accepted))) ?></strong>
+                <?= t('privacy.page.accepted_label') ?> <strong><?= htmlspecialchars(implode(', ', array_map(fn($c) => $catNames[$c] ?? $c, $accepted))) ?></strong>
             </p>
         </div>
         <?php endif ?>
 
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;">
             <button type="button" class="privacy-btn privacy-btn--decline" data-privacy-settings>
-                Zmień ustawienia cookies
+                <?= t('privacy.page.change_cookies_btn') ?>
             </button>
             <?php if ($consent): ?>
             <form method="post">
                 <?= CSRF::field() ?>
                 <button type="submit" name="withdraw" value="1"
                         class="privacy-btn privacy-btn--settings"
-                        onclick="return confirm('Czy na pewno chcesz wycofać zgodę? Cookies niezbędne nadal będą działać.')">
-                    Wycofaj zgodę
+                        onclick="return confirm(<?= htmlspecialchars(json_encode(tPlain('privacy.page.confirm_withdraw'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>)">
+                    <?= t('privacy.page.withdraw_consent_btn') ?>
                 </button>
             </form>
             <?php endif ?>
         </div>
 
         <div style="margin-top:16px;">
-            <a href="/cookies-policy.php" class="privacy-footer-link">Polityka cookies</a>
+            <a href="/cookies-policy.php" class="privacy-footer-link"><?= t('privacy.page.cookies_heading') ?></a>
             &nbsp;·&nbsp;
-            <a href="/privacy-policy.php" class="privacy-footer-link">Polityka prywatności</a>
+            <a href="/privacy-policy.php" class="privacy-footer-link"><?= t('privacy.page.privacy_heading') ?></a>
             &nbsp;·&nbsp;
             <a href="/" class="privacy-footer-link"><?= t('privacy.page.back_to_game') ?></a>
         </div>

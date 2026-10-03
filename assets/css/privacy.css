@@ -412,3 +412,30 @@
     .privacy-modal__footer { justify-content: stretch; }
     .privacy-modal__footer .privacy-btn { flex: 1; }
 }
+
+/* Policy pages / Strony polityk */
+.privacy-page {
+    max-width: 860px;
+    margin: 40px auto;
+    padding: 0 16px;
+}
+
+.privacy-page h1 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #f0f0f5;
+}
+
+.privacy-page__meta {
+    margin-bottom: 24px;
+    font-size: 13px;
+    color: rgba(232, 232, 240, 0.6);
+}
+
+.privacy-page__actions {
+    margin-top: 40px;
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}

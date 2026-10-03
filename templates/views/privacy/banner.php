@@ -20,7 +20,7 @@
             <p class="privacy-banner__desc">
                 <?= htmlspecialchars($__privacyBannerData['description']) ?>
                 <a href="<?= htmlspecialchars($__privacyBannerData['policy_url']) ?>" target="_blank" rel="noopener noreferrer">
-                    Polityka cookies
+                    <?= t('privacy.banner.policy_link') ?>
                 </a>
             </p>
         </div>

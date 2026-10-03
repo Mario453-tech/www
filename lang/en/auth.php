@@ -8,7 +8,7 @@ declare(strict_types=1);
 
 return [
 
-    'register.page_title' => 'Register - OilCorp',
+    'register.page_title' => 'Register - OilEmpire',
     'register.subtitle' => 'Build your oil empire',
     'register.form_label' => 'Registration form',
     'register.label_email' => 'Email',
@@ -36,9 +36,9 @@ return [
     'register.label_terms_prefix' => 'Accept',
     'register.label_terms_link' => 'game terms',
     'register.label_terms_suffix' => '',
-    'register.label_newsletter_optin' => 'I want to receive the OilCorp newsletter (updates, events, tips).',
+    'register.label_newsletter_optin' => 'I want to receive the OilEmpire newsletter (updates, events, tips).',
 
-    'verify_email.page_title' => 'Email verification - OilCorp',
+    'verify_email.page_title' => 'Email verification - OilEmpire',
     'verify_email.heading_success' => 'Email confirmed',
     'verify_email.msg_success' => 'Your account has been activated. You can sign in to the game now.',
     'verify_email.btn_login' => 'Sign in',
@@ -46,9 +46,9 @@ return [
     'verify_email.msg_resend_hint' => 'The link may have expired or already been used. Register again or contact the administrator.',
     'verify_email.btn_back_register' => 'Back to registration',
 
-    'newsletter_unsub.page_title' => 'Newsletter unsubscribe - OilCorp',
+    'newsletter_unsub.page_title' => 'Newsletter unsubscribe - OilEmpire',
     'newsletter_unsub.heading_success' => 'Unsubscribed from newsletter',
-    'newsletter_unsub.msg_success' => 'You have been successfully unsubscribed from the OilCorp newsletter. You will no longer receive email messages.',
+    'newsletter_unsub.msg_success' => 'You have been successfully unsubscribed from the OilEmpire newsletter. You will no longer receive email messages.',
     'newsletter_unsub.msg_account_safe' => 'Your account remains active - the unsubscribe applies only to email messages.',
     'newsletter_unsub.heading_already' => 'Already unsubscribed',
     'newsletter_unsub.msg_already' => 'This email address is no longer subscribed to the newsletter.',
@@ -56,7 +56,7 @@ return [
     'newsletter_unsub.msg_invalid' => 'The unsubscribe link is invalid or no longer works. Contact the administrator.',
     'newsletter_unsub.btn_login' => 'Sign in',
 
-    'reset_password.page_title' => 'Password reset - OilCorp',
+    'reset_password.page_title' => 'Password reset - OilEmpire',
     'reset_password.heading' => 'New password',
     'reset_password.form_label' => 'Password reset form',
     'reset_password.subtitle' => 'Set a new password for account :email',
@@ -111,7 +111,7 @@ return [
     'auth.no_account' => 'No account yet?',
     'auth.register_link' => 'Register',
 
-    'forgot_password.page_title' => 'Password recovery - OilCorp',
+    'forgot_password.page_title' => 'Password recovery - OilEmpire',
     'forgot_password.heading' => 'Recover password',
     'forgot_password.form_aria' => 'Password recovery form',
     'forgot_password.btn_submit' => 'Send reset link',
@@ -123,11 +123,11 @@ return [
 
     'auth.email_verify_title' => 'Confirm your email address',
     'auth.email_verify_greeting' => 'Hello <strong style=\'color:#c8a84b\'>:name</strong>,',
-    'auth.email_verify_body' => '<p>Thank you for registering with OilCorp. Click the button below to confirm your email address and activate your account. The link is valid for <strong>24 hours</strong>.</p>',
+    'auth.email_verify_body' => '<p>Thank you for registering with OilEmpire. Click the button below to confirm your email address and activate your account. The link is valid for <strong>24 hours</strong>.</p>',
     'auth.email_verify_button' => 'CONFIRM EMAIL',
-    'auth.email_verify_footer' => 'If you did not create an OilCorp account, ignore this message. The account will be removed automatically.',
-    'auth.email_verify_subject' => '[OilCorp] Confirm your email address',
-    'auth.reset_email_title' => 'Password reset - OilCorp',
+    'auth.email_verify_footer' => 'If you did not create an OilEmpire account, ignore this message. The account will be removed automatically.',
+    'auth.email_verify_subject' => '[OilEmpire] Confirm your email address',
+    'auth.reset_email_title' => 'Password reset - OilEmpire',
     'auth.reset_email_greeting' => 'Hello <strong>:name</strong>,',
     'auth.reset_email_body' => 'We received a request to reset the password for your account. The link is valid for 1 hour.',
     'auth.reset_email_button' => 'Reset password',
