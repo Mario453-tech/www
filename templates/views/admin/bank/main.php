@@ -250,6 +250,4 @@ $typeLabels = [
     </div>
 </div>
 
-<link rel="stylesheet" href="/assets/css/admin_bank_panel.css">
-
 <script src="/assets/js/admin_bank_panel.js" defer></script>

@@ -439,3 +439,43 @@
     gap: 12px;
     flex-wrap: wrap;
 }
+
+/* Privacy settings page / Strona ustawien prywatnosci */
+.privacy-settings__alert {
+    margin-bottom: 20px;
+}
+
+.privacy-settings__intro {
+    margin-bottom: 28px;
+}
+
+.privacy-consent-card {
+    background: rgba(200, 168, 75, 0.06);
+    border: 1px solid rgba(200, 168, 75, 0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 28px;
+}
+
+.privacy-consent-card__meta {
+    font-size: 13px;
+    color: rgba(232, 232, 240, 0.7);
+    margin: 0 0 8px;
+}
+
+.privacy-consent-card__categories {
+    margin: 0;
+    font-size: 14px;
+    color: #e8e8f0;
+}
+
+.privacy-settings__actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 32px;
+}
+
+.privacy-settings__links {
+    margin-top: 16px;
+}

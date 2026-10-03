@@ -62,9 +62,9 @@ if (!$page) {
 }
 
 $pageTitle = htmlspecialchars($page['title']) . ' - OilEmpire';
+$extraCss  = ['/assets/css/static_page.css'];
 require_once __DIR__ . '/../templates/header.php';
 ?>
-<link rel="stylesheet" href="/assets/css/static_page.css">
 
 <div class="static-page-wrap">
     <div class="static-page-hdr">

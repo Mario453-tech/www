@@ -1,8 +1,6 @@
 <script src="/assets/js/admin_dashboard_flash.js" defer></script>
 <?php extract($viewData, EXTR_SKIP); ?>
 
-<link rel="stylesheet" href="/assets/css/help_editor.css">
-
 <h1> <?= t('admin.help_editor.heading') ?></h1>
 <p class="muted mb-md">
     <?= t('admin.help_editor.desc') ?> <a href="/help" target="_blank">/help</a>.

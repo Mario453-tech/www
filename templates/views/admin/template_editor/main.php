@@ -1,7 +1,5 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 
-<link rel="stylesheet" href="/assets/css/template_editor.css">
-
 <h1> <?= t('admin.template_editor.heading') ?></h1>
 <p class="muted te-desc"><?= t('admin.template_editor.desc') ?></p>
 

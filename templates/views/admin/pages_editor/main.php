@@ -1,7 +1,5 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 
-<link rel="stylesheet" href="/assets/css/help_editor.css">
-
 <h1> <?= t('admin.pages_editor.heading') ?></h1>
 <p class="muted he-desc">
     <?= t('admin.pages_editor.desc') ?> <code>/slug</code> <?= t('admin.pages_editor.desc_auto') ?>

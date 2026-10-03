@@ -46,14 +46,14 @@ require_once __DIR__ . '/../templates/header.php';
         <h1><?= t('privacy.page.settings_heading') ?></h1>
 
         <?php if (isset($_GET['withdrawn'])): ?>
-        <div class="alert alert-success" style="margin-bottom:20px;"><?= t('privacy.page.msg_withdrawn') ?></div>
+        <div class="alert alert-success privacy-settings__alert"><?= t('privacy.page.msg_withdrawn') ?></div>
         <?php endif ?>
 
-        <p class="muted" style="margin-bottom:28px;"><?= t('privacy.page.settings_intro') ?></p>
+        <p class="muted privacy-settings__intro"><?= t('privacy.page.settings_intro') ?></p>
 
         <?php if ($consent): ?>
-        <div class="consent-card" style="background:rgba(200,168,75,.06);border:1px solid rgba(200,168,75,.2);border-radius:12px;padding:20px 24px;margin-bottom:28px;">
-            <p style="font-size:13px;color:rgba(232,232,240,.7);margin:0 0 8px;">
+        <div class="consent-card privacy-consent-card">
+            <p class="privacy-consent-card__meta">
                 <?= t('privacy.page.current_consent', [
                     'version' => htmlspecialchars($consent['consent_version']),
                     'date'    => htmlspecialchars(substr($consent['created_at'], 0, 10))
@@ -68,13 +68,13 @@ require_once __DIR__ . '/../templates/header.php';
                 'marketing'   => t('privacy.category.marketing'),
             ];
             ?>
-            <p style="margin:0;font-size:14px;color:#e8e8f0;">
+            <p class="privacy-consent-card__categories">
                 <?= t('privacy.page.accepted_label') ?> <strong><?= htmlspecialchars(implode(', ', array_map(fn($c) => $catNames[$c] ?? $c, $accepted))) ?></strong>
             </p>
         </div>
         <?php endif ?>
 
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:32px;">
+        <div class="privacy-settings__actions">
             <button type="button" class="privacy-btn privacy-btn--decline" data-privacy-settings>
                 <?= t('privacy.page.change_cookies_btn') ?>
             </button>
@@ -90,7 +90,7 @@ require_once __DIR__ . '/../templates/header.php';
             <?php endif ?>
         </div>
 
-        <div style="margin-top:16px;">
+        <div class="privacy-settings__links">
             <a href="/cookies-policy.php" class="privacy-footer-link"><?= t('privacy.page.cookies_heading') ?></a>
             &nbsp;·&nbsp;
             <a href="/privacy-policy.php" class="privacy-footer-link"><?= t('privacy.page.privacy_heading') ?></a>
@@ -102,7 +102,6 @@ require_once __DIR__ . '/../templates/header.php';
 
 <?php
 // Modal i skrypty — dołączane tylko gdy baner nie wstrzyknął ich wcześniej przez header.php
-echo '<link rel="stylesheet" href="' . asset('/assets/css/privacy.css') . '">';
 if (!defined('PRIVACY_MODAL_INCLUDED')) {
     define('PRIVACY_MODAL_INCLUDED', true);
     require __DIR__ . '/../templates/views/privacy/settings_modal.php';

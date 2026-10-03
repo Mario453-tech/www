@@ -136,6 +136,7 @@ $viewData  = [
     'editId'   => $editId,
     'editPage' => $editPage,
 ];
+$adminExtraCss = ['/assets/css/help_editor.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/admin_help/main.php';
 require_once __DIR__ . '/partials/footer.php';

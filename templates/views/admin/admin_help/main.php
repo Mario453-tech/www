@@ -1,7 +1,5 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 
-<link rel="stylesheet" href="/assets/css/help_editor.css">
-
 <h1> <?= t('admin.help.page_title') ?></h1>
 <p class="muted he-meta-info"><?= t('admin.help.intro') ?></p>
 

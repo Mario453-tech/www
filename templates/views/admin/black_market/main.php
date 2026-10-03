@@ -1,5 +1,4 @@
 <?php extract($viewData, EXTR_SKIP); ?>
-<link rel="stylesheet" href="/assets/css/black_market.css">
 
 <script>
 function bmShowTab(tab) {

@@ -515,6 +515,7 @@ $viewData = [
     'brBgMatrix'     => $brBgMatrix,
     'brSceneRoles'   => $brSceneRoles,
 ];
+$adminExtraCss = ['/assets/css/template_editor.css'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/template_editor/main.php';
 require_once __DIR__ . '/partials/footer.php';

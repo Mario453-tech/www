@@ -26,9 +26,9 @@ try {
     // The table may not exist yet; keep the fallback below. / Tabela moze jeszcze nie istniec; zachowaj powyzszy fallback.
 }
 
+$extraCss = ['/assets/css/help.css'];
 require_once __DIR__ . '/../templates/header.php';
 ?>
-<link rel="stylesheet" href="/assets/css/help.css">
 
 <div class="help-wrap">
 

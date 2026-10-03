@@ -33,7 +33,45 @@ try {
         }
     }
 } catch (Throwable $__cfgEx) {
- // table may not exist - fallback to default values / tabela moze nie istniec - fallback na wartosci domyslne
+    // table may not exist - fallback to default values / tabela moze nie istniec - fallback na wartosci domyslne
+}
+
+// Check cookie banner requirement before rendering head
+// Sprawdz wymog banera cookies przed renderowaniem head
+$__showPrivacyBanner = false;
+$__privacyBannerData = null;
+$__privacyCsrf       = null;
+$__privacyConfig     = null;
+
+if (!($authPage ?? false)) {
+    try {
+        require_once __DIR__ . '/../src/Privacy/PrivacyFeatureRegistry.php';
+        $__privDb        = $__cfgDb ?? Database::getInstance()->getConnection();
+        $__privSettings  = new PrivacySettingsService($__privDb);
+        $__privConsent   = new PrivacyConsentService($__privDb, $__privSettings);
+        $__privBannerSvc = new PrivacyBannerService($__privDb, $__privSettings);
+        $__privPlayerId  = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+        $__privAnonToken = $__privPlayerId ? '' : PrivacyConsentService::getOrCreateAnonymousToken();
+
+        if ($__privConsent->shouldShowBanner($__privPlayerId, $__privAnonToken)) {
+            $__showPrivacyBanner = true;
+            $__privacyBannerData = $__privBannerSvc->getBannerData();
+            $__privacyCsrf       = CSRF::generateToken();
+            $__privacyConfig     = [
+                'bannerEnabled'     => (bool)$__privSettings->get('privacy.banner.enabled', true),
+                'bannerVersion'     => (string)$__privSettings->get('privacy.banner.version', '1.0'),
+                'policyVersion'     => (string)$__privSettings->get('privacy.cookies.policy_version', '1.0'),
+                'forceReconsent'    => (bool)$__privSettings->get('privacy.banner.force_reconsent', false),
+                'reconsentOnPolicy' => (bool)$__privSettings->get('privacy.cookies.reconsent_after_policy_change', true),
+                'allCategories'     => ['necessary', 'preferences', 'analytics', 'marketing'],
+                'csrfToken'         => $__privacyCsrf,
+            ];
+        }
+    } catch (Throwable $__privEx) {
+        if (class_exists('GameLog', false)) {
+            GameLog::error('header', 'privacy banner check FAILED', $__privEx);
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -59,6 +97,9 @@ try {
     <?php if (!empty($extraCss)): foreach ((array) $extraCss as $__css): ?>
     <link rel="stylesheet" href="<?= htmlspecialchars(asset($__css)) ?>">
     <?php endforeach; endif; ?>
+    <?php if ($__showPrivacyBanner): ?>
+    <link rel="stylesheet" href="<?= asset('/assets/css/privacy.css') ?>">
+    <?php endif; ?>
     <?php if (!empty($extraHead)) echo $extraHead; ?>
     <?php if (!($authPage ?? false)): ?>
     <link rel="stylesheet" href="<?= asset('/assets/css/modal.css') ?>">
@@ -381,39 +422,10 @@ try {
         }
         ?>
 <?php
-// ---- Baner cookies — wstrzykiwany na wszystkich stronach z wyjątkiem auth ----
-if (!($authPage ?? false)) {
-    try {
-        require_once __DIR__ . '/../src/Privacy/PrivacyFeatureRegistry.php';
-        $__privDb          = Database::getInstance()->getConnection();
-        $__privSettings    = new PrivacySettingsService($__privDb);
-        $__privConsent     = new PrivacyConsentService($__privDb, $__privSettings);
-        $__privBannerSvc   = new PrivacyBannerService($__privDb, $__privSettings);
-        $__privPlayerId    = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-        $__privAnonToken   = $__privPlayerId ? '' : PrivacyConsentService::getOrCreateAnonymousToken();
-
-        if ($__privConsent->shouldShowBanner($__privPlayerId, $__privAnonToken)) {
-            $__privacyBannerData = $__privBannerSvc->getBannerData();
-            $__privacyCsrf       = CSRF::generateToken();
-            $__privacyConfig     = [
-                'bannerEnabled'     => (bool)$__privSettings->get('privacy.banner.enabled', true),
-                'bannerVersion'     => (string)$__privSettings->get('privacy.banner.version', '1.0'),
-                'policyVersion'     => (string)$__privSettings->get('privacy.cookies.policy_version', '1.0'),
-                'forceReconsent'    => (bool)$__privSettings->get('privacy.banner.force_reconsent', false),
-                'reconsentOnPolicy' => (bool)$__privSettings->get('privacy.cookies.reconsent_after_policy_change', true),
-                'allCategories'     => ['necessary', 'preferences', 'analytics', 'marketing'],
-                'csrfToken'         => $__privacyCsrf,
-            ];
-            echo '<link rel="stylesheet" href="' . asset('/assets/css/privacy.css') . '">';
-            require __DIR__ . '/../templates/views/privacy/banner.php';
-            echo '<script src="' . asset('/assets/js/privacy_banner.js') . '" defer></script>';
-        }
-    } catch (Throwable $__privEx) {
-        // Baner niedostępny nie blokuje strony — cichy fallback
-        if (class_exists('GameLog', false)) {
-            GameLog::error('header', 'privacy banner FAILED', $__privEx);
-        }
-    }
+// ---- Baner cookies — renderowany gdy wymagany ----
+if ($__showPrivacyBanner && $__privacyBannerData !== null) {
+    require __DIR__ . '/../templates/views/privacy/banner.php';
+    echo '<script src="' . asset('/assets/js/privacy_banner.js') . '" defer></script>';
 }
 ?>
 <?php endif // authPage ?>
