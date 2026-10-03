@@ -72,16 +72,16 @@
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="clear_all">
             <button type="button" class="btn btn-danger" onclick="openClearChatModal(this.closest('form'))">
-                 Wyczy cay czat
+                 <?= t('admin.chat.clear_all') ?>
             </button>
         </form>
 
         <!--  Auto-czyszczenie  -->
         <hr class="panel-divider mt-sm">
-        <p class="panel-title mt-sm"> Auto-czyszczenie czatu</p>
+        <p class="panel-title mt-sm"><?= t('admin.chat.auto_clear_title') ?></p>
 
         <?php if ($autoClearLastAt): ?>
-        <p class="muted font-xs mb-4">Ostatnio wyczyszczono: <?= htmlspecialchars(date('d.m.Y H:i', strtotime($autoClearLastAt))) ?></p>
+        <p class="muted font-xs mb-4"><?= t('admin.chat.last_cleared') ?>: <?= htmlspecialchars(date('d.m.Y H:i', strtotime($autoClearLastAt))) ?></p>
         <?php endif ?>
 
         <form method="post" id="auto-clear-form">
@@ -90,8 +90,8 @@
 
             <div class="config-row">
                 <div>
-                    <div class="config-key-label">Automatyczne czyszczenie</div>
-                    <div class="config-key-code">Usuwa wiadomoci starsze ni wybrany interwa</div>
+                    <div class="config-key-label"><?= t('admin.chat.auto_clear_label') ?></div>
+                    <div class="config-key-code"><?= t('admin.chat.auto_clear_hint') ?></div>
                 </div>
                 <div class="config-row-value">
                     <label class="toggle-switch">
@@ -102,15 +102,15 @@
                         <span class="toggle-slider"></span>
                     </label>
                     <span id="autoClearStatus" class="badge ml-6 <?= $autoClearEnabled ? 'badge-active' : 'badge-inactive' ?>">
-                        <?= $autoClearEnabled ? 'Wczone' : 'Wyczone' ?>
+                        <?= $autoClearEnabled ? t('admin.chat.enabled') : t('admin.chat.disabled') ?>
                     </span>
                 </div>
             </div>
 
             <div class="config-row config-row--wide" id="autoClearIntervalRow" <?= !$autoClearEnabled ? 'style="opacity:.45;pointer-events:none"' : '' ?>>
                 <div>
-                    <div class="config-key-label">Interwa czyszczenia</div>
-                    <div class="config-key-code">Co ile minut usuwa stare wiadomoci</div>
+                    <div class="config-key-label"><?= t('admin.chat.interval_label') ?></div>
+                    <div class="config-key-code"><?= t('admin.chat.interval_hint') ?></div>
                 </div>
                 <div class="config-row-value flex-row-gap">
                     <?php foreach ([15 => '15 min', 30 => '30 min', 60 => '1 godz', 90 => '90 min', 120 => '2 godz'] as $val => $lbl): ?>
@@ -125,7 +125,7 @@
             </div>
 
             <div class="form-row mt-4">
-                <button type="submit" class="btn btn-primary btn-sm"> Zapisz ustawienia</button>
+                <button type="submit" class="btn btn-primary btn-sm"><?= t('admin.chat.save_settings') ?></button>
             </div>
         </form>
     </section>
@@ -136,16 +136,15 @@
     <div class="ac-modal">
         <div class="ac-modal-header">
             <span class="ac-modal-icon"></span>
-            <strong>Wyczy cay czat</strong>
+            <strong><?= t('admin.chat.clear_all') ?></strong>
         </div>
         <p class="ac-modal-body">
-            Ta operacja <strong>trwale usuwa wszystkie wiadomoci</strong> z czatu (cznie z przypitymi).
-            Graczom wywietli si pusty czat natychmiast.
+            <?= t('admin.chat.clear_modal_body') ?>
         </p>
         <div class="ac-modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeClearChatModal()">Anuluj</button>
+            <button type="button" class="btn btn-secondary" onclick="closeClearChatModal()"><?= t('admin.chat.cancel') ?></button>
             <button type="button" class="btn btn-danger" id="clearChatConfirmBtn" onclick="submitClearChat()">
-                 Tak, wyczy wszystko
+                 <?= t('admin.chat.clear_confirm_btn') ?>
             </button>
         </div>
     </div>
@@ -173,7 +172,7 @@ function updateAutoClearState() {
     var enabled = document.getElementById('autoClearToggle').checked;
     var status  = document.getElementById('autoClearStatus');
     var row     = document.getElementById('autoClearIntervalRow');
-    status.textContent = enabled ? 'Wczone' : 'Wyczone';
+    status.textContent = enabled ? <?= json_encode(t('admin.chat.enabled')) ?> : <?= json_encode(t('admin.chat.disabled')) ?>;
     status.className   = 'badge ml-6 ' + (enabled ? 'badge-active' : 'badge-inactive');
     row.style.opacity       = enabled ? '1' : '.45';
     row.style.pointerEvents = enabled ? 'auto' : 'none';

@@ -59,7 +59,7 @@ $typeLabels = [
             #<?= (int)$p['id'] ?>
             <?= htmlspecialchars($p['email']) ?>
             <?= $hasAcc ? '(' . htmlspecialchars($p['bank_account_number']) . ')' : '(' . t('admin.bank.no_account') . ')' ?>
-            — <?= number_format((float)$p['cash'], 2, ',', ' ') ?> PLN
+            — <?= number_format((float)$p['cash'], 2, ',', ' ') ?> <?= t('common.currency_code') ?>
         </option>
         <?php endforeach ?>
     </select>
@@ -88,7 +88,7 @@ $typeLabels = [
                         <?php endif ?>
                     </span>
                 </span>
-                <span class="abp-pr-bal"><?= number_format((float)$p['cash'], 2, ',', ' ') ?>&nbsp;PLN</span>
+                <span class="abp-pr-bal"><?= number_format((float)$p['cash'], 2, ',', ' ') ?>&nbsp;<?= t('common.currency_code') ?></span>
             </a>
             <?php endforeach ?>
             <?php if (empty($players)): ?>
@@ -108,7 +108,7 @@ $typeLabels = [
                 <rect x="17" y="11" width="2" height="9"/>
                 <path d="M12 2L2 9h20z"/>
             </svg>
-            <p><?= t('admin.bank.choose') ?> z listy, aby zobaczyc szczegoly konta.</p>
+            <p><?= t('admin.bank.choose_hint') ?></p>
         </div>
 
         <?php else: ?>
@@ -136,7 +136,7 @@ $typeLabels = [
             </div>
             <div class="abp-tile abp-tile--bal">
                 <span class="abp-tile-lbl"><?= t('admin.bank.balance') ?></span>
-                <span class="abp-tile-val"><?= number_format((float)$selectedPlayer['cash'], 2, ',', ' ') ?> PLN</span>
+                <span class="abp-tile-val"><?= number_format((float)$selectedPlayer['cash'], 2, ',', ' ') ?> <?= t('common.currency_code') ?></span>
             </div>
         </div>
 
@@ -198,7 +198,7 @@ $typeLabels = [
                     <span class="abp-col-party"><?= htmlspecialchars($cpart) ?></span>
                     <span class="abp-col-desc"><?= $desc !== '' ? htmlspecialchars($desc) : '<span class="abp-muted">—</span>' ?></span>
                     <span class="abp-col-amt <?= $cls ?>">
-                        <?= $sign ?><?= number_format($amt, 2, ',', ' ') ?> PLN
+                        <?= $sign ?><?= number_format($amt, 2, ',', ' ') ?> <?= t('common.currency_code') ?>
                     </span>
                 </div>
                 <?php endforeach ?>

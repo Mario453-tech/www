@@ -11,7 +11,7 @@
 <!--  SIDEBAR: lista sekcji  -->
 <aside>
     <div class="he-sidebar">
-        <div class="he-sidebar-hdr">Sekcje (<?= count($pages) ?>)</div>
+        <div class="he-sidebar-hdr"><?= t('admin.help.sections') ?> (<?= count($pages) ?>)</div>
         <ul class="he-list">
         <?php foreach ($pages as $p): ?>
             <li>
@@ -19,7 +19,7 @@
                     <span><?= htmlspecialchars($p['icon']) ?></span>
                     <span><?= htmlspecialchars($p['title']) ?></span>
                     <?php if (!$p['active']): ?>
-                        <span class="he-badge">ukryta</span>
+                        <span class="he-badge"><?= t('admin.help.hidden') ?></span>
                     <?php else: ?>
                         <span class="he-ok"></span>
                     <?php endif ?>
@@ -37,7 +37,7 @@
                 <?= CSRF::field() ?>
                 <input type="hidden" name="action" value="add">
                 <label class="he-form-label"><?= t('admin.help.field_slug') ?></label>
-                <input type="text" name="new_slug" placeholder="np. rynek_ropy"
+                <input type="text" name="new_slug" placeholder="<?= t('admin.help.placeholder_slug') ?>"
                        pattern="[a-z0-9_]+" title="<?= t('admin.help.hint_slug') ?>" required>
                 <label class="he-form-label"><?= t('admin.help.field_title') ?></label>
                 <input type="text" name="new_title" placeholder="<?= t('admin.help.placeholder_title') ?>" required>
@@ -55,7 +55,7 @@
     <h2><?= htmlspecialchars($editPage['icon'] . ' ' . $editPage['title']) ?></h2>
     <p class="muted he-meta-info">
         Slug: <code><?= htmlspecialchars($editPage['slug']) ?></code>
-        &nbsp;-&nbsp; Ostatnia zmiana: <?= $editPage['updated_at'] ?>
+        &nbsp;-&nbsp; <?= t('admin.help.last_change') ?>: <?= $editPage['updated_at'] ?>
         <?php if ($editPage['updated_by']): ?>&nbsp;(<?= htmlspecialchars($editPage['updated_by']) ?>)<?php endif ?>
     </p>
 
