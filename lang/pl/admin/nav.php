@@ -55,5 +55,6 @@ return [
     'admin.nav.title_prefix' => 'Admin',
     'admin.nav.transport_config' => 'Transport i porty',
     'admin.nav.transport_loss' => 'Monitoring strat',
+    'admin.nav.visits' => 'Statystyki odwiedzin',
     'admin.nav.wells' => 'Odwierty',
 ];

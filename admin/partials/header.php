@@ -59,6 +59,7 @@ $navSections = [
     ],
     t('admin.nav.section_tools') => [
         'alerts.php'      => ['', t('admin.nav.alerts')],
+        'visits.php'      => ['', t('admin.nav.visits')],
         'logs.php'        => ['', t('admin.nav.logs')],
         'tick_modules.php'=> ['', t('admin.nav.tick_modules')],
         'chat.php'        => ['', t('admin.nav.chat')],

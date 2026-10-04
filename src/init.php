@@ -28,6 +28,9 @@ if (PHP_SAPI !== 'cli') {
         if (is_string($name) && is_float($start)) {
             GameLog::pageEnd($name, $start);
         }
+        if (class_exists('VisitTrackerService', false)) {
+            VisitTrackerService::recordFromGlobals();
+        }
     });
 }
 
@@ -36,6 +39,7 @@ require_once __DIR__ . '/Security.php';
 require_once __DIR__ . '/CSRF.php';
 require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Validator.php';
+require_once __DIR__ . '/Visits/VisitTrackerService.php';
 
 // WANE: Auth.php zawiera klas AdminAuth (panel admina)
 // IMPORTANT: Auth.php contains the AdminAuth class (admin panel)

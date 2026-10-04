@@ -1,0 +1,409 @@
+/**
+ * OilEmpire - Visit Statistics Admin Styles
+ * Style statystyk odwiedzin w panelu admina
+ */
+
+.visits-page {
+    padding-bottom: 40px;
+}
+
+/* Header & Tabs / Naglowek i zakladki */
+.visits-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.visits-header-left .admin-title {
+    margin: 0 0 6px 0;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f1f5f9;
+}
+
+.visits-header-left .admin-subtitle {
+    margin: 0;
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.visits-period-tabs {
+    display: inline-flex;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.visits-tab-btn {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.visits-tab-btn:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.visits-tab-btn.active {
+    background: #0284c7;
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Filter Bar / Pasek aktywnego filtra */
+.visits-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(2, 132, 199, 0.15);
+    border: 1px solid rgba(2, 132, 199, 0.35);
+    color: #38bdf8;
+    padding: 10px 16px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+}
+
+.visits-filter-clear {
+    color: #f87171;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.visits-filter-clear:hover {
+    background: rgba(248, 113, 113, 0.15);
+}
+
+/* KPI Cards Grid / Karty KPI */
+.visits-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.visits-kpi-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 10px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.visits-kpi-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.visits-kpi-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #f8fafc;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.visits-top-country {
+    font-size: 1.3rem;
+    font-family: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.visits-kpi-sub {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.text-accent { color: #38bdf8 !important; }
+.text-primary { color: #818cf8 !important; }
+.text-success { color: #34d399 !important; }
+.text-warning { color: #fbbf24 !important; }
+.text-muted { color: #94a3b8; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+.text-nowrap { white-space: nowrap; }
+.font-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+.font-bold { font-weight: 700; }
+
+/* Chart Card / Wykres */
+.visits-chart-card {
+    margin-bottom: 24px;
+}
+
+.visits-chart-legend {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    font-size: 0.85rem;
+    color: #94a3b8;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.dot-pv { background: #818cf8; }
+.dot-uv { background: #38bdf8; }
+
+.visits-chart-wrapper {
+    position: relative;
+    width: 100%;
+    height: 240px;
+    margin-top: 12px;
+}
+
+#visits-timeline-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.visits-chart-tooltip {
+    position: absolute;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #f8fafc;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    pointer-events: none;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
+    z-index: 10;
+    transform: translate(-50%, -100%);
+    white-space: nowrap;
+}
+
+/* Analytics Two Columns / Dwie kolumny analityki */
+.visits-analytics-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 992px) {
+    .visits-analytics-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.visits-side-column {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Grid Data Table Styles / Style siatki danych (brak tabel HTML) */
+.visits-grid-table-wrap {
+    overflow-x: auto;
+    max-height: 480px;
+}
+
+.visits-grid-table {
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    font-size: 0.88rem;
+}
+
+.visits-grid-row {
+    display: grid;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px solid #1e293b;
+    color: #cbd5e1;
+    transition: background 0.15s ease;
+}
+
+.visits-grid-row:hover:not(.visits-grid-header) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.visits-grid-header {
+    background: #0f172a;
+    color: #94a3b8;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #334155;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.visits-grid-cell {
+    padding: 2px 6px;
+    overflow: hidden;
+}
+
+/* Specific Grid Column Layouts / Uklady kolumn siatek */
+.visits-grid-countries .visits-grid-row {
+    grid-template-columns: minmax(160px, 1.4fr) 85px 85px minmax(130px, 1.2fr);
+    gap: 8px;
+}
+
+.visits-grid-pages .visits-grid-row {
+    grid-template-columns: minmax(160px, 1fr) 85px 85px;
+    gap: 8px;
+}
+
+.visits-grid-live .visits-grid-row {
+    grid-template-columns: 120px 160px 105px minmax(140px, 1.3fr) 95px minmax(120px, 1fr);
+    gap: 8px;
+}
+
+.visits-empty-state {
+    padding: 24px;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.visits-country-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.country-badge {
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #38bdf8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    display: inline-block;
+    min-width: 26px;
+    text-align: center;
+}
+
+.device-icon {
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+    stroke: currentColor;
+}
+
+/* Progress bar / Pasek postepu */
+.visits-progress-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.visits-progress-bar {
+    flex: 1;
+    height: 8px;
+    background: #0284c7;
+    border-radius: 4px;
+    width: var(--bar-pct, 0%);
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+.visits-progress-pct {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    width: 44px;
+    text-align: right;
+}
+
+.bar-desktop { background: #38bdf8; }
+.bar-mobile  { background: #34d399; }
+.bar-tablet  { background: #fbbf24; }
+.bar-bot     { background: #94a3b8; }
+
+/* Device list / Lista urzadzen */
+.visits-devices-list {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.visits-device-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+    margin-bottom: 4px;
+    color: #e2e8f0;
+}
+
+/* Badges and pills / Etykiety i kapsulki */
+.device-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.pill-desktop { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+.pill-mobile  { background: rgba(52, 211, 153, 0.15); color: #34d399; }
+.pill-tablet  { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+.pill-bot     { background: rgba(148, 163, 184, 0.15); color: #94a3b8; }
+
+.text-truncate {
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Maintenance Card / Konserwacja */
+.visits-maintenance-card {
+    margin-top: 24px;
+}
+
+.visits-maintenance-body {
+    padding: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.visits-maintenance-body p {
+    margin: 0;
+    max-width: 700px;
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
