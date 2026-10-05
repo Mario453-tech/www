@@ -113,7 +113,15 @@
                     <div class="config-key-code"><?= t('admin.chat.interval_hint') ?></div>
                 </div>
                 <div class="config-row-value flex-row-gap">
-                    <?php foreach ([15 => '15 min', 30 => '30 min', 60 => '1 godz', 90 => '90 min', 120 => '2 godz'] as $val => $lbl): ?>
+                    <?php
+                    $intervalOpts = [
+                        15  => t('admin.chat.interval_15m'),
+                        30  => t('admin.chat.interval_30m'),
+                        60  => t('admin.chat.interval_60m'),
+                        90  => t('admin.chat.interval_90m'),
+                        120 => t('admin.chat.interval_120m'),
+                    ];
+                    foreach ($intervalOpts as $val => $lbl): ?>
                     <label class="radio-pill <?= $autoClearInterval === $val ? 'radio-pill--active' : '' ?>">
                         <input type="radio" name="auto_clear_interval" value="<?= $val ?>"
                                <?= $autoClearInterval === $val ? 'checked' : '' ?>
@@ -286,9 +294,9 @@ document.addEventListener('keydown', function(e) {
             <span class="muted"><?= (int)$m['id'] ?></span>
             <span class="muted">
                 <?= htmlspecialchars($m['created_at']) ?>
-                <?php if ($isExpired): ?><span class="badge badge-inactive" title="Niewidoczna w grze">wygasa</span><?php endif ?>
-                <?php if ($isAdmin): ?><span class="badge badge-admin" title="Wiadomo admina">admin</span><?php endif ?>
-                <?php if ($isPinned): ?><span class="badge badge-pinned" title="Przypita"></span><?php endif ?>
+                <?php if ($isExpired): ?><span class="badge badge-inactive" title="<?= htmlspecialchars(t('admin.chat.badge_expired_title'), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.chat.badge_expired') ?></span><?php endif ?>
+                <?php if ($isAdmin): ?><span class="badge badge-admin" title="<?= htmlspecialchars(t('admin.chat.badge_admin_title'), ENT_QUOTES, 'UTF-8') ?>"><?= t('admin.chat.badge_admin') ?></span><?php endif ?>
+                <?php if ($isPinned): ?><span class="badge badge-pinned" title="<?= htmlspecialchars(t('admin.chat.badge_pinned_title'), ENT_QUOTES, 'UTF-8') ?>"></span><?php endif ?>
             </span>
             <span class="chat-history-player">
                 <span class="chat-history-avatar"><?= htmlspecialchars(mb_strtoupper(mb_substr($m['username'], 0, 1))) ?></span>
@@ -345,7 +353,7 @@ document.addEventListener('keydown', function(e) {
     </div>
 
     <?php if ($totalPages > 1): ?>
-    <nav class="pagination" aria-label="Paginacja">
+    <nav class="pagination" aria-label="<?= htmlspecialchars(t('admin.chat.pagination_aria'), ENT_QUOTES, 'UTF-8') ?>">
         <?php for ($i = 1; $i <= $totalPages; $i++): ?>
         <a href="?p=<?= $i ?><?= $filterPlayer ? '&player=' . urlencode($filterPlayer) : '' ?>"
            class="btn btn-sm <?= $i === $page ? 'btn-primary' : 'btn-secondary' ?>"><?= $i ?></a>
@@ -485,3 +493,133 @@ document.addEventListener('keydown', function(e) {
 
     <?php endif ?>
 </details>
+
+<!-- Rooms Management / Zarzadzanie pokojami -->
+<section class="panel mt-lg">
+    <p class="panel-title"><?= t('admin.chat.rooms_title') ?></p>
+
+    <!-- Rooms cards grid / Siatka kart pokoi -->
+    <div class="admin-rooms-grid">
+        <?php foreach (($allRooms ?? []) as $rm): ?>
+        <div class="panel admin-room-card">
+            <div class="admin-room-card-head">
+                <strong class="admin-room-slug">#<?= htmlspecialchars($rm['slug']) ?></strong>
+                <span class="badge"><?= htmlspecialchars($rm['status']) ?></span>
+            </div>
+            <div class="admin-room-title">
+                <strong><?= htmlspecialchars($rm['name_pl']) ?></strong> / <?= htmlspecialchars($rm['name_en']) ?>
+            </div>
+            <p class="muted admin-room-desc">
+                <?= htmlspecialchars($rm['description_pl'] ?? '') ?>
+            </p>
+            <div class="muted admin-room-meta">
+                <span><?= t('admin.chat.room_messages_label') ?> <strong><?= (int)($rm['message_count'] ?? 0) ?></strong></span>
+                <span><?= t('admin.chat.room_sort_order_label') ?> <strong><?= (int)$rm['sort_order'] ?></strong></span>
+            </div>
+            <?php if ($rm['status'] !== 'archived'): ?>
+            <form method="post"
+                  data-confirm="<?= htmlspecialchars(t('admin.chat.room_archive_confirm'), ENT_QUOTES, 'UTF-8') ?>"
+                  data-confirm-type="danger"
+                  data-confirm-title="<?= htmlspecialchars(t('admin.chat.room_archive_title'), ENT_QUOTES, 'UTF-8') ?>"
+                  data-confirm-label="<?= htmlspecialchars(t('admin.chat.room_archive_btn'), ENT_QUOTES, 'UTF-8') ?>">
+                <?= CSRF::field() ?>
+                <input type="hidden" name="action" value="archive_room">
+                <input type="hidden" name="room_id" value="<?= (int)$rm['id'] ?>">
+                <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.chat.room_archive_btn') ?></button>
+            </form>
+            <?php endif ?>
+        </div>
+        <?php endforeach ?>
+    </div>
+
+    <!-- Create Room Form / Formularz tworzenia pokoju -->
+    <details class="admin-card-details admin-create-room-details">
+        <summary class="btn btn-secondary btn-sm">+ <?= t('admin.chat.room_create_btn') ?></summary>
+        <form method="post" class="admin-create-room-form">
+            <?= CSRF::field() ?>
+            <input type="hidden" name="action" value="create_room">
+            <div class="admin-create-room-row">
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_slug_label') ?></label>
+                    <input type="text" name="slug" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_slug_ph'), ENT_QUOTES, 'UTF-8') ?>" required pattern="[a-z0-9_-]+">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_type_label') ?></label>
+                    <select name="type" class="form-control">
+                        <option value="language"><?= t('admin.chat.room_type_language') ?></option>
+                        <option value="custom" selected><?= t('admin.chat.room_type_custom') ?></option>
+                        <option value="system"><?= t('admin.chat.room_type_system') ?></option>
+                    </select>
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_locale_label') ?></label>
+                    <input type="text" name="locale_code" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_locale_ph'), ENT_QUOTES, 'UTF-8') ?>" maxlength="5">
+                </div>
+            </div>
+            <div class="admin-create-room-row">
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_name_pl_label') ?></label>
+                    <input type="text" name="name_pl" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_pl_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_name_en_label') ?></label>
+                    <input type="text" name="name_en" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_en_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_name_de_label') ?></label>
+                    <input type="text" name="name_de" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_de_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+            </div>
+            <div class="admin-create-room-row">
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_desc_pl_label') ?></label>
+                    <input type="text" name="description_pl" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_pl_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_desc_en_label') ?></label>
+                    <input type="text" name="description_en" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_en_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_desc_de_label') ?></label>
+                    <input type="text" name="description_de" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_de_ph'), ENT_QUOTES, 'UTF-8') ?>">
+                </div>
+            </div>
+            <div class="admin-create-room-row">
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_sort_label') ?></label>
+                    <input type="number" name="sort_order" class="form-control" value="50">
+                </div>
+                <div class="admin-create-room-col">
+                    <label class="form-label"><?= t('admin.chat.room_status_label') ?></label>
+                    <select name="status" class="form-control">
+                        <option value="active"><?= t('admin.chat.room_status_active') ?></option>
+                        <option value="read_only"><?= t('admin.chat.room_status_read_only') ?></option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <button type="submit" class="btn btn-primary"><?= t('admin.chat.room_save_btn') ?></button>
+            </div>
+        </form>
+    </details>
+</section>
+
+<!-- Moderation Audit Log / Dziennik audytu moderacji -->
+<?php if (!empty($moderationLog)): ?>
+<section class="panel mt-lg">
+    <p class="panel-title"><?= t('admin.chat.audit_title') ?></p>
+    <div class="admin-audit-list">
+        <?php foreach ($moderationLog as $log): ?>
+        <div class="admin-audit-entry">
+            <span class="muted admin-audit-date"><?= htmlspecialchars($log['created_at']) ?></span> &mdash;
+            <strong><?= htmlspecialchars($log['actor_name']) ?></strong>:
+            <code><?= htmlspecialchars($log['action']) ?></code>
+            <?= t('admin.chat.audit_on') ?> <em><?= htmlspecialchars($log['target_type']) ?> #<?= (int)$log['target_id'] ?></em>
+            <?php if (!empty($log['reason'])): ?>
+                &mdash; <span class="muted"><?= htmlspecialchars($log['reason']) ?></span>
+            <?php endif ?>
+        </div>
+        <?php endforeach ?>
+    </div>
+</section>
+<?php endif ?>

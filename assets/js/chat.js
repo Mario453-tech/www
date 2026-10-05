@@ -1,371 +1,699 @@
+/**
+ * OilEmpire - Unified Chat & Widget Controller
+ * Kontroler zunifikowanego czatu oraz widgetu dashboardu
+ */
 (function () {
     'use strict';
 
-    var API = '/src/ChatApi.php';
-    var lastId = 0;
-    var myId = 0;
-    var box = null;
-    var pinnedBar = null;
-    var form = null;
-    var input = null;
-    var interval = null;
-    var pinnedInterval = null;
-    var atBottom = true;
-    var lastPinned = '';
-
-    var parseEmojis = window.EmojiLib.parseEmojis;
-
+    // Helper: Escape HTML special characters
+    // Pomocnik: Bezpieczne uciekanie znakow specjalnych HTML
     function escHtml(str) {
+        if (str === null || str === undefined) return '';
         return String(str)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
-    function renderAvatar(username, avatarPath) {
-        if (avatarPath) {
-            return '<img class="chat-msg-avatar" src="/' + escHtml(avatarPath) + '" alt="' + escHtml((username || '?').charAt(0).toUpperCase()) + '">';
+    // Helper: Show notification toast or alert
+    // Pomocnik: Pokaz toast lub komunikat bledu
+    function showToast(text, type) {
+        if (typeof window.showGameToast === 'function') {
+            window.showGameToast(text, type || 'info');
+            return;
         }
-        var initial = (username || '?').charAt(0).toUpperCase();
-        return '<span class="chat-msg-avatar chat-msg-avatar--initials">' + escHtml(initial) + '</span>';
+        var existing = document.getElementById('chatToast');
+        if (existing) existing.remove();
+        var el = document.createElement('div');
+        el.id = 'chatToast';
+        el.className = 'dm-toast dm-toast--' + (type || 'info');
+        el.textContent = text;
+        document.body.appendChild(el);
+        requestAnimationFrame(function () { el.classList.add('dm-toast--show'); });
+        setTimeout(function () {
+            el.classList.remove('dm-toast--show');
+            setTimeout(function () { el.remove(); }, 180);
+        }, 3000);
     }
 
-    function renderMsg(m) {
-        var senderId = parseInt(m.sender_id || m.player_id || 0, 10);
-        var isMine = senderId === myId;
-        var isAdmin = parseInt(m.is_admin || 0, 10) === 1;
-        var isPinned = parseInt(m.is_pinned || 0, 10) === 1;
-        var username = m.username || 'Gracz';
-        var avatarPath = m.avatar_path || null;
-        var cls = 'chat-msg';
+    // =========================================================================
+    // 1. Unified Complete Chat Application (/chat)
+    // 1. Zunifikowana aplikacja kompletnego czatu (/chat)
+    // =========================================================================
+    if (window.CHAT_CONFIG) {
+        var cfg = window.CHAT_CONFIG;
+        var API = cfg.api || '/src/ChatApi.php';
+        var myId = parseInt(cfg.playerId || 0, 10);
+        var strings = cfg.strings || {};
 
-        if (isAdmin && isPinned) cls += ' chat-msg--admin chat-msg--pinned';
-        else if (isAdmin) cls += ' chat-msg--admin';
-        else if (isMine) cls += ' chat-msg--mine';
+        var state = {
+            mode: cfg.withPartnerId ? 'direct' : 'room',
+            roomSlug: cfg.activeRoomSlug || 'polski',
+            roomId: parseInt(cfg.activeRoomId || 1, 10),
+            roomName: 'Polski',
+            partnerId: cfg.withPartnerId ? parseInt(cfg.withPartnerId, 10) : null,
+            partnerName: cfg.withPartnerName || '',
+            lastMessageId: 0,
+            lastDateLabel: '',
+            messages: [],
+            rooms: cfg.rooms || [],
+            directThreads: cfg.directThreads || [],
+            pollTimer: null,
+            presenceTimer: null,
+            isSending: false
+        };
 
-        var pinBadge = isPinned ? '<span class="chat-pin-badge"></span>' : '';
-        var avatar = renderAvatar(username, avatarPath);
-        var opts = '';
-        if (!isMine && !isAdmin && senderId > 0) {
-            opts = '<span class="chat-msg-opts">' +
-                '<button class="chat-report-btn" onclick="chatReport(' + parseInt(m.id, 10) + ')" title="Zgo"></button>' +
-                '<a class="chat-dm-btn" href="/dm?with=' + senderId + '" title="Wylij DM"></a>' +
-                '</span>';
+        // DOM elements cache.
+        // Pamiec podreczna elementow DOM.
+        var dom = {
+            shell: document.getElementById('chatShell'),
+            colLeft: document.getElementById('chatColLeft'),
+            colCenter: document.getElementById('chatColCenter'),
+            colRight: document.getElementById('chatColRight'),
+            roomsList: document.getElementById('chatRoomsList'),
+            directList: document.getElementById('chatDirectList'),
+            playersList: document.getElementById('chatPlayersList'),
+            messagesArea: document.getElementById('chatMessagesArea'),
+            convTitle: document.getElementById('chatConvTitle'),
+            convDesc: document.getElementById('chatConvDesc'),
+            convLastMsg: document.getElementById('chatConvLastMsg'),
+            form: document.getElementById('chatComposer'),
+            input: document.getElementById('chatMsgInput'),
+            sendBtn: document.getElementById('chatSendBtn'),
+            globalOnlineCount: document.getElementById('chatGlobalOnlineCount'),
+            rightOnlineCount: document.getElementById('chatRightOnlineCount'),
+            mobRoomsBtn: document.getElementById('chatMobRoomsBtn'),
+            mobDirectBtn: document.getElementById('chatMobDirectBtn'),
+            mobActiveBtn: document.getElementById('chatMobActiveBtn'),
+            mobOnlineBadge: document.getElementById('chatMobOnlineBadge'),
+            mobDirectUnread: document.getElementById('chatMobDirectUnread'),
+            loadingIndicator: document.getElementById('chatLoadingIndicator')
+        };
+
+        // Format avatar circle
+        // Formatuj kolko avatara
+        function renderAvatar(name, avatarPath, isAdmin, isMine) {
+            var letter = (name || '?').charAt(0).toUpperCase();
+            var cls = 'chat-msg-avatar';
+            if (isAdmin) cls += ' chat-msg-avatar--admin';
+            else if (isMine) cls += ' chat-msg-avatar--mine';
+
+            if (avatarPath) {
+                var src = avatarPath.charAt(0) === '/' ? avatarPath : '/' + avatarPath;
+                return '<div class="' + cls + '"><img src="' + escHtml(src) + '" alt=""></div>';
+            }
+            return '<div class="' + cls + '">' + escHtml(letter) + '</div>';
         }
 
-        var header;
-        var bubbleCls;
-        if (isMine) {
-            header = '<div class="chat-msg-header">' +
-                '<span class="chat-msg-time">' + escHtml(m.time) + '</span>' +
-                '<span class="chat-msg-spacer"></span>' +
-                '<span class="chat-msg-author">' + pinBadge + escHtml(username) + '</span>' +
-                avatar +
-                opts +
-                '</div>';
-            bubbleCls = 'chat-msg-bubble chat-msg-bubble--mine';
-        } else {
-            header = '<div class="chat-msg-header">' +
-                avatar +
-                '<span class="chat-msg-author">' + pinBadge + escHtml(username) + '</span>' +
-                opts +
-                '<span class="chat-msg-spacer"></span>' +
-                '<span class="chat-msg-time">' + escHtml(m.time) + '</span>' +
-                '</div>';
-            bubbleCls = isAdmin ? 'chat-msg-bubble chat-msg-bubble--admin' : 'chat-msg-bubble';
+        // Render message item HTML
+        // Renderuj kod HTML pojedynczej wiadomosci
+        function renderMessageHtml(m) {
+            var senderId = parseInt(m.sender_id || 0, 10);
+            var isMine = (senderId === myId);
+            var isAdmin = Boolean(m.is_admin);
+            var authorName = m.sender_name || strings.defaultPlayerName || '';
+            var timeStr = m.time || '';
+
+            var authorHtml = escHtml(authorName);
+            var authorCls = 'chat-msg-author';
+            if (isAdmin) {
+                authorCls += ' chat-msg-author--admin';
+                authorHtml = (strings.adminBadge || '') + ' ' + authorHtml;
+            } else if (isMine) {
+                authorCls += ' chat-msg-author--mine';
+            }
+
+            var avatarHtml = renderAvatar(authorName, m.avatar_path, isAdmin, isMine);
+            var rowCls = 'chat-msg-row ' + (isMine ? 'chat-msg-row--mine' : 'chat-msg-row--other');
+
+            var html = '';
+            // Insert date separator if date changed
+            // Wstaw separator daty, jesli data ulegla zmianie
+            if (m.date_label && m.date_label !== state.lastDateLabel) {
+                state.lastDateLabel = m.date_label;
+                html += '<div class="chat-date-separator">' + escHtml(m.date_label) + '</div>';
+            }
+
+            html += '<div class="' + rowCls + '" data-id="' + parseInt(m.id, 10) + '">';
+            html += avatarHtml;
+            html += '<div class="chat-msg-body-wrapper">';
+            html += '<div class="chat-msg-header">';
+            html += '<span class="' + authorCls + '">' + authorHtml + '</span>';
+            html += '<span class="chat-msg-time">' + escHtml(timeStr) + '</span>';
+            html += '</div>';
+            html += '<div class="chat-msg-bubble">' + escHtml(m.message) + '</div>';
+            html += '</div>';
+            html += '</div>';
+
+            return html;
         }
 
-        return '<div class="' + cls + '" data-id="' + parseInt(m.id, 10) + '">' +
-            header +
-            '<div class="' + bubbleCls + '">' + messageContent(m) + '</div>' +
-            '</div>';
-    }
+        // Scroll messages container to bottom
+        // Przewin kontener wiadomosci na sam dol
+        function scrollToBottom() {
+            if (!dom.messagesArea) return;
+            dom.messagesArea.scrollTop = dom.messagesArea.scrollHeight;
+        }
 
-    // Admin HTML is sanitized by ChatApi. / HTML admina jest oczyszczany przez ChatApi.
-    function messageContent(m) {
-        return parseInt(m.is_admin || 0, 10) === 1 && typeof m.message_html === 'string'
-            ? m.message_html
-            : parseEmojis(escHtml(m.message));
-    }
+        // Render entire messages timeline
+        // Renderuj cala os czasu wiadomosci
+        function renderMessagesTimeline(messages) {
+            state.lastDateLabel = '';
+            if (!messages || messages.length === 0) {
+                var emptyText = strings.emptyMessages || '';
+                dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml(emptyText) + '</div>';
+                return;
+            }
 
-    function chatReport(msgId) {
-        confirmAction('', function () {
-            var selected = document.querySelector('input[name="chat-report-reason"]:checked');
-            var reason = selected ? selected.value : 'inne';
-            fetch(API, {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'report', message_id: msgId, reason: reason })
-            })
+            var html = '';
+            for (var i = 0; i < messages.length; i++) {
+                html += renderMessageHtml(messages[i]);
+            }
+            dom.messagesArea.innerHTML = html;
+            scrollToBottom();
+        }
+
+        // Append new messages (used in polling & after send)
+        // Dolacz nowe wiadomosci (uzywane przy pollingu i po wyslaniu)
+        function appendNewMessages(newMessages) {
+            if (!newMessages || newMessages.length === 0) return;
+            var emptyHint = dom.messagesArea.querySelector('.chat-empty-room-hint');
+            if (emptyHint) emptyHint.remove();
+
+            var added = false;
+            for (var i = 0; i < newMessages.length; i++) {
+                var m = newMessages[i];
+                var id = parseInt(m.id, 10);
+                if (id > state.lastMessageId) {
+                    state.lastMessageId = id;
+                    dom.messagesArea.insertAdjacentHTML('beforeend', renderMessageHtml(m));
+                    added = true;
+                }
+            }
+
+            if (added) {
+                scrollToBottom();
+            }
+        }
+
+        // Update room header and placeholder
+        // Aktualizuj naglowek pokoju i tekst zastepczy
+        function updateConversationHeader() {
+            if (state.mode === 'room') {
+                dom.convTitle.textContent = '# ' + state.roomName;
+                var roomObj = null;
+                for (var i = 0; i < state.rooms.length; i++) {
+                    if (state.rooms[i].slug === state.roomSlug) {
+                        roomObj = state.rooms[i];
+                        break;
+                    }
+                }
+                var memberCount = roomObj ? roomObj.member_count : 0;
+                var descTpl = strings.roomLangDesc || '';
+                dom.convDesc.textContent = descTpl.replace(':count', memberCount);
+
+                var phTpl = strings.placeholderRoom || '';
+                dom.input.placeholder = phTpl.replace(':room', state.roomName);
+            } else {
+                dom.convTitle.textContent = state.partnerName;
+                dom.convDesc.textContent = strings.private || '';
+                var phDirectTpl = strings.placeholderDirect || '';
+                dom.input.placeholder = phDirectTpl.replace(':player', state.partnerName);
+            }
+        }
+
+        // Load messages for current active room or direct partner
+        // Zaladuj wiadomosci dla biezacego pokoju lub rozmowcy prywatnego
+        function loadCurrentMessages() {
+            dom.messagesArea.innerHTML = '<div class="chat-loading-indicator"><span>' + escHtml(strings.loadingMessages || '') + '</span></div>';
+            state.lastMessageId = 0;
+
+            var url = '';
+            if (state.mode === 'room') {
+                url = API + '?action=room_messages&room_id=' + state.roomId + '&limit=50';
+            } else {
+                url = API + '?action=direct_messages&partner_id=' + state.partnerId + '&limit=50';
+            }
+
+            fetch(url, { credentials: 'same-origin' })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (data && data.ok) {
-                        alertInfo(data.message || 'Wiadomo zostaa zgoszona administratorowi.');
+                        var msgs = data.messages || [];
+                        if (msgs.length > 0) {
+                            state.lastMessageId = parseInt(msgs[msgs.length - 1].id, 10);
+                            var lastMsg = msgs[msgs.length - 1];
+                            var lastTpl = strings.lastMessageAt || '';
+                            dom.convLastMsg.textContent = lastTpl.replace(':time', lastMsg.time || '');
+                        } else {
+                            dom.convLastMsg.textContent = '';
+                        }
+                        renderMessagesTimeline(msgs);
                     } else {
-                        alertError((data && data.error) || 'Nie udao si zgosi wiadomoci.');
+                        dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml((data && data.error) || strings.loadError || '') + '</div>';
                     }
                 })
                 .catch(function () {
-                    alertError('Bd poczenia.');
+                    dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml(strings.connectionError || '') + '</div>';
                 });
-        }, {
-            title: 'Zgo wiadomo',
-            confirmLabel: 'Zgo',
-            type: 'danger',
-            bodyHtml:
-                '<div style="text-align:left;display:flex;flex-direction:column;gap:10px;">' +
-                    '<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="chat-report-reason" value="spam" checked> Spam</label>' +
-                    '<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="chat-report-reason" value="obraza"> Obraza</label>' +
-                    '<label style="display:flex;gap:8px;align-items:center;"><input type="radio" name="chat-report-reason" value="inne"> Inne</label>' +
-                '</div>'
-        });
-    }
-    window.chatReport = chatReport;
+        }
 
-    function appendMessages(messages) {
+        // Select Room action
+        // Akcja wyboru pokoju
+        function selectRoom(slug) {
+            var room = null;
+            for (var i = 0; i < state.rooms.length; i++) {
+                if (state.rooms[i].slug === slug) {
+                    room = state.rooms[i];
+                    break;
+                }
+            }
+            if (!room) return;
+
+            state.mode = 'room';
+            state.roomSlug = room.slug;
+            state.roomId = parseInt(room.id, 10);
+            state.roomName = room.name;
+            state.partnerId = null;
+            state.partnerName = '';
+
+            // Update active room classes in UI
+            // Aktualizuj klasy aktywnego pokoju w interfejsie
+            var roomItems = dom.roomsList.querySelectorAll('.chat-room-item');
+            roomItems.forEach(function (btn) {
+                if (btn.getAttribute('data-room-slug') === slug) {
+                    btn.classList.add('chat-room-item--active');
+                    var unread = btn.querySelector('.room-unread-dot');
+                    if (unread) unread.classList.add('room-unread-dot--hidden');
+                } else {
+                    btn.classList.remove('chat-room-item--active');
+                }
+            });
+
+            // Remove active class from direct threads
+            // Usun klase aktywna z watkow prywatnych
+            var threadItems = dom.directList.querySelectorAll('.chat-thread-item');
+            threadItems.forEach(function (btn) {
+                btn.classList.remove('chat-thread-item--active');
+            });
+
+            updateConversationHeader();
+            loadCurrentMessages();
+
+            // Mobile: switch back to center conversation view
+            // Mobile: przelacz z powrotem na srodkowy widok rozmowy
+            showMobileSection('center');
+        }
+
+        // Select Direct Conversation action
+        // Akcja wyboru rozmowy prywatnej
+        function selectDirect(partnerId, partnerName) {
+            state.mode = 'direct';
+            state.partnerId = parseInt(partnerId, 10);
+            state.partnerName = partnerName || strings.defaultPlayerName || '';
+
+            // Remove active class from rooms
+            // Usun klase aktywna z pokoi
+            var roomItems = dom.roomsList.querySelectorAll('.chat-room-item');
+            roomItems.forEach(function (btn) {
+                btn.classList.remove('chat-room-item--active');
+            });
+
+            // Update active class in direct threads list
+            // Aktualizuj klase aktywna na liscie watkow prywatnych
+            var threadItems = dom.directList.querySelectorAll('.chat-thread-item');
+            threadItems.forEach(function (btn) {
+                if (parseInt(btn.getAttribute('data-partner-id'), 10) === state.partnerId) {
+                    btn.classList.add('chat-thread-item--active');
+                    var badge = btn.querySelector('.thread-badge-gold');
+                    if (badge) badge.remove();
+                } else {
+                    btn.classList.remove('chat-thread-item--active');
+                }
+            });
+
+            updateConversationHeader();
+            loadCurrentMessages();
+            showMobileSection('center');
+        }
+
+        // Polling loop for active messages
+        // Petla odpytywania o nowe wiadomosci
+        function pollMessages() {
+            if (document.hidden) return;
+
+            var url = '';
+            if (state.mode === 'room') {
+                url = API + '?action=room_messages&room_id=' + state.roomId + '&after_id=' + state.lastMessageId;
+            } else if (state.mode === 'direct' && state.partnerId) {
+                url = API + '?action=direct_messages&partner_id=' + state.partnerId + '&after_id=' + state.lastMessageId;
+            } else {
+                return;
+            }
+
+            fetch(url, { credentials: 'same-origin' })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.ok && data.messages && data.messages.length > 0) {
+                        appendNewMessages(data.messages);
+                        var lastMsg = data.messages[data.messages.length - 1];
+                        var lastTpl = strings.lastMessageAt || '';
+                        dom.convLastMsg.textContent = lastTpl.replace(':time', lastMsg.time || '');
+                    }
+                })
+                .catch(function () {});
+        }
+
+        // Polling loop for presence and active players
+        // Petla odpytywania o obecnosc i aktywnych graczy
+        function pollPresence() {
+            if (document.hidden) return;
+            fetch(API + '?action=presence&room_slug=' + encodeURIComponent(state.roomSlug), { credentials: 'same-origin' })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.ok) {
+                        var online = parseInt(data.total_online || 0, 10);
+                        if (dom.globalOnlineCount) dom.globalOnlineCount.textContent = online;
+                        if (dom.rightOnlineCount) dom.rightOnlineCount.textContent = online + ' online';
+                        if (dom.mobOnlineBadge) dom.mobOnlineBadge.textContent = online;
+                        if (data.players) renderPlayersList(data.players);
+                    }
+                })
+                .catch(function () {});
+        }
+
+        // Render active players list
+        // Renderuj liste aktywnych graczy
+        function renderPlayersList(players) {
+            if (!dom.playersList) return;
+            var html = '';
+            for (var i = 0; i < players.length; i++) {
+                var p = players[i];
+                var dotCls = p.is_online ? 'presence-dot--online' : 'presence-dot--offline';
+                var subText = p.is_online ? p.room_name : (strings.offline || '');
+                var pid = parseInt(p.id, 10);
+
+                html += '<div class="chat-player-item" data-player-id="' + pid + '">';
+                html += '<span class="presence-dot ' + dotCls + '"></span>';
+                html += '<div class="player-item-text">';
+                html += '<span class="player-item-name">' + escHtml(p.name) + '</span>';
+                html += '<span class="player-item-sub">' + escHtml(subText) + '</span>';
+                html += '</div>';
+
+                if (pid !== myId) {
+                    var actionLabelTpl = strings.dmActionLabel || ':player';
+                    var actionLabel = actionLabelTpl.replace(':player', escHtml(p.name));
+                    html += '<button type="button" class="player-direct-btn" data-player-id="' + pid + '" data-player-name="' + escHtml(p.name) + '" title="' + actionLabel + '" aria-label="' + actionLabel + '">&rarr;</button>';
+                }
+                html += '</div>';
+            }
+            dom.playersList.innerHTML = html;
+        }
+
+        // Send message form submit
+        // Wyslanie formularza wiadomosci
+        function handleFormSubmit(e) {
+            e.preventDefault();
+            var text = dom.input.value.trim();
+            if (!text || state.isSending) return;
+
+            state.isSending = true;
+            dom.sendBtn.disabled = true;
+            dom.sendBtn.textContent = strings.sending || '';
+
+            var payload = {};
+            if (state.mode === 'room') {
+                payload = {
+                    action: 'send_room',
+                    csrf_token: cfg.csrfToken || '',
+                    room_id: state.roomId,
+                    room_slug: state.roomSlug,
+                    message: text
+                };
+            } else {
+                payload = {
+                    action: 'send_direct',
+                    csrf_token: cfg.csrfToken || '',
+                    partner_id: state.partnerId,
+                    message: text
+                };
+            }
+
+            fetch(API, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': cfg.csrfToken || ''
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(payload)
+            })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    state.isSending = false;
+                    dom.sendBtn.disabled = false;
+                    dom.sendBtn.textContent = strings.send || '';
+
+                    if (data && data.ok && data.message) {
+                        dom.input.value = '';
+                        appendNewMessages([data.message]);
+                        var lastTpl = strings.lastMessageAt || '';
+                        dom.convLastMsg.textContent = lastTpl.replace(':time', data.message.time || '');
+                    } else {
+                        var err = (data && data.error) || strings.sendFailed || '';
+                        showToast(err, 'error');
+                    }
+                })
+                .catch(function () {
+                    state.isSending = false;
+                    dom.sendBtn.disabled = false;
+                    dom.sendBtn.textContent = strings.send || '';
+                    showToast(strings.sendConnectionError || '', 'error');
+                });
+        }
+
+        // Mobile tabs switcher: 'rooms', 'direct', 'active', 'center'
+        // Przelacznik widokow mobilnych
+        function showMobileSection(section) {
+            if (window.innerWidth > 768) return;
+
+            dom.colLeft.classList.remove('chat-col--active-mob');
+            dom.colCenter.classList.remove('chat-col--active-mob');
+            dom.colRight.classList.remove('chat-col--active-mob');
+
+            if (dom.mobRoomsBtn) dom.mobRoomsBtn.classList.remove('chat-mob-btn--active');
+            if (dom.mobDirectBtn) dom.mobDirectBtn.classList.remove('chat-mob-btn--active');
+            if (dom.mobActiveBtn) dom.mobActiveBtn.classList.remove('chat-mob-btn--active');
+
+            if (section === 'rooms') {
+                dom.colLeft.classList.add('chat-col--active-mob');
+                if (dom.mobRoomsBtn) dom.mobRoomsBtn.classList.add('chat-mob-btn--active');
+            } else if (section === 'direct') {
+                dom.colLeft.classList.add('chat-col--active-mob');
+                if (dom.mobDirectBtn) dom.mobDirectBtn.classList.add('chat-mob-btn--active');
+            } else if (section === 'active') {
+                dom.colRight.classList.add('chat-col--active-mob');
+                if (dom.mobActiveBtn) dom.mobActiveBtn.classList.add('chat-mob-btn--active');
+            } else {
+                dom.colCenter.classList.add('chat-col--active-mob');
+            }
+        }
+
+        // Start polling timers
+        // Uruchomienie timerow odpytywania
+        function startPollingTimers() {
+            stopPollingTimers();
+            state.pollTimer = setInterval(pollMessages, 9000);
+            state.presenceTimer = setInterval(pollPresence, 30000);
+        }
+
+        function stopPollingTimers() {
+            if (state.pollTimer) { clearInterval(state.pollTimer); state.pollTimer = null; }
+            if (state.presenceTimer) { clearInterval(state.presenceTimer); state.presenceTimer = null; }
+        }
+
+        // Event listeners registration
+        // Rejestracja nasluchiwaczy zdarzen
+        if (dom.form) {
+            dom.form.addEventListener('submit', handleFormSubmit);
+        }
+
+        if (dom.roomsList) {
+            dom.roomsList.addEventListener('click', function (e) {
+                var btn = e.target.closest('.chat-room-item');
+                if (btn) {
+                    var slug = btn.getAttribute('data-room-slug');
+                    if (slug) selectRoom(slug);
+                }
+            });
+        }
+
+        if (dom.directList) {
+            dom.directList.addEventListener('click', function (e) {
+                var btn = e.target.closest('.chat-thread-item');
+                if (btn) {
+                    var pid = btn.getAttribute('data-partner-id');
+                    var name = btn.getAttribute('data-partner-name');
+                    if (pid) selectDirect(parseInt(pid, 10), name || '');
+                }
+            });
+        }
+
+        if (dom.playersList) {
+            dom.playersList.addEventListener('click', function (e) {
+                var btn = e.target.closest('.player-direct-btn');
+                if (btn) {
+                    var pid = btn.getAttribute('data-player-id');
+                    var name = btn.getAttribute('data-player-name');
+                    if (pid) selectDirect(parseInt(pid, 10), name || '');
+                }
+            });
+        }
+
+        if (dom.mobRoomsBtn) {
+            dom.mobRoomsBtn.addEventListener('click', function () { showMobileSection('rooms'); });
+        }
+        if (dom.mobDirectBtn) {
+            dom.mobDirectBtn.addEventListener('click', function () { showMobileSection('direct'); });
+        }
+        if (dom.mobActiveBtn) {
+            dom.mobActiveBtn.addEventListener('click', function () { showMobileSection('active'); });
+        }
+
+        document.addEventListener('visibilitychange', function () {
+            if (document.hidden) {
+                stopPollingTimers();
+            } else {
+                pollMessages();
+                pollPresence();
+                startPollingTimers();
+            }
+        });
+
+        // Initialize view
+        // Inicjalizacja widoku
+        updateConversationHeader();
+        loadCurrentMessages();
+        startPollingTimers();
+
+        // On mobile, default to center conversation
+        // Na urzadzeniach mobilnych domyslnie pokaz srodkowa rozmowe
+        if (window.innerWidth <= 768) {
+            showMobileSection('center');
+        }
+
+        // Expose public API on window.ChatApp
+        // Udostepnienie publicznego interfejsu w window.ChatApp
+        window.ChatApp = {
+            selectRoom: selectRoom,
+            selectDirect: selectDirect,
+            refreshPresence: pollPresence
+        };
+        return;
+    }
+
+    // =========================================================================
+    // 2. Compact Dashboard Widget Fallback (#chatForm)
+    // 2. Fallback kompaktowego widgetu dashboardu (#chatForm)
+    // =========================================================================
+    var widgetForm = document.getElementById('chatForm');
+    var widgetBox = document.getElementById('chatMessages');
+    if (!widgetForm || !widgetBox) return;
+
+    var widgetApi = '/src/ChatApi.php';
+    var wLastId = 0;
+    var wMyId = 0;
+    var wInput = document.getElementById('chatInput');
+    var wInterval = null;
+
+    function renderWidgetMsg(m) {
+        var senderId = parseInt(m.sender_id || 0, 10);
+        var isMine = senderId === wMyId;
+        var isAdmin = parseInt(m.is_admin || 0, 10) === 1;
+        var cls = 'chat-msg' + (isMine ? ' chat-msg--mine' : '') + (isAdmin ? ' chat-msg--admin' : '');
+        var author = m.username || (window.CHAT_CONFIG && window.CHAT_CONFIG.strings && window.CHAT_CONFIG.strings.defaultPlayerName) || '';
+        var time = m.time || '';
+
+        return '<div class="' + cls + '" data-id="' + parseInt(m.id, 10) + '">' +
+            '<div class="chat-msg-header"><span class="chat-msg-author">' + escHtml(author) + '</span><span class="chat-msg-time">' + escHtml(time) + '</span></div>' +
+            '<div class="chat-msg-bubble">' + escHtml(m.message) + '</div>' +
+            '</div>';
+    }
+
+    function appendWidgetMessages(messages) {
         if (!messages || !messages.length) return;
         var html = '';
-        messages.forEach(function (m) {
+        for (var i = 0; i < messages.length; i++) {
+            var m = messages[i];
             var id = parseInt(m.id, 10);
-            if (id > lastId) {
-                lastId = id;
-                html += renderMsg(m);
+            if (id > wLastId) {
+                wLastId = id;
+                html += renderWidgetMsg(m);
             }
-        });
+        }
         if (!html) return;
-
-        var loading = box.querySelector('.chat-loading');
+        var loading = widgetBox.querySelector('.chat-loading');
         if (loading) loading.remove();
-
-        box.insertAdjacentHTML('beforeend', html);
-        updateOnlineCount();
-        if (atBottom) {
-            box.scrollTop = box.scrollHeight;
-        }
+        widgetBox.insertAdjacentHTML('beforeend', html);
+        widgetBox.scrollTop = widgetBox.scrollHeight;
     }
 
-    // Polska odmiana slowa "wiadomosc" / Polish plural of "wiadomosc"
-    function chatMsgWord(n) {
-        return n === 1 ? 'wiadomość' : 'wiadomości';
-    }
-
-    // Aktualizuj licznik wiadomosci w naglowku / Update message counter in the header
-    function updateOnlineCount() {
-        var el = document.getElementById('chatOnline');
-        if (!el || !box) return;
-        var n = box.querySelectorAll('.chat-msg').length;
-        el.textContent = n + ' ' + chatMsgWord(n) + ' online';
-    }
-
-    function renderPinned(pinned) {
-        if (!pinnedBar) return;
-        var snapshot = JSON.stringify(pinned || []);
-        if (snapshot === lastPinned) return;
-        lastPinned = snapshot;
-
-        if (!pinned || !pinned.length) {
-            pinnedBar.style.display = 'none';
-            pinnedBar.innerHTML = '';
-            return;
-        }
-
-        var html = '<div class="chat-pinned-bar-label"> Przypite komunikaty</div>';
-        pinned.forEach(function (m) {
-            html += '<div class="chat-pinned-entry">' +
-                '<span class="chat-pinned-entry-icon"></span>' +
-                '<div class="chat-pinned-entry-text"><strong>' + escHtml(m.username) + ':</strong> ' + messageContent(m) + '</div>' +
-                '</div>';
-            if (box) {
-                var existing = box.querySelector('[data-id="' + parseInt(m.id, 10) + '"]');
-                if (existing) existing.remove();
-            }
-        });
-        pinnedBar.innerHTML = html;
-        pinnedBar.style.display = 'flex';
-    }
-
-    function poll() {
-        fetch(API + '?since=' + lastId, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.my_id) myId = parseInt(data.my_id, 10);
-                appendMessages(data.messages || []);
-            })
-            .catch(function () {});
-    }
-
-    function pollPinned() {
-        fetch(API + '?pinned_only=1', { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.pinned !== undefined) renderPinned(data.pinned);
-            })
-            .catch(function () {});
-    }
-
-    // Polling z pauzą gdy karta nieaktywna (oszczędza zapytania przy wielu graczach).
-    // Polling paused when the tab is hidden (saves queries with many players).
-    function startPolling() {
-        stopPolling();
+    function pollWidget() {
         if (document.hidden) return;
-        interval = setInterval(poll, 8000);
-        pinnedInterval = setInterval(pollPinned, 30000);
-    }
-    function stopPolling() {
-        if (interval) { clearInterval(interval); interval = null; }
-        if (pinnedInterval) { clearInterval(pinnedInterval); pinnedInterval = null; }
-    }
-    document.addEventListener('visibilitychange', function () {
-        if (document.hidden) { stopPolling(); }
-        else { poll(); startPolling(); }
-    });
-
-    function initialLoad() {
-        fetch(API, { credentials: 'same-origin' })
+        fetch(widgetApi + '?since=' + wLastId, { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
-                myId = parseInt(data.my_id || 0, 10);
-                var loading = box.querySelector('.chat-loading');
-                if (loading) loading.remove();
-                renderPinned(data.pinned || []);
-                appendMessages(data.messages || []);
-                updateOnlineCount();
-                box.scrollTop = box.scrollHeight;
-                startPolling();
+                if (data.my_id) wMyId = parseInt(data.my_id, 10);
+                appendWidgetMessages(data.messages || []);
             })
-            .catch(function () {
-                var loading = box.querySelector('.chat-loading');
-                if (loading) loading.textContent = 'Bd poczenia z czatem.';
-            });
+            .catch(function () {});
     }
 
-    function sendMessage(e) {
+    function loadWidget() {
+        fetch(widgetApi, { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                wMyId = parseInt(data.my_id || 0, 10);
+                var loading = widgetBox.querySelector('.chat-loading');
+                if (loading) loading.remove();
+                appendWidgetMessages(data.messages || []);
+                wInterval = setInterval(pollWidget, 8000);
+            })
+            .catch(function () {});
+    }
+
+    widgetForm.addEventListener('submit', function (e) {
         e.preventDefault();
-        var msg = input.value.trim();
+        var msg = wInput.value.trim();
         if (!msg) return;
 
-        var btn = form.querySelector('.chat-send');
+        var btn = widgetForm.querySelector('.chat-send');
         if (btn) btn.disabled = true;
-        input.disabled = true;
 
-        fetch(API, {
+        fetch(widgetApi, {
             method: 'POST',
-            credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'send', message: msg })
+            credentials: 'same-origin',
+            body: JSON.stringify({ message: msg })
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {
+                if (btn) btn.disabled = false;
                 if (data && data.ok) {
-                    input.value = '';
-                    poll();
-                } else {
-                    alertError((data && data.error) || 'Bd wysyania.');
+                    wInput.value = '';
+                    pollWidget();
+                } else if (data && data.error) {
+                    showToast(data.error, 'error');
                 }
             })
             .catch(function () {
-                alertError('Bd poczenia.');
-            })
-            .finally(function () {
                 if (btn) btn.disabled = false;
-                input.disabled = false;
-                input.focus();
+                var errStr = (window.CHAT_CONFIG && window.CHAT_CONFIG.strings && window.CHAT_CONFIG.strings.sendConnectionError) || '';
+                if (errStr) showToast(errStr, 'error');
             });
-    }
+    });
 
-    function initChat() {
-        box = document.getElementById('chatMessages');
-        pinnedBar = document.getElementById('chatPinnedBar');
-        form = document.getElementById('chatForm');
-        input = document.getElementById('chatInput');
-        if (!box || !form || !input) return;
-
-        box.addEventListener('scroll', function () {
-            atBottom = (box.scrollHeight - box.scrollTop - box.clientHeight) < 40;
-        });
-
-        form.addEventListener('submit', sendMessage);
-        input.addEventListener('keydown', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                form.dispatchEvent(new Event('submit', { cancelable: true }));
-            }
-        });
-
-        initialLoad();
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initChat);
-    } else {
-        initChat();
-    }
-})();
-
-(function () {
-    'use strict';
-
-    var NEWS_API = '/src/AdminNewsApi.php';
-    var newsList = null;
-    var NEWS_EMPTY_TEXT = 'Brak aktualno\u015bci.';
-    var NEWS_LOAD_ERROR_TEXT = 'B\u0142\u0105d \u0142adowania.';
-
-    function escHtml(str) {
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
-    function newsHtml(str) {
-        return typeof str === 'string' ? str : '';
-    }
-
-    function renderNews(items) {
-        if (!newsList) return;
-        if (!items || !items.length) {
-            newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_EMPTY_TEXT) + '</p>';
-            return;
-        }
-        var html = '';
-        items.forEach(function (n) {
-            var pinCls = n.is_pinned ? ' news-item--pinned' : '';
-            var pinBadge = n.is_pinned ? '<span class="news-item-pin"></span>' : '';
-            var titleHtml = newsHtml(n.title_html || '');
-            if (!titleHtml) {
-                titleHtml = escHtml(n.title || '');
-            }
-            html += '<div class="news-item' + pinCls + '">' +
-                '<div class="news-item-title">' + pinBadge + '<div class="news-item-title-text">' + titleHtml + '</div></div>' +
-                '<div class="news-item-content">' + newsHtml(n.content_html || '') + '</div>' +
-                '<div class="news-item-date">' + escHtml(n.date_fmt) + '</div>' +
-                '</div>';
-        });
-        newsList.innerHTML = html;
-    }
-
-    function loadNews() {
-        fetch(NEWS_API, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
-            .then(function (data) { renderNews(data.news || []); })
-            .catch(function () {
-                if (newsList) newsList.innerHTML = '<p class="news-loading">' + escHtml(NEWS_LOAD_ERROR_TEXT) + '</p>';
-            });
-    }
-
-    function initNews() {
-        newsList = document.getElementById('newsList');
-        if (!newsList) return;
-        loadNews();
-        setInterval(loadNews, 60000);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initNews);
-    } else {
-        initNews();
-    }
+    loadWidget();
 })();

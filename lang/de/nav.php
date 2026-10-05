@@ -19,6 +19,7 @@ return [
     'nav.logistics' => 'Logistik',
     'nav.finance' => 'Finanzen',
     'nav.sabotage' => 'Sabotage',
+    'nav.chat' => 'Chat',
     'nav.action.market' => 'Ölmarkt',
     'nav.action.map' => 'Bohrung kaufen',
     'nav.action.hr' => 'Geschäftsleitung / Personal',

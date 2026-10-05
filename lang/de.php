@@ -42,5 +42,8 @@ $lang = array_replace($lang, require __DIR__ . '/de/training.php');
 if (file_exists(__DIR__ . '/de/privacy.php')) {
     $lang = array_replace($lang, require __DIR__ . '/de/privacy.php');
 }
+if (file_exists(__DIR__ . '/de/chat.php')) {
+    $lang = array_replace($lang, require __DIR__ . '/de/chat.php');
+}
 
 return $lang;

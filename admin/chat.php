@@ -4,6 +4,7 @@ try {
 
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../src/ChatBootstrap.php';
+require_once __DIR__ . '/../src/ChatService.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
@@ -178,6 +179,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_interval',?) ON DUPLICATE KEY UPDATE `value`=VALUES(`value`)")->execute([$interval]);
             AdminLog::log('chat_auto_clear_settings', "Auto-clear: enabled={$enabled}, interval={$interval}min");
             $msg = t('admin.chat.msg_auto_clear_saved');
+
+        } elseif ($action === 'create_room') {
+            $slug = (string)($_POST['slug'] ?? '');
+            $type = (string)($_POST['type'] ?? 'custom');
+            $localeCode = trim((string)($_POST['locale_code'] ?? ''));
+            $namePl = (string)($_POST['name_pl'] ?? '');
+            $nameEn = (string)($_POST['name_en'] ?? '');
+            $nameDe = (string)($_POST['name_de'] ?? '');
+            $descPl = (string)($_POST['description_pl'] ?? '');
+            $descEn = (string)($_POST['description_en'] ?? '');
+            $descDe = (string)($_POST['description_de'] ?? '');
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            $status = (string)($_POST['status'] ?? 'active');
+
+            try {
+                $chatService = new ChatService($db);
+                $adminId = (int)AdminAuth::getAdminId();
+                $roomId = $chatService->createRoom(
+                    $adminId, $slug, $type, $localeCode, $namePl, $nameEn, $nameDe,
+                    $descPl, $descEn, $descDe, $sortOrder, $status
+                );
+                AdminLog::log('chat_create_room', "Created room #{$roomId} ({$slug})");
+                $msg = t('admin.chat.room_created', ['slug' => $slug]);
+            } catch (Throwable $e) {
+                $err = $e->getMessage();
+            }
+
+        } elseif ($action === 'update_room') {
+            $roomId = (int)($_POST['room_id'] ?? 0);
+            $namePl = (string)($_POST['name_pl'] ?? '');
+            $nameEn = (string)($_POST['name_en'] ?? '');
+            $nameDe = (string)($_POST['name_de'] ?? '');
+            $descPl = (string)($_POST['description_pl'] ?? '');
+            $descEn = (string)($_POST['description_en'] ?? '');
+            $descDe = (string)($_POST['description_de'] ?? '');
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            $status = (string)($_POST['status'] ?? 'active');
+
+            if ($roomId > 0) {
+                try {
+                    $chatService = new ChatService($db);
+                    $adminId = (int)AdminAuth::getAdminId();
+                    $chatService->updateRoom(
+                        $adminId, $roomId, $namePl, $nameEn, $nameDe,
+                        $descPl, $descEn, $descDe, $sortOrder, $status
+                    );
+                    AdminLog::log('chat_update_room', "Updated room #{$roomId}");
+                    $msg = t('admin.chat.room_updated', ['id' => $roomId]);
+                } catch (Throwable $e) {
+                    $err = $e->getMessage();
+                }
+            }
+
+        } elseif ($action === 'archive_room') {
+            $roomId = (int)($_POST['room_id'] ?? 0);
+            if ($roomId > 0) {
+                try {
+                    $chatService = new ChatService($db);
+                    $adminId = (int)AdminAuth::getAdminId();
+                    $chatService->archiveRoom($adminId, $roomId, 'Archived via admin panel');
+                    AdminLog::log('chat_archive_room', "Archived room #{$roomId}");
+                    $msg = t('admin.chat.room_archived', ['id' => $roomId]);
+                } catch (Throwable $e) {
+                    $err = $e->getMessage();
+                }
+            }
         }
     }
 }
@@ -326,6 +393,28 @@ $banDurations = [
     'permanent' => t('admin.chat.ban_permanent'),
 ];
 
+// Rooms and moderation audit / Pokoje i audyt moderacji
+$allRooms = [];
+try {
+    $allRooms = $db->query("
+        SELECT r.*,
+               (SELECT COUNT(*) FROM chat_messages m WHERE m.room_id = r.id AND m.is_deleted = 0) AS message_count
+        FROM chat_rooms r
+        ORDER BY r.sort_order ASC, r.id ASC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
+$moderationLog = [];
+try {
+    $moderationLog = $db->query("
+        SELECT ma.*, COALESCE(NULLIF(p.company_name,''), p.username, 'Admin') AS actor_name
+        FROM chat_moderation_actions ma
+        LEFT JOIN players p ON p.id = ma.actor_id
+        ORDER BY ma.id DESC
+        LIMIT 50
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
 // View data / Dane widoku
 
 $viewData = compact(
@@ -333,7 +422,8 @@ $viewData = compact(
     'activeBans', 'playerList', 'messages',
     'filterPlayer', 'page', 'totalPages', 'reports',
     'banDurations', 'blockedWords', 'expiredCutoff',
-    'autoClearEnabled', 'autoClearInterval', 'autoClearLastAt'
+    'autoClearEnabled', 'autoClearInterval', 'autoClearLastAt',
+    'allRooms', 'moderationLog'
 );
 
 $pageTitle = t('admin.chat.page_title');

@@ -28,7 +28,8 @@ Options -Indexes
     RewriteRule ^boardroom\.php$ /boardroom [R=301,L]
     RewriteRule ^boardroom_status\.php$ /boardroom-status [R=301,L]
     RewriteRule ^profile\.php$ /profile [R=301,L]
-    RewriteRule ^dm\.php$ /dm [R=301,L]
+    RewriteRule ^dm\.php$ /chat [R=301,L]
+    RewriteRule ^chat\.php$ /chat [R=301,L]
     RewriteRule ^login\.php$ /login [R=301,L]
     RewriteRule ^reset_password\.php$ /reset-password [R=301,L]
     RewriteRule ^logistics\.php$ /logistics [R=301,L]
@@ -110,6 +111,7 @@ Options -Indexes
     RewriteRule ^verify-email$              /public/verify_email.php [L,PT]
     RewriteRule ^newsletter-unsubscribe$    /public/newsletter_unsubscribe.php [L,PT]
 
+    RewriteRule ^chat$           /public/chat.php [L,PT]
     RewriteRule ^dm$             /public/dm.php [L,PT]
     RewriteRule ^sabotage$       /public/sabotage.php [L,PT]
     RewriteRule ^finance$        /public/finance.php [L,PT]

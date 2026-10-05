@@ -19,6 +19,7 @@ return [
     'nav.logistics' => 'Logistics',
     'nav.finance' => 'Finance',
     'nav.sabotage' => 'Sabotage',
+    'nav.chat' => 'Chat',
     'nav.action.market' => 'Oil Market',
     'nav.action.map' => 'Buy Well',
     'nav.action.hr' => 'Board / HR',

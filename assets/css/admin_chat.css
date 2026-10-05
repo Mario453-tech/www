@@ -59,8 +59,7 @@
 .ac-modal-footer        { display: flex; justify-content: flex-end; gap: 10px; }
 
 
-/* Extracted from admin.css - AC_MODAL */
-/* modal potwierdzenia czyszczenia czatu */
+/* Chat cleanup confirmation modal / Modal potwierdzenia czyszczenia czatu */
 .ac-modal-overlay {
     position: fixed;
     inset: 0;
@@ -69,4 +68,83 @@
     align-items: center;
     justify-content: center;
     z-index: 900;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ADMIN ROOMS & MODERATION AUDIT STYLES
+   Style pokoi i audytu moderacji w panelu admina
+   ═══════════════════════════════════════════════════════════════ */
+.admin-rooms-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 14px;
+}
+.admin-room-card {
+    background: rgba(255, 255, 255, .03);
+    border: 1px solid rgba(255, 255, 255, .07);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+}
+.admin-room-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.admin-room-slug {
+    font-weight: 700;
+    color: var(--gold, #c8a84b);
+    font-size: .95rem;
+}
+.admin-room-title {
+    font-size: .85rem;
+    margin-bottom: 6px;
+}
+.admin-room-desc {
+    font-size: .78rem;
+    margin: 0 0 10px;
+    line-height: 1.4;
+}
+.admin-room-meta {
+    font-size: .74rem;
+    display: flex;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.admin-create-room-details {
+    margin-top: 16px;
+}
+.admin-create-room-form {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.admin-create-room-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.admin-create-room-col {
+    flex: 1;
+    min-width: 180px;
+}
+.admin-audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+.admin-audit-entry {
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, .02);
+    border: 1px solid rgba(255, 255, 255, .05);
+    border-radius: 4px;
+    font-size: .82rem;
+}
+.admin-audit-date {
+    font-size: .74rem;
 }

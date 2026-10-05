@@ -20,6 +20,7 @@ return [
     'nav.logistics' => 'Logistyka',
     'nav.finance'   => 'Finanse',
     'nav.sabotage'  => 'Sabotaż',
+    'nav.chat'      => 'Czat',
 
     // Przyciski akcji / Action buttons
     'nav.action.market'    => 'Rynek ropy',

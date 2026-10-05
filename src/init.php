@@ -265,6 +265,7 @@ const ROUTES = [
     'help'             => '/help',
     'legal'            => '/legal',
     'wallet-transfer'  => '/wallet-transfer',
+    'chat'             => '/chat',
 ];
 
 /** @param array<string, mixed> $query */

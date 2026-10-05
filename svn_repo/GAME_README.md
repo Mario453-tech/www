@@ -1,5 +1,16 @@
 ## Changelog
 
+### 2026-10-05 - Zunifikowany modul czatu (pokoje jezykowe, wiadomosci prywatne, obecnosc i panel admina)
+
+- Wdrozenie kompletnego, zunifikowanego czatu gracza zgodnie ze specyfikacja i wektorowa makieta `chat-kompletny.svg`.
+- Uklad 3-kolumnowy desktop: lewa kolumna (pokoje jezykowe: Polski, English, Germany, lista watkow prywatnych z licznikami nieprzeczytanych i statusem obecnosci oraz box admina), kolumna centralna (naglowek aktywnego watku, os czasu z separatorami dat, babelki wiadomosci wlasnych i obcych, dolny pasek wprowadzania ze zlotym przyciskiem wysylania), prawa kolumna (aktywni gracze z indykatorem online/offline, aktualny pokoj, szybkie przejscie do rozmowy prywatnej &rarr; oraz box informacyjny).
+- Obsluga responsywna na urzadzeniach mobilnych (<768px): przelaczanie szuflad/zakladek (Pokoje / Wiadomosci / Aktywni), dotykowe przyciski >=44px, sticky dolny composer bez przesuwania ekranu.
+- Architektura backendu: nowy serwis `ChatService.php`, rozszerzone API `src/ChatApi.php` (zgodnosc wsteczna z legacy endpointami, obsluga pokojow, watkow 1:1, statusow przeczytania, obecnosci i moderacji), `ChatBootstrap.php` (idempotentne tabele `chat_rooms`, `chat_read_states`, `chat_presence`, `chat_moderation_actions`).
+- Trwale przekierowanie legacy `/dm.php` -> `/chat` (HTTP 301), routing czystego URL `/chat` w `.htaccess` i `init.php`.
+- Pelna lokalizacja i18n dla jezykow: polski, angielski, niemiecki (`lang/pl/chat.php`, `lang/en/chat.php`, `lang/de/chat.php`).
+- Pelna zgodnosc z AGENTS.md: zero znacznikow `<table>` do layoutu, dwujezyczne komentarze bez polskich znakow diakrytycznych, zero emoji, UTF-8 bez BOM.
+- Weryfikacja: PHP lint wszystkich dotknietych plikow, `node --check assets/js/chat.js`, `tools/check_encoding.php` (1325 plikow), `git diff --check`, dedykowane testy jednostkowe `tests/Unit/ChatRedesignTest.php` (5/5 tests, 56 assertions), `ChatMessageHtmlTest` (7/7 tests, 36 assertions), `AdminChatFormTest` (1/1 test, 4 assertions).
+
 ### 2026-10-01 - Naprawa układu konfiguracji zadań administratora
 
 - Uzupełniono pusty `admin_tasks.css`, którego brak reguł rozciągał każde pole na cały wiersz. Zadania mają wyrównane kolumny na szerokim ekranie i dwukolumnowe karty z etykietami pól na mniejszych ekranach; kontrolki mają co najmniej 44 px wysokości i widoczny fokus klawiatury.

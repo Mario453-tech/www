@@ -2,6 +2,8 @@
 ob_start();
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/ChatBootstrap.php';
+require_once __DIR__ . '/ChatMessageHtml.php';
+require_once __DIR__ . '/ChatService.php';
 ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
@@ -20,6 +22,7 @@ if (!Auth::isLoggedIn()) {
 try {
     $db = Database::getInstance()->getConnection();
     ensureChatSchema();
+    $chatService = new ChatService($db);
 } catch (Throwable $e) {
     echo json_encode(['error' => t('common.app_error')], JSON_UNESCAPED_UNICODE);
     exit;
@@ -56,7 +59,7 @@ function chatGetDisplayName(PDO $db, int $pid): string
 {
     $stmt = $db->prepare("SELECT COALESCE(NULLIF(company_name,''), username) FROM players WHERE id=? LIMIT 1");
     $stmt->execute([$pid]);
-    return $stmt->fetchColumn() ?: 'Gracz';
+    return (string) ($stmt->fetchColumn() ?: t('chat.default_player_name'));
 }
 
 function chatIsBanned(PDO $db, int $pid): ?string
@@ -295,6 +298,20 @@ if ($method === 'POST' && ($_SERVER['HTTP_X_UPLOAD_ACTION'] ?? '') === 'dm_uploa
 }
 
 if ($method === 'POST') {
+    // Validate CSRF token for state-changing actions
+    // Waliduj token CSRF dla akcji modyfikujacych stan
+    $csrfToken = $_POST['csrf_token']
+        ?? $_POST['_token']
+        ?? ($jsonInput['csrf_token'] ?? null)
+        ?? ($jsonInput['_token'] ?? null)
+        ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+
+    if (in_array($action, ['send_room', 'send_direct', 'mark_read', 'delete_attachment'], true)) {
+        if (!CSRF::validateToken($csrfToken)) {
+            chatJson(['error' => t('common.csrf_error')]);
+        }
+    }
+
     if ($action === '' || $action === 'send') {
         $input = $jsonInput ?? [];
         $msg = trim((string) ($input['message'] ?? ''));
@@ -465,7 +482,151 @@ if ($method === 'POST') {
         chatJson(['ok' => true, 'message' => t('dm.attachment_deleted')]);
     }
 
+    // Send message to room
+    // Wyslij wiadomosc do pokoju
+    if ($action === 'send_room') {
+        $input = $jsonInput ?? $_POST;
+        $roomId = (int) ($input['room_id'] ?? 0);
+        $roomSlug = trim((string) ($input['room_slug'] ?? ''));
+        if ($roomId <= 0 && $roomSlug !== '') {
+            $r = $chatService->getRoomBySlug($roomSlug);
+            if ($r) {
+                $roomId = (int) $r['id'];
+            }
+        }
+        $text = (string) ($input['message'] ?? '');
+        $isAdmin = !empty($_SESSION['admin_logged_in']) && !empty($_SESSION['admin_id']);
+        try {
+            $msg = $chatService->sendRoomMessage($playerId, $roomId, $text, $isAdmin);
+            chatJson(['ok' => true, 'message' => $msg]);
+        } catch (InvalidArgumentException $e) {
+            chatJson(['error' => t($e->getMessage())]);
+        } catch (Throwable $e) {
+            chatJson(['error' => $e->getMessage()]);
+        }
+    }
+
+    // Send direct message
+    // Wyslij wiadomosc prywatna
+    if ($action === 'send_direct') {
+        $input = $jsonInput ?? $_POST;
+        $partnerId = (int) ($input['partner_id'] ?? 0);
+        $text = (string) ($input['message'] ?? '');
+        try {
+            $msg = $chatService->sendDirectMessage($playerId, $partnerId, $text);
+            chatJson(['ok' => true, 'message' => $msg]);
+        } catch (InvalidArgumentException $e) {
+            chatJson(['error' => t($e->getMessage())]);
+        } catch (Throwable $e) {
+            chatJson(['error' => $e->getMessage()]);
+        }
+    }
+
+    // Mark as read
+    // Oznacz jako przeczytane
+    if ($action === 'mark_read') {
+        $input = $jsonInput ?? $_POST;
+        $type = (string) ($input['type'] ?? 'room');
+        $convId = (int) ($input['id'] ?? 0);
+        $lastId = (int) ($input['last_id'] ?? 0);
+        $chatService->markAsRead($playerId, $type, $convId, $lastId);
+        chatJson(['ok' => true]);
+    }
+
     chatJson(['error' => t('common.unknown_action', ['action' => $action])]);
+}
+
+// Unified chat actions (GET or POST)
+// Zunifikowane akcje czatu (GET lub POST)
+if ($action === 'init') {
+    $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+    $requestedRoom = trim((string) ($_GET['room'] ?? 'polski'));
+    $rooms = $chatService->getRooms($playerId, $locale);
+    $activeRoom = null;
+    foreach ($rooms as $r) {
+        if ($r['slug'] === $requestedRoom) {
+            $activeRoom = $r;
+            break;
+        }
+    }
+    if (!$activeRoom && !empty($rooms)) {
+        $activeRoom = $rooms[0];
+    }
+
+    $messages = [];
+    if ($activeRoom) {
+        $messages = $chatService->getRoomMessages($activeRoom['id'], 0, 50);
+        $chatService->updatePresence($playerId, $activeRoom['slug']);
+        if (!empty($messages)) {
+            $chatService->markAsRead($playerId, 'room', $activeRoom['id'], (int) end($messages)['id']);
+        }
+    }
+
+    $directThreads = $chatService->getDirectThreads($playerId);
+    $presence = $chatService->getActivePlayers($playerId, 20);
+
+    chatJson([
+        'ok' => true,
+        'my_id' => $playerId,
+        'my_name' => chatGetDisplayName($db, $playerId),
+        'is_admin' => !empty($_SESSION['admin_logged_in']) && !empty($_SESSION['admin_id']),
+        'active_room' => $activeRoom,
+        'rooms' => $rooms,
+        'direct_threads' => $directThreads,
+        'presence' => $presence,
+        'messages' => $messages,
+    ]);
+}
+
+if ($action === 'rooms') {
+    $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+    $rooms = $chatService->getRooms($playerId, $locale);
+    chatJson(['ok' => true, 'rooms' => $rooms]);
+}
+
+if ($action === 'room_messages') {
+    $roomId = (int) ($_GET['room_id'] ?? 0);
+    $roomSlug = trim((string) ($_GET['room_slug'] ?? ''));
+    if ($roomId <= 0 && $roomSlug !== '') {
+        $r = $chatService->getRoomBySlug($roomSlug);
+        if ($r) {
+            $roomId = (int) $r['id'];
+        }
+    }
+    $afterId = (int) ($_GET['after_id'] ?? 0);
+    $limit = (int) ($_GET['limit'] ?? 50);
+    $messages = $chatService->getRoomMessages($roomId, $afterId, $limit);
+    if (!empty($messages)) {
+        $chatService->markAsRead($playerId, 'room', $roomId, (int) end($messages)['id']);
+    }
+    chatJson(['ok' => true, 'messages' => $messages]);
+}
+
+if ($action === 'direct_threads') {
+    $threads = $chatService->getDirectThreads($playerId);
+    chatJson(['ok' => true, 'threads' => $threads]);
+}
+
+if ($action === 'direct_messages') {
+    $partnerId = (int) ($_GET['partner_id'] ?? 0);
+    $afterId = (int) ($_GET['after_id'] ?? 0);
+    $limit = (int) ($_GET['limit'] ?? 50);
+    $messages = $chatService->getDirectMessages($playerId, $partnerId, $afterId, $limit);
+    if (!empty($messages)) {
+        $chatService->markAsRead($playerId, 'direct', $partnerId, (int) end($messages)['id']);
+    }
+    chatJson(['ok' => true, 'messages' => $messages]);
+}
+
+if ($action === 'presence') {
+    $roomSlug = trim((string) ($_REQUEST['room_slug'] ?? 'polski'));
+    $chatService->updatePresence($playerId, $roomSlug);
+    $presence = $chatService->getActivePlayers($playerId, 20);
+    chatJson([
+        'ok' => true,
+        'total_online' => $presence['total_online'],
+        'players' => $presence['players'],
+    ]);
 }
 
 try {
