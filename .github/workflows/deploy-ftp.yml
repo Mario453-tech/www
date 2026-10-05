@@ -237,6 +237,16 @@ jobs:
               COUNT=$((COUNT + 1))
             done < /tmp/changed.txt
 
+            # Jezeli w trybie partial nie ma zadnych zmienionych plikow aplikacji,
+            # przelacz na pelny mirror, zeby nie pominac zmian, gdy poprzedni deploy
+            # zakonczyl sie bledem bramki lub pustym commitem.
+            if [ "$COUNT" -eq 0 ]; then
+              echo "Brak zmienionych plikow aplikacji w diffie -> przelaczam na pelny mirror."
+              MODE=full
+            fi
+          fi
+
+          if [ "$MODE" = "partial" ]; then
             # .env zawsze odswiezany z sekretu (gitignored, wiec nie pojawi sie w diffie).
             if [ -f .env ]; then cp -p .env "$STAGE/.env"; COUNT=$((COUNT + 1)); fi
 
