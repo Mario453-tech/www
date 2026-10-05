@@ -93,6 +93,18 @@ final class ChatRedesignTest extends TestCase
         $this->assertStringContainsString('SELECT m1.*, m2.pid', $serviceCode);
     }
 
+    public function testChatServiceUsesValidatedIntegerLimits(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $serviceCode = file_get_contents($root . '/src/ChatService.php');
+        $this->assertIsString($serviceCode);
+
+        // PDO emulation quotes LIMIT placeholders passed through execute(), which breaks MySQL syntax.
+        // Emulacja PDO cytuje placeholder LIMIT przekazany przez execute(), co psuje skladnie MySQL.
+        $this->assertStringNotContainsString('LIMIT ?', $serviceCode);
+        $this->assertGreaterThanOrEqual(3, substr_count($serviceCode, 'max(1, min(100, $limit))'));
+    }
+
     public function testAdminChatViewUsesCssClassesForRooms(): void
     {
         $root = dirname(__DIR__, 2);
@@ -224,4 +236,3 @@ final class ChatRedesignTest extends TestCase
         }
     }
 }
-

@@ -149,8 +149,6 @@ class ChatService
             $params[] = $afterId;
         }
 
-        $params[] = $limit;
-
         $sql = "
             SELECT 
                 m.id,
@@ -173,7 +171,7 @@ class ChatService
               AND m.is_deleted = 0
               {$whereAfter}
             ORDER BY m.id DESC
-            LIMIT ?
+            LIMIT {$limit}
         ";
 
         $stmt = $this->db->prepare($sql);
@@ -391,8 +389,6 @@ class ChatService
             $params[] = $afterId;
         }
 
-        $params[] = $limit;
-
         $sql = "
             SELECT 
                 m.id,
@@ -413,7 +409,7 @@ class ChatService
               AND ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?))
               {$whereAfter}
             ORDER BY m.id DESC
-            LIMIT ?
+            LIMIT {$limit}
         ";
 
         $stmt = $this->db->prepare($sql);
@@ -528,6 +524,7 @@ class ChatService
     // Pobierz liste aktywnych graczy oraz ostatnio aktywnych.
     public function getActivePlayers(int $currentUserId, int $limit = 20): array
     {
+        $limit = max(1, min(100, $limit));
         $sql = "
             SELECT 
                 p.id,
@@ -544,11 +541,11 @@ class ChatService
             WHERE p.status = 'active'
               AND cp.last_active_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
             ORDER BY cp.last_active_at DESC
-            LIMIT ?
+            LIMIT {$limit}
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([$limit]);
+        $stmt->execute();
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $now = time();
