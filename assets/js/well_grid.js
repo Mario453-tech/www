@@ -3,6 +3,22 @@
  * well_grid.js - interakcje kart odwiertow
  */
 
+(function initWellGridConfig() {
+    'use strict';
+    var node = document.getElementById('wgConfig');
+    var lang = {};
+    if (node) {
+        try {
+            lang = JSON.parse(node.dataset.lang || '{}');
+        } catch (error) {
+            lang = {};
+        }
+    }
+    window.WG_CSRF = node ? node.dataset.csrf || '' : '';
+    window.WG_LANG = lang;
+    window.WG_PIPELINE_API = node ? node.dataset.pipelineApi || '/src/PipelineApi.php' : '/src/PipelineApi.php';
+})();
+
 /* Translation helper - uses window.WG_LANG injected by well_grid.php */
 /* Pomocnik tlumaczen - korzysta z window.WG_LANG z well_grid.php */
 function wgt(k, p) {

@@ -49,11 +49,10 @@
     </div>
 
     <?php if ($__footerJs ?? '/assets/js/game.js'): ?>
-    <script>
-    window.GAME_LANG = <?= json_encode([
-        'confirm_sell_oil' => t('game_js.confirm_sell_oil'),
-    ], JSON_UNESCAPED_UNICODE) ?>;
-    </script>
+    <div id="gameConfig" hidden
+         data-lang="<?= htmlspecialchars((string) json_encode([
+             'confirm_sell_oil' => tPlain('game_js.confirm_sell_oil'),
+         ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"></div>
     <script src="<?= htmlspecialchars(asset($__footerJs ?? '/assets/js/game.js')) ?>"></script>
     <?php endif ?>
     <script src="<?= htmlspecialchars(asset('/assets/js/ajax_pagination.js')) ?>"></script>

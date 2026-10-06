@@ -1,4 +1,12 @@
-var _GAMEL = window.GAME_LANG || {};
+var _gameConfig = document.getElementById('gameConfig');
+var _GAMEL = {};
+if (_gameConfig) {
+    try {
+        _GAMEL = JSON.parse(_gameConfig.dataset.lang || '{}');
+    } catch (error) {
+        _GAMEL = {};
+    }
+}
 function gamel(k) { return _GAMEL[k] || k; }
 
 // BFCache fix: gdy przegladarka serwuje strone z pamieci (przycisk Wstecz),

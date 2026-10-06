@@ -327,9 +327,9 @@ foreach ($groups as $regionName => $group):
 <?php endforeach ?>
 </div><!-- /.wg-regions -->
 
-<script>
-window.WG_CSRF = '<?= CSRF::generateToken() ?>';
-window.WG_LANG = <?= json_encode([
+<div id="wgConfig" hidden
+     data-csrf="<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') ?>"
+     data-lang="<?= htmlspecialchars((string) json_encode([
     'pln'                  => t('common.pln'),
     'bbl'                  => t('common.bbl'),
     'cancel'               => t('common.cancel'),
@@ -407,7 +407,6 @@ window.WG_LANG = <?= json_encode([
     'leg2_confirm_pipeline'        => t('well_grid.leg2_confirm_pipeline', ['cost' => '{cost}']),
     'leg2_confirm_pipeline_switch' => t('well_grid.leg2_confirm_pipeline_switch'),
     'leg2_confirm_road'            => t('well_grid.leg2_confirm_road'),
-], JSON_UNESCAPED_UNICODE) ?>;
-window.WG_PIPELINE_API = '/src/PipelineApi.php';
-</script>
+], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"
+     data-pipeline-api="/src/PipelineApi.php"></div>
 <script src="<?= asset('/assets/js/well_grid.js') ?>"></script>
