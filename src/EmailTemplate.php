@@ -1,8 +1,8 @@
 <?php
 
 /**
- * EmailTemplate - branded OilCorp HTML email wrapper.
- * PL: EmailTemplate - szablon brandowanych maili HTML OilCorp.
+ * EmailTemplate - branded OilEmpire HTML email wrapper.
+ * PL: EmailTemplate - szablon brandowanych maili HTML OilEmpire.
  *
  * Usage:
  * PL: Uzycie:
@@ -38,15 +38,16 @@ class EmailTemplate
         string $footer = ''
     ): string {
         if ($footer === '') {
-            $footer = t('email_template.default_footer');
+            $footer = tPlain('email_template.default_footer');
         }
+        $safeTitle = htmlspecialchars($title, ENT_QUOTES, 'UTF-8');
 
         $btn = '';
         if ($btnLabel && $btnUrl) {
             $btnUrl = htmlspecialchars($btnUrl, ENT_QUOTES);
             $btnLabel = htmlspecialchars($btnLabel);
             $gold = self::GOLD;
-            $btnHint = t('email_template.btn_fallback_hint');
+            $btnHint = htmlspecialchars(tPlain('email_template.btn_fallback_hint'), ENT_QUOTES, 'UTF-8');
             $btn = <<<HTML
             <p style="text-align:center;margin:28px 0 8px">
                 <a href="{$btnUrl}"
@@ -68,16 +69,17 @@ HTML;
         $gold  = self::GOLD;
         $text  = self::TEXT;
         $muted = self::MUTED;
-        $subtitle = t('email_template.brand_subtitle');
+        $subtitle = htmlspecialchars(tPlain('email_template.brand_subtitle'), ENT_QUOTES, 'UTF-8');
         $brandIcon = '&#9973;';
+        $locale = function_exists('getLocale') ? getLocale() : 'pl';
 
         return <<<HTML
 <!DOCTYPE html>
-<html lang="pl">
+<html lang="{$locale}">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{$title}</title>
+<title>{$safeTitle}</title>
 </head>
 <body style="margin:0;padding:0;background:{$dark};font-family:Arial,Helvetica,sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:{$dark};padding:40px 16px;">
@@ -89,7 +91,7 @@ HTML;
             <td style="background:rgba(200,168,75,.08);border-bottom:1px solid rgba(200,168,75,.2);
                        padding:24px 32px;text-align:center;">
                 <p style="margin:0;font-size:22px;font-weight:700;color:{$gold};letter-spacing:.06em">
-                    {$brandIcon} OilCorp
+                    {$brandIcon} OilEmpire
                 </p>
                 <p style="margin:6px 0 0;font-size:12px;color:{$muted};letter-spacing:.1em;text-transform:uppercase">
                     {$subtitle}
@@ -98,13 +100,13 @@ HTML;
         </tr>
         <tr>
             <td style="padding:32px 32px 24px;color:{$text};font-size:15px;line-height:1.7;">
-                <h2 style="margin:0 0 16px;font-size:20px;color:{$gold}">{$title}</h2>
+                <h2 style="margin:0 0 16px;font-size:20px;color:{$gold}">{$safeTitle}</h2>
                 <p style="margin:0 0 12px">{$greeting}</p>
                 <div style="color:{$text}">{$bodyHtml}</div>
                 {$btn}
             </td>
         </tr>
-`        <tr>
+        <tr>
             <td style="padding:20px 32px;border-top:1px solid rgba(255,255,255,.06);
                        font-size:12px;color:{$muted};text-align:center;line-height:1.6;">
                 {$footer}

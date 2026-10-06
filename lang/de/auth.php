@@ -121,6 +121,7 @@ return [
     'auth.email_verify_footer' => 'Falls du kein Konto bei OilEmpire erstellt hast, ignoriere diese Nachricht. Das Konto wird automatisch gelöscht.',
     'auth.email_verify_subject' => '[OilEmpire] Bestätige deine E-Mail-Adresse',
     'auth.reset_email_title' => 'Passwort zurücksetzen — OilEmpire',
+    'auth.reset_email_subject' => '[OilEmpire] Passwort zurücksetzen',
     'auth.reset_email_greeting' => 'Hallo <strong>:name</strong>,',
     'auth.reset_email_body' => 'Wir haben eine Anfrage zum Zurücksetzen des Passworts für dein Konto erhalten. Der Link ist 1 Stunde gültig.',
     'auth.reset_email_button' => 'Passwort zurücksetzen',

@@ -9,6 +9,7 @@ require_once __DIR__ . '/ChatBootstrap.php';
 class ChatService
 {
     private PDO $db;
+    private ?bool $roomTranslationsAvailable = null;
 
     public function __construct(?PDO $db = null)
     {
@@ -26,6 +27,15 @@ class ChatService
     public function getRooms(int $playerId, string $locale = 'pl'): array
     {
         $locale = $this->normalizeLocale($locale);
+        $hasTranslations = $this->hasRoomTranslations();
+        $legacyLocale = in_array($locale, ['en', 'de'], true) ? $locale : 'pl';
+        $nameExpression = $hasTranslations
+            ? "COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END), MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl)"
+            : "COALESCE(NULLIF(r.name_{$legacyLocale}, ''), r.name_pl)";
+        $descriptionExpression = $hasTranslations
+            ? "COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END), MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl)"
+            : "COALESCE(NULLIF(r.description_{$legacyLocale}, ''), r.description_pl)";
+        $translationJoin = $hasTranslations ? 'LEFT JOIN chat_room_translations rt ON rt.room_id = r.id' : '';
 
         $sql = "
             SELECT 
@@ -33,17 +43,11 @@ class ChatService
                 r.slug,
                 r.type,
                 r.locale_code,
-                COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END),
-                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl) AS name,
-                COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END),
-                    MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl) AS description,
+                {$nameExpression} AS name,
+                {$descriptionExpression} AS description,
                 r.sort_order,
                 r.status,
-                (
-                    SELECT COUNT(*) 
-                    FROM chat_messages m 
-                    WHERE m.room_id = r.id AND m.is_deleted = 0
-                ) AS message_count,
+                COUNT(DISTINCT cm.id) AS message_count,
                 (
                     SELECT COUNT(DISTINCT p.player_id)
                     FROM chat_presence p
@@ -51,30 +55,24 @@ class ChatService
                       AND p.is_online = 1 
                       AND p.last_active_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                 ) AS member_count,
-                (
-                    SELECT COUNT(*)
-                    FROM chat_messages cm
-                    WHERE cm.room_id = r.id
-                      AND cm.is_deleted = 0
-                      AND (cm.sender_id IS NULL OR cm.sender_id != :player_id)
-                      AND cm.id > COALESCE((
-                          SELECT rs.last_read_message_id
-                          FROM chat_read_states rs
-                          WHERE rs.player_id = :player_id
-                            AND rs.conversation_type = 'room'
-                            AND rs.conversation_id = r.id
-                          LIMIT 1
-                      ), 0)
-                ) AS unread_count
+                COUNT(DISTINCT CASE
+                    WHEN (cm.sender_id IS NULL OR cm.sender_id != :player_sender)
+                      AND cm.id > COALESCE(rs.last_read_message_id, 0)
+                    THEN cm.id END) AS unread_count
             FROM chat_rooms r
-            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
+            {$translationJoin}
+            LEFT JOIN chat_messages cm ON cm.room_id = r.id AND cm.is_deleted = 0
+            LEFT JOIN chat_read_states rs ON rs.player_id = :player_read
+                AND rs.conversation_type = 'room' AND rs.conversation_id = r.id
             WHERE r.status != 'archived'
             GROUP BY r.id
             ORDER BY r.sort_order ASC, r.id ASC
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(['player_id' => $playerId, 'locale_name' => $locale, 'locale_desc' => $locale]);
+        $params = ['player_sender' => $playerId, 'player_read' => $playerId];
+        if ($hasTranslations) $params += ['locale_name' => $locale, 'locale_desc' => $locale];
+        $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return array_map(function ($row) {
@@ -93,6 +91,16 @@ class ChatService
     public function getRoomBySlug(string $slug, string $locale = 'pl'): ?array
     {
         $locale = $this->normalizeLocale($locale);
+        $hasTranslations = $this->hasRoomTranslations();
+        $legacyLocale = in_array($locale, ['en', 'de'], true) ? $locale : 'pl';
+        $nameExpression = $hasTranslations
+            ? "COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END), MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl)"
+            : "COALESCE(NULLIF(r.name_{$legacyLocale}, ''), r.name_pl)";
+        $descriptionExpression = $hasTranslations
+            ? "COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END), MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl)"
+            : "COALESCE(NULLIF(r.description_{$legacyLocale}, ''), r.description_pl)";
+        $translationJoin = $hasTranslations ? 'LEFT JOIN chat_room_translations rt ON rt.room_id = r.id' : '';
+        $translationGroup = $hasTranslations ? 'GROUP BY r.id' : '';
 
         $stmt = $this->db->prepare("
             SELECT 
@@ -100,10 +108,8 @@ class ChatService
                 r.slug,
                 r.type,
                 r.locale_code,
-                COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END),
-                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl) AS name,
-                COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END),
-                    MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl) AS description,
+                {$nameExpression} AS name,
+                {$descriptionExpression} AS description,
                 r.sort_order,
                 r.status,
                 (
@@ -119,12 +125,14 @@ class ChatService
                       AND p.last_active_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                 ) AS member_count
             FROM chat_rooms r
-            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
+            {$translationJoin}
             WHERE r.slug = :slug AND r.status != 'archived'
-            GROUP BY r.id
+            {$translationGroup}
             LIMIT 1
         ");
-        $stmt->execute(['locale_name' => $locale, 'locale_desc' => $locale, 'slug' => $slug]);
+        $params = ['slug' => $slug];
+        if ($hasTranslations) $params += ['locale_name' => $locale, 'locale_desc' => $locale];
+        $stmt->execute($params);
         $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$room) {
@@ -596,6 +604,15 @@ class ChatService
     {
         $limit = max(1, min(100, $limit));
         $locale = $this->normalizeLocale($locale);
+        $hasTranslations = $this->hasRoomTranslations();
+        $legacyLocale = in_array($locale, ['en', 'de'], true) ? $locale : 'pl';
+        $roomNameExpression = $hasTranslations
+            ? "COALESCE(MAX(CASE WHEN rt.locale = :locale THEN rt.name END), MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl, '')"
+            : "COALESCE(NULLIF(r.name_{$legacyLocale}, ''), r.name_pl, '')";
+        $translationJoin = $hasTranslations ? 'LEFT JOIN chat_room_translations rt ON rt.room_id = r.id' : '';
+        $translationGroup = $hasTranslations
+            ? 'GROUP BY p.id, p.company_name, p.username, p.avatar_path, cp.current_room_slug, cp.is_online, cp.last_active_at, r.name_pl'
+            : '';
         $sql = "
             SELECT 
                 p.id,
@@ -604,22 +621,20 @@ class ChatService
                 cp.current_room_slug,
                 cp.is_online,
                 cp.last_active_at,
-                COALESCE(MAX(CASE WHEN rt.locale = :locale THEN rt.name END),
-                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl, '') AS room_name
+                {$roomNameExpression} AS room_name
             FROM chat_presence cp
             JOIN players p ON p.id = cp.player_id
             LEFT JOIN chat_rooms r ON r.slug = cp.current_room_slug
-            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
+            {$translationJoin}
             WHERE p.status = 'active'
               AND cp.last_active_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-            GROUP BY p.id, p.company_name, p.username, p.avatar_path, cp.current_room_slug,
-                cp.is_online, cp.last_active_at, r.name_pl
+            {$translationGroup}
             ORDER BY cp.last_active_at DESC
             LIMIT {$limit}
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(['locale' => $locale]);
+        $stmt->execute($hasTranslations ? ['locale' => $locale] : []);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $now = time();
@@ -828,6 +843,7 @@ class ChatService
      */
     public function getRoomTranslations(array $roomIds): array
     {
+        if (!$this->hasRoomTranslations()) return [];
         $roomIds = array_values(array_unique(array_filter(array_map('intval', $roomIds), static fn (int $id): bool => $id > 0)));
         if ($roomIds === []) return [];
         $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
@@ -843,6 +859,17 @@ class ChatService
             ];
         }
         return $result;
+    }
+
+    private function hasRoomTranslations(): bool
+    {
+        if ($this->roomTranslationsAvailable !== null) return $this->roomTranslationsAvailable;
+        try {
+            $this->db->query('SELECT 1 FROM chat_room_translations LIMIT 1');
+            return $this->roomTranslationsAvailable = true;
+        } catch (PDOException $e) {
+            return $this->roomTranslationsAvailable = false;
+        }
     }
 
     private function normalizeLocale(string $locale): string
@@ -894,6 +921,7 @@ class ChatService
     /** @param array<string, array{name:string,description:?string}> $translations */
     private function saveRoomTranslations(int $roomId, array $translations, bool $replace): void
     {
+        if (!$this->hasRoomTranslations()) throw new LogicException('Chat schema migration required.');
         $stmt = $this->db->prepare("INSERT INTO chat_room_translations
             (room_id, locale, name, description, created_at, updated_at)
             VALUES (?, ?, ?, ?, NOW(), NOW())

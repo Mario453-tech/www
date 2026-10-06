@@ -101,17 +101,17 @@ class Auth
             require_once __DIR__ . '/Mailer.php';
             require_once __DIR__ . '/EmailTemplate.php';
 
-            $safeUser = htmlspecialchars($username);
+            $safeUser = htmlspecialchars($username, ENT_QUOTES, 'UTF-8');
             $body = EmailTemplate::build(
-                t('auth.email_verify_title'),
-                t('auth.email_verify_greeting', ['name' => $safeUser]),
-                t('auth.email_verify_body'),
-                t('auth.email_verify_button'),
+                tPlain('auth.email_verify_title'),
+                tPlain('auth.email_verify_greeting', ['name' => $safeUser]),
+                tPlain('auth.email_verify_body'),
+                tPlain('auth.email_verify_button'),
                 $verifyUrl,
-                t('auth.email_verify_footer')
+                tPlain('auth.email_verify_footer')
             );
 
-            $sent = Mailer::send($email, t('auth.email_verify_subject'), $body);
+            $sent = Mailer::send($email, tPlain('auth.email_verify_subject'), $body);
 
             GameLog::info('Auth', 'Verification email sent', [
                 'player_id' => $playerId,
@@ -657,24 +657,18 @@ class Auth
             $resetUrl = "{$baseUrl}/reset-password?token={$token}";
 
             require_once __DIR__ . '/Mailer.php';
+            require_once __DIR__ . '/EmailTemplate.php';
+            $safeUser = htmlspecialchars((string) $player['username'], ENT_QUOTES, 'UTF-8');
+            $body = EmailTemplate::build(
+                tPlain('auth.reset_email_title'),
+                tPlain('auth.reset_email_greeting', ['name' => $safeUser]),
+                '<p>' . tPlain('auth.reset_email_body') . '</p>',
+                tPlain('auth.reset_email_button'),
+                $resetUrl,
+                tPlain('auth.reset_email_footer')
+            );
 
-            $body = "
-            <div style='font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px'>
-                <h2 style='color:#333'>" . t('auth.reset_email_title') . "</h2>
-                <p>" . t('auth.reset_email_greeting', ['name' => htmlspecialchars($player['username'])]) . "</p>
-                <p>" . t('auth.reset_email_body') . "</p>
-                <p style='margin:20px 0'>
-                    <a href='{$resetUrl}' style='background:#007bff;color:#fff;padding:12px 24px;text-decoration:none;border-radius:4px;display:inline-block'>
-                        " . t('auth.reset_email_button') . "
-                    </a>
-                </p>
-                <p style='color:#666;font-size:12px'>
-                    " . t('auth.reset_email_footer') . "<br>
-                    Link: {$resetUrl}
-                </p>
-            </div>";
-
-            $sent = Mailer::send($email, t('auth.reset_email_subject'), $body);
+            $sent = Mailer::send($email, tPlain('auth.reset_email_subject'), $body);
 
             GameLog::info('Auth', 'Password reset email processed', [
                 'email' => $email,

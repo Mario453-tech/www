@@ -730,6 +730,23 @@
     var wInput = document.getElementById('chatInput');
     var wInterval = null;
 
+    function widgetResponse(response) {
+        return response.json().then(function (data) {
+            if (!response.ok || data.error) throw new Error('Chat request failed');
+            return data;
+        });
+    }
+
+    function showWidgetState(text) {
+        var stateNode = widgetBox.querySelector('.chat-loading');
+        if (!stateNode) {
+            stateNode = document.createElement('p');
+            stateNode.className = 'chat-loading';
+            widgetBox.appendChild(stateNode);
+        }
+        stateNode.textContent = text;
+    }
+
     function renderWidgetMsg(m) {
         var senderId = parseInt(m.sender_id || 0, 10);
         var isMine = senderId === wMyId;
@@ -765,25 +782,28 @@
     function pollWidget() {
         if (document.hidden) return;
         fetch(widgetApi + '?since=' + wLastId, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
+            .then(widgetResponse)
             .then(function (data) {
                 if (data.my_id) wMyId = parseInt(data.my_id, 10);
                 appendWidgetMessages(data.messages || []);
             })
-            .catch(function () {});
+            .catch(function () {
+                if (wLastId === 0) showWidgetState(widgetBox.dataset.error || '');
+            });
     }
 
     function loadWidget() {
         fetch(widgetApi, { credentials: 'same-origin' })
-            .then(function (r) { return r.json(); })
+            .then(widgetResponse)
             .then(function (data) {
                 wMyId = parseInt(data.my_id || 0, 10);
                 var loading = widgetBox.querySelector('.chat-loading');
                 if (loading) loading.remove();
                 appendWidgetMessages(data.messages || []);
+                if (!data.messages || !data.messages.length) showWidgetState(widgetBox.dataset.empty || '');
                 wInterval = setInterval(pollWidget, 8000);
             })
-            .catch(function () {});
+            .catch(function () { showWidgetState(widgetBox.dataset.error || ''); });
     }
 
     widgetForm.addEventListener('submit', function (e) {
@@ -800,7 +820,7 @@
             credentials: 'same-origin',
             body: JSON.stringify({ message: msg, csrf_token: widgetForm.elements.csrf_token.value })
         })
-            .then(function (r) { return r.json(); })
+            .then(widgetResponse)
             .then(function (data) {
                 if (btn) btn.disabled = false;
                 if (data && data.ok) {

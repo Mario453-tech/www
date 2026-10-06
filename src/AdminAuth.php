@@ -434,24 +434,21 @@ class AdminAuth
         $db->prepare("INSERT INTO admin_password_resets (email, token_hash, expires_at) VALUES (?,?,?)")
             ->execute([$email, $tokenHash, $expiresAt]);
 
-        $resetUrl = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'oilempire.pl') . "/admin/reset_password.php?token={$token}";
-
-        $body = "
-        <div style='font-family:monospace;background:#1a1a1a;color:#e0e0e0;padding:32px;max-width:480px;margin:0 auto'>
-            <div style='font-size:20px;color:#f90;margin-bottom:24px'>" . t('admin_auth.email_title') . "</div>
-            <p style='margin-bottom:16px'>" . t('admin_auth.email_greeting', ['name' => $admin['username']]) . "</p>
-            <p style='color:#aaa;margin-bottom:24px'>" . t('admin_auth.email_body') . "</p>
-            <a href='{$resetUrl}' style='display:inline-block;background:#f90;color:#111;padding:12px 28px;border-radius:4px;font-weight:bold;text-decoration:none;font-size:14px;letter-spacing:1px'>
-                " . t('admin_auth.email_btn') . "
-            </a>
-            <p style='margin-top:28px;font-size:11px;color:#555'>
-                " . t('admin_auth.email_footer') . "<br>
-                Link: {$resetUrl}
-            </p>
-        </div>";
-
+        $mailCfg = require __DIR__ . '/../config/mail.php';
+        $baseUrl = rtrim($mailCfg['base_url'] ?? 'https://oilempire.pl', '/');
+        $resetUrl = "{$baseUrl}/admin/reset_password.php?token={$token}";
         require_once __DIR__ . '/Mailer.php';
-        $sent = Mailer::send($email, t('admin_auth.email_subject'), $body);
+        require_once __DIR__ . '/EmailTemplate.php';
+        $safeAdmin = htmlspecialchars((string) $admin['username'], ENT_QUOTES, 'UTF-8');
+        $body = EmailTemplate::build(
+            tPlain('auth.reset_email_title'),
+            tPlain('auth.reset_email_greeting', ['name' => $safeAdmin]),
+            '<p>' . tPlain('auth.reset_email_body') . '</p>',
+            tPlain('auth.reset_email_button'),
+            $resetUrl,
+            tPlain('auth.reset_email_footer')
+        );
+        $sent = Mailer::send($email, tPlain('auth.reset_email_subject'), $body);
         self::log('RESET_' . ($sent ? 'SENT' : 'MAIL_FAIL'), "Password reset -> $email");
 
         return ['success' => true, 'mail_sent' => $sent];

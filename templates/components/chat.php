@@ -13,7 +13,9 @@ declare(strict_types=1);
     <!-- Pinned admin messages live outside the scroll area. -->
     <!-- Przypiete wiadomosci admina znajduja sie poza obszarem przewijania. -->
     <div class="chat-pinned-bar" id="chatPinnedBar" hidden></div>
-    <div class="chat-messages" id="chatMessages" role="log" aria-live="polite">
+    <div class="chat-messages" id="chatMessages" role="log" aria-live="polite"
+         data-empty="<?= htmlspecialchars(tPlain('chat.empty_messages'), ENT_QUOTES, 'UTF-8') ?>"
+         data-error="<?= htmlspecialchars(tPlain('chat.load_error'), ENT_QUOTES, 'UTF-8') ?>">
         <p class="chat-loading"><?= htmlspecialchars(t('chat.loading_messages'), ENT_QUOTES, 'UTF-8') ?></p>
     </div>
     <form class="chat-form" id="chatForm" autocomplete="off">

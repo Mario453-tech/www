@@ -128,6 +128,7 @@ return [
     'auth.email_verify_footer' => 'If you did not create an OilEmpire account, ignore this message. The account will be removed automatically.',
     'auth.email_verify_subject' => '[OilEmpire] Confirm your email address',
     'auth.reset_email_title' => 'Password reset - OilEmpire',
+    'auth.reset_email_subject' => '[OilEmpire] Password reset',
     'auth.reset_email_greeting' => 'Hello <strong>:name</strong>,',
     'auth.reset_email_body' => 'We received a request to reset the password for your account. The link is valid for 1 hour.',
     'auth.reset_email_button' => 'Reset password',

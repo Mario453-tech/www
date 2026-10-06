@@ -62,6 +62,15 @@ final class MySqlChatComplianceTest extends TestCase
         self::assertSame(3, (int) $this->db->query('SELECT COUNT(*) FROM chat_rooms')->fetchColumn());
     }
 
+    public function testLegacyRoomSchemaRemainsReadableBeforeMigration(): void
+    {
+        $this->db->exec('DROP TEMPORARY TABLE chat_room_translations');
+        $legacyService = new ChatService($this->db);
+        self::assertSame('Polski', $legacyService->getRoomBySlug('polski', 'pl')['name']);
+        self::assertSame('Polish', $legacyService->getRoomBySlug('polski', 'en')['name']);
+        self::assertCount(3, $legacyService->getRooms(1, 'pl'));
+    }
+
     public function testPresenceCountIsIndependentOfListLimit(): void
     {
         $this->chat->updatePresence(1, 'polski');

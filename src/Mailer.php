@@ -27,13 +27,17 @@ class Mailer
             $mail->Port = $cfg['port'];
             $mail->CharSet = 'UTF-8';
 
-            $mail->setFrom($cfg['username'], $cfg['from_name']);
+            $mail->setFrom($cfg['username'], 'OilEmpire');
             $mail->addAddress($to);
 
             $mail->isHTML(true);
             $mail->Subject = $subject;
             $mail->Body    = $body;
-            $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", $body));
+            $mail->AltBody = html_entity_decode(
+                strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>', '</div>'], "\n", $body)),
+                ENT_QUOTES | ENT_HTML5,
+                'UTF-8'
+            );
 
             $mail->send();
 
