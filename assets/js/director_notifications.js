@@ -1,7 +1,9 @@
 /**
  * director_notifications.js obsuga powiadomie dyrektora
- * Wymaga: window.CSRF_TOKEN (inline config w director_notifications.php)
+ * Wymaga: data-csrf w komponencie director_notifications.php
  */
+const directorNotifications = document.getElementById('director-notifications');
+const CSRF_TOKEN = directorNotifications ? directorNotifications.dataset.csrf || '' : '';
 function markNotificationRead(notificationId) {
     fetch('/api/notifications/mark-read.php', {
         method: 'POST',
@@ -76,4 +78,17 @@ function updateNotificationCount() {
             setTimeout(() => panel.remove(), 300);
         }
     }
+}
+
+if (directorNotifications) {
+    directorNotifications.addEventListener('click', function (event) {
+        const markOne = event.target.closest('[data-notification-mark-read]');
+        if (markOne) {
+            markNotificationRead(Number(markOne.dataset.notificationMarkRead));
+            return;
+        }
+        if (event.target.closest('[data-notifications-mark-all]')) {
+            markAllNotificationsRead();
+        }
+    });
 }

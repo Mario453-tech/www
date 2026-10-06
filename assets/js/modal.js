@@ -13,6 +13,19 @@
 (function () {
     'use strict';
 
+    var appConfig = document.getElementById('appConfig');
+    var modalLang = {};
+    if (appConfig) {
+        try {
+            modalLang = JSON.parse(appConfig.dataset.modalLang || '{}');
+        } catch (error) {
+            modalLang = {};
+        }
+    }
+    window.APP_LOCALE = appConfig ? appConfig.dataset.locale || 'pl-PL' : 'pl-PL';
+    window.APP_CURRENCY = appConfig ? appConfig.dataset.currency || 'PLN' : 'PLN';
+    window.MODAL_LANG = modalLang;
+
     var ICONS = {
         info: 'i',
         warning: '!',
@@ -23,7 +36,7 @@
     };
 
     var TYPES = ['success', 'error', 'warning', 'info'];
-    var _L = window.MODAL_LANG || {};
+    var _L = modalLang;
     var LABELS = {
         confirm: _L.confirm || 'Potwierdź',
         cancel: _L.cancel || 'Anuluj',

@@ -94,7 +94,8 @@ try {
 }
 ?>
 
-<section class="notifications-panel" id="director-notifications">
+<section class="notifications-panel" id="director-notifications"
+         data-csrf="<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') ?>">
     <div class="notifications-header">
         <h2>
             <span class="notifications-icon"></span>
@@ -102,7 +103,7 @@ try {
             <span class="notifications-count"><?= count($notifications) ?></span>
         </h2>
         <?php if (count($notifications) > 1): ?>
-            <button class="btn-mark-all-read" onclick="markAllNotificationsRead()">
+            <button class="btn-mark-all-read" type="button" data-notifications-mark-all>
                  <?= t('director.btn_mark_all_read') ?>
             </button>
         <?php endif ?>
@@ -179,8 +180,8 @@ try {
                             </a>
                         <?php endif ?>
                         
-                        <button class="btn btn-secondary btn-sm" 
-                                onclick="markNotificationRead(<?= $notification['id'] ?>)">
+                        <button class="btn btn-secondary btn-sm" type="button"
+                                data-notification-mark-read="<?= (int) $notification['id'] ?>">
                              <?= t('director.btn_mark_read') ?>
                         </button>
                     </div>
@@ -190,7 +191,4 @@ try {
     </div>
 </section>
 
-<script>
-const CSRF_TOKEN = '<?= CSRF::generateToken() ?>';
-</script>
 <script src="/assets/js/director_notifications.js"></script>

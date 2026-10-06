@@ -104,10 +104,10 @@ if (!($authPage ?? false)) {
     <?php if (!($authPage ?? false)): ?>
     <link rel="stylesheet" href="<?= asset('/assets/css/modal.css') ?>">
     <?php endif ?>
-    <script>
-        window.APP_LOCALE = '<?= t('common.locale') ?>';
-        window.APP_CURRENCY = '<?= t('common.currency') ?>';
-        window.MODAL_LANG = <?= json_encode([
+    <meta id="appConfig" name="application-config" content=""
+          data-locale="<?= htmlspecialchars(tPlain('common.locale'), ENT_QUOTES, 'UTF-8') ?>"
+          data-currency="<?= htmlspecialchars(tPlain('common.currency'), ENT_QUOTES, 'UTF-8') ?>"
+          data-modal-lang="<?= htmlspecialchars((string) json_encode([
             'confirm' => t('modal.confirm'),
             'cancel' => t('modal.cancel'),
             'ok' => t('modal.ok'),
@@ -116,10 +116,12 @@ if (!($authPage ?? false)) {
             'title_warn' => t('modal.title_warn'),
             'title_success' => t('modal.title_success'),
             'close' => t('modal.close'),
-        ], JSON_UNESCAPED_UNICODE) ?>;
-    </script>
+          ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"
+          data-open-menu="<?= htmlspecialchars(tPlain('header.open_menu'), ENT_QUOTES, 'UTF-8') ?>"
+          data-close-menu="<?= htmlspecialchars(tPlain('header.close_menu'), ENT_QUOTES, 'UTF-8') ?>">
     <script src="<?= asset('/assets/js/modal.js') ?>"></script>
     <script src="<?= asset('/assets/js/language_switcher.js') ?>"></script>
+    <script src="<?= asset('/assets/js/header.js') ?>" defer></script>
     <link rel="stylesheet" href="<?= asset('/assets/css/mobile.css') ?>">
 </head>
 <body<?= ($authPage ?? false) ? ' class="auth-page"' : '' ?>>
@@ -316,64 +318,6 @@ if (!($authPage ?? false)) {
         </header>
 
         <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
-        <script>
-        (function () {
-            var burger   = document.getElementById('nav-burger');
-            var nav      = document.getElementById('user-nav');
-            var backdrop = document.getElementById('nav-backdrop');
-            if (!burger || !nav) return;
-
-            function openNav() {
-                document.body.classList.add('nav-open');
-                burger.setAttribute('aria-expanded', 'true');
-                burger.setAttribute('aria-label', <?= json_encode(tPlain('header.close_menu'), JSON_UNESCAPED_UNICODE) ?>);
-            }
-            function closeNav() {
-                document.body.classList.remove('nav-open');
-                burger.setAttribute('aria-expanded', 'false');
-                burger.setAttribute('aria-label', <?= json_encode(tPlain('header.open_menu'), JSON_UNESCAPED_UNICODE) ?>);
-            }
-            function toggleNav() {
-                document.body.classList.contains('nav-open') ? closeNav() : openNav();
-            }
-
-            burger.addEventListener('click', toggleNav);
-            if (backdrop) backdrop.addEventListener('click', closeNav);
-
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape') closeNav();
-            });
-
- // Close menu after nav link click / Zamknij menu po kliknieciu linka w menu 
-            nav.querySelectorAll('a.btn').forEach(function (a) {
-                a.addEventListener('click', closeNav);
-            });
-        })();
-        </script>
-
-        <!--  Event timer countdown / Licznik czasu wydarzenia  -->
-        <script>
-        (function () {
-            'use strict';
-            document.addEventListener('DOMContentLoaded', function () {
-                var el = document.getElementById('trend-timer');
-                if (!el) return;
-                var secs = parseInt(el.getAttribute('data-seconds') || '0', 10);
-                if (secs <= 0) return;
-                function fmt(s) {
-                    var h = Math.floor(s / 3600);
-                    var m = String(Math.floor((s % 3600) / 60)).padStart(2, '0');
-                    return String(h).padStart(2, '0') + ':' + m;
-                }
-                var iv = setInterval(function () {
-                    secs--;
-                    if (secs <= 0) { clearInterval(iv); el.textContent = '00:00'; return; }
-                    el.textContent = fmt(secs);
-                }, 1000);
-            });
-        })();
-        </script>
-
         <main class="main-content" role="main">
         <?php
  // Flash: brak dostpu do dziau (BoardAccess::require)
