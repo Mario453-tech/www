@@ -27,7 +27,9 @@ final class AdminChatSessionMySqlTest extends TestCase
         $this->db->exec('CREATE TEMPORARY TABLE admins (id INT PRIMARY KEY, username VARCHAR(50), email VARCHAR(100), is_active INT, lock_until DATETIME NULL, last_login_at DATETIME NULL, last_login_ip VARCHAR(45))');
         $this->db->exec("INSERT INTO admins (id,username,email,is_active) VALUES (1,'test','test@example.test',1)");
         $this->db->exec('CREATE TEMPORARY TABLE admin_trusted_devices (id INT AUTO_INCREMENT PRIMARY KEY, admin_id INT, token_hash CHAR(64) UNIQUE, expires_at DATETIME, created_ip VARCHAR(45), last_used_at DATETIME NULL)');
-        $this->db->exec('CREATE TEMPORARY TABLE chat_messages (id INT AUTO_INCREMENT PRIMARY KEY, sender_id INT NULL, username VARCHAR(64), message VARCHAR(500), channel VARCHAR(20), is_admin INT)');
+        $this->db->exec('CREATE TEMPORARY TABLE chat_messages (id INT AUTO_INCREMENT PRIMARY KEY, sender_id INT NULL, username VARCHAR(64), message VARCHAR(500), channel VARCHAR(20), is_admin INT, room_id INT, room_slug VARCHAR(50))');
+        $this->db->exec('CREATE TEMPORARY TABLE chat_rooms (id INT PRIMARY KEY, slug VARCHAR(50), status VARCHAR(20))');
+        $this->db->exec("INSERT INTO chat_rooms VALUES (1, 'polski', 'active')");
         $ref = new ReflectionClass(Database::class);
         $database = $ref->newInstanceWithoutConstructor();
         $ref->getProperty('pdo')->setValue($database, $this->db);

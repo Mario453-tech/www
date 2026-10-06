@@ -7,6 +7,15 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.room_edit' => 'Edytuj pokój',
+    'admin.chat.room_update' => 'Zapisz zmiany',
+    'admin.chat.room_status_archived' => 'Zarchiwizowany',
+    'admin.chat.err_room_fields' => 'Sprawdź nazwy, opisy i ustawienia pokoju.',
+    'admin.chat.translation_locale' => 'Kod języka',
+    'admin.chat.translation_name' => 'Nazwa pokoju',
+    'admin.chat.translation_description' => 'Opis',
+    'admin.chat.translation_add' => 'Dodaj tłumaczenie',
+    'admin.chat.translation_remove' => 'Usuń tłumaczenie',
     'admin.chat.editor_hint' => 'Maksymalnie 500 znaków wraz z formatowaniem. Dostępne: pogrubienie, kursywa i listy.',
     'admin.chat.admin_msg_label' => 'Komunikat',
     'admin.chat.admin_msg_send' => 'Wyślij',

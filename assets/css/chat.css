@@ -1480,8 +1480,8 @@
     line-height: 1;
     border-radius: 4px;
     transition: transform 0.15s, color 0.15s;
-    min-width: 32px;
-    min-height: 32px;
+    min-width: 44px;
+    min-height: 44px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1795,9 +1795,7 @@
     .chat-col--active-mob {
         display: flex !important;
     }
-    .chat-col--center {
-        display: none;
-    }
+    .chat-col--center { display: flex; }
     .chat-col--center.chat-col--active-mob {
         display: flex !important;
     }
@@ -1811,4 +1809,26 @@
         min-width: 90px;
         padding: 0 12px;
     }
+}
+
+/* Accessible history and native mobile drawer. / Dostepna historia i mobilny panel. */
+.chat-container [hidden] { display: none !important; }
+.chat-container .chat-msg-bubble { white-space: pre-wrap; max-width: 100%; border-radius: 8px; }
+.chat-container .chat-msg-header { flex-wrap: wrap; }
+.chat-msg-body-wrapper, .chat-col--center, .chat-composer-input { min-width: 0; }
+.chat-composer-input { resize: vertical; max-height: 160px; font: inherit; }
+.chat-input-label { display: block; font-size: 14px; margin-bottom: 6px; }
+.chat-history-button { min-height: 44px; color: var(--chat-gold); background: var(--chat-panel-bg); border: 0; cursor: pointer; }
+.chat-msg-row--grouped .chat-msg-avatar { visibility: hidden; }
+.chat-msg-row--grouped .chat-msg-author { display: none; }
+.chat-drawer { width: min(420px, calc(100% - 24px)); max-height: calc(100dvh - 24px); padding: 12px; color: inherit; background: var(--chat-panel-bg); border: 1px solid var(--chat-border); border-radius: 8px; }
+.chat-drawer::backdrop { background: rgba(0, 0, 0, .65); }
+.chat-drawer-heading { display: flex; justify-content: space-between; align-items: center; }
+.chat-drawer-heading h2 { font-size: 18px; }
+.chat-drawer-heading button { min-width: 44px; min-height: 44px; font-size: 24px; color: inherit; background: transparent; border: 0; }
+.chat-drawer .chat-col { display: flex; width: 100%; height: auto; max-height: 75dvh; border: 0; }
+.chat-mob-btn { min-height: 44px; }
+@media (max-width: 768px) {
+    .chat-shell { height: min(700px, 85dvh); min-height: 440px; }
+    .chat-msg-row { max-width: 100%; }
 }

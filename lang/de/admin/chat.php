@@ -7,6 +7,15 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.room_edit' => 'Raum bearbeiten',
+    'admin.chat.room_update' => 'Speichern',
+    'admin.chat.room_status_archived' => 'Archiviert',
+    'admin.chat.err_room_fields' => 'Bitte Namen, Beschreibungen und Einstellungen prüfen.',
+    'admin.chat.translation_locale' => 'Sprachcode',
+    'admin.chat.translation_name' => 'Raumname',
+    'admin.chat.translation_description' => 'Beschreibung',
+    'admin.chat.translation_add' => 'Übersetzung hinzufügen',
+    'admin.chat.translation_remove' => 'Übersetzung entfernen',
     'admin.chat.editor_hint' => 'Maximal 500 Zeichen inklusive Formatierung. Verfügbar: Fett, Kursiv und Listen.',
     'admin.chat.admin_msg_label' => 'Mitteilung',
     'admin.chat.admin_msg_send' => 'Senden',

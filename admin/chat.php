@@ -5,10 +5,10 @@ try {
 require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../src/ChatBootstrap.php';
 require_once __DIR__ . '/../src/ChatService.php';
+require_once __DIR__ . '/../src/ChatRequestPolicy.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
-ensureChatSchema();
 $flash = $_SESSION['admin_chat_flash'] ?? [];
 unset($_SESSION['admin_chat_flash']);
 $msg = (string)($flash['msg'] ?? '');
@@ -24,6 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = t('common.csrf_error');
     } else {
         $action = $_POST['action'] ?? '';
+        if (!in_array($action, ['delete_msg', 'delete_player_msgs', 'delete_expired', 'clear_all',
+            'ban_player', 'unban_player', 'send_admin', 'pin_msg', 'unpin_msg', 'resolve_report',
+            'add_blocked_word', 'delete_blocked_word', 'toggle_blocked_word', 'save_auto_clear',
+            'create_room', 'update_room', 'archive_room'], true)) {
+            $_SESSION['admin_chat_flash'] = ['err' => t('common.app_error')];
+            header('Location: chat.php');
+            exit;
+        }
+        $permission = in_array($action, ['create_room', 'update_room', 'archive_room'], true) ? 'chat.rooms.manage' : 'chat.moderate';
+        if (!ChatRequestPolicy::allows($permission, AdminAuth::isLoggedIn())) {
+            throw new RuntimeException('Chat permission denied');
+        }
+        $db->beginTransaction();
+        $chatService = new ChatService($db);
 
         if ($action === 'delete_msg') {
             $id = (int)($_POST['msg_id'] ?? 0);
@@ -55,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } elseif ($action === 'clear_all') {
             $count = (int)$db->query("SELECT COUNT(*) FROM chat_messages")->fetchColumn();
-            $db->exec("TRUNCATE TABLE chat_messages");
+            $db->exec("UPDATE chat_messages SET is_deleted = 1 WHERE is_deleted = 0");
             AdminLog::log('chat_clear_all', "Cleared entire chat ({$count} messages)");
             $msg = t('admin.chat.msg_cleared', ['count' => $count]);
 
@@ -184,12 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $slug = (string)($_POST['slug'] ?? '');
             $type = (string)($_POST['type'] ?? 'custom');
             $localeCode = trim((string)($_POST['locale_code'] ?? ''));
-            $namePl = (string)($_POST['name_pl'] ?? '');
-            $nameEn = (string)($_POST['name_en'] ?? '');
-            $nameDe = (string)($_POST['name_de'] ?? '');
-            $descPl = (string)($_POST['description_pl'] ?? '');
-            $descEn = (string)($_POST['description_en'] ?? '');
-            $descDe = (string)($_POST['description_de'] ?? '');
+            $translations = is_array($_POST['translations'] ?? null) ? array_values($_POST['translations']) : [];
             $sortOrder = (int)($_POST['sort_order'] ?? 0);
             $status = (string)($_POST['status'] ?? 'active');
 
@@ -197,23 +206,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $chatService = new ChatService($db);
                 $adminId = (int)AdminAuth::getAdminId();
                 $roomId = $chatService->createRoom(
-                    $adminId, $slug, $type, $localeCode, $namePl, $nameEn, $nameDe,
-                    $descPl, $descEn, $descDe, $sortOrder, $status
+                    $adminId, $slug, $type, $localeCode, $translations, $sortOrder, $status
                 );
                 AdminLog::log('chat_create_room', "Created room #{$roomId} ({$slug})");
                 $msg = t('admin.chat.room_created', ['slug' => $slug]);
             } catch (Throwable $e) {
-                $err = $e->getMessage();
+                GameLog::error('admin/chat', 'Room creation failed', ['exception_class' => get_class($e)]);
+                $err = t('common.app_error');
             }
 
         } elseif ($action === 'update_room') {
             $roomId = (int)($_POST['room_id'] ?? 0);
-            $namePl = (string)($_POST['name_pl'] ?? '');
-            $nameEn = (string)($_POST['name_en'] ?? '');
-            $nameDe = (string)($_POST['name_de'] ?? '');
-            $descPl = (string)($_POST['description_pl'] ?? '');
-            $descEn = (string)($_POST['description_en'] ?? '');
-            $descDe = (string)($_POST['description_de'] ?? '');
+            $translations = is_array($_POST['translations'] ?? null) ? array_values($_POST['translations']) : [];
             $sortOrder = (int)($_POST['sort_order'] ?? 0);
             $status = (string)($_POST['status'] ?? 'active');
 
@@ -222,13 +226,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $chatService = new ChatService($db);
                     $adminId = (int)AdminAuth::getAdminId();
                     $chatService->updateRoom(
-                        $adminId, $roomId, $namePl, $nameEn, $nameDe,
-                        $descPl, $descEn, $descDe, $sortOrder, $status
+                        $adminId, $roomId, $translations, $sortOrder, $status,
+                        (string) ($_POST['type'] ?? 'custom'), (string) ($_POST['locale_code'] ?? '')
                     );
                     AdminLog::log('chat_update_room', "Updated room #{$roomId}");
                     $msg = t('admin.chat.room_updated', ['id' => $roomId]);
                 } catch (Throwable $e) {
-                    $err = $e->getMessage();
+                    GameLog::error('admin/chat', 'Room update failed', ['exception_class' => get_class($e)]);
+                    $err = t('common.app_error');
                 }
             }
 
@@ -242,7 +247,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     AdminLog::log('chat_archive_room', "Archived room #{$roomId}");
                     $msg = t('admin.chat.room_archived', ['id' => $roomId]);
                 } catch (Throwable $e) {
-                    $err = $e->getMessage();
+                    GameLog::error('admin/chat', 'Room archive failed', ['exception_class' => get_class($e)]);
+                    $err = t('common.app_error');
                 }
             }
         }
@@ -251,26 +257,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Redirect after POST to prevent duplicate broadcasts. / Przekieruj po POST, aby nie dublowac komunikatow.
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($db->inTransaction()) {
+        if ($err !== '') {
+            $db->rollBack();
+        } else {
+            if (!in_array($action, ['create_room', 'update_room', 'archive_room'], true)) {
+                $chatService->recordAdminAction((int) AdminAuth::getAdminId(), (string) $action,
+                    (int) ($_POST['room_id'] ?? $_POST['msg_id'] ?? $_POST['player_id'] ?? $_POST['ban_player_id'] ?? 0));
+            }
+            $db->commit();
+        }
+    }
     $_SESSION['admin_chat_flash'] = ['msg' => $msg, 'err' => $err, 'draft' => $adminDraft];
     header('Location: /admin/chat.php', true, 303);
     exit;
 }
-
-// Auto-clear check on admin page load / Auto-clear przy ladowaniu panelu
-function chatRunAutoClear(PDO $db): void {
-    try {
-        $rows = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
-        if (!($rows['chat_auto_clear_enabled'] ?? 0)) return;
-        $interval   = max(15, (int)($rows['chat_auto_clear_interval'] ?? 30));
-        $lastAt     = $rows['chat_auto_clear_last_at'] ?? null;
-        $secondsAgo = $lastAt ? (time() - strtotime($lastAt)) : PHP_INT_MAX;
-        if ($secondsAgo < $interval * 60) return;
-        $cutoff = date('Y-m-d H:i:s', time() - $interval * 60);
-        $db->prepare("UPDATE chat_messages SET is_deleted = 1 WHERE created_at < ? AND is_deleted = 0 AND (is_pinned = 0 OR is_pinned IS NULL)")->execute([$cutoff]);
-        $db->prepare("INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_last_at',NOW()) ON DUPLICATE KEY UPDATE `value`=NOW()")->execute([]);
-    } catch (Throwable $e) {}
-}
-chatRunAutoClear($db);
 
 // Filters / Filtry
 
@@ -356,6 +357,15 @@ try {
         LIMIT 50
     ")->fetchAll();
 } catch (Throwable $e) {
+    if (isset($db) && $db->inTransaction()) {
+        $db->rollBack();
+    }
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        GameLog::error('admin/chat', 'Chat mutation failed', ['exception_class' => get_class($e)]);
+        $_SESSION['admin_chat_flash'] = ['err' => t('common.app_error')];
+        header('Location: /admin/chat.php', true, 303);
+        exit;
+    }
  // Table may not exist yet / Tabela moze jeszcze nie istniec
 }
 
@@ -403,15 +413,35 @@ try {
         ORDER BY r.sort_order ASC, r.id ASC
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {}
+$roomTranslations = (new ChatService($db))->getRoomTranslations(array_map(
+    static fn (array $room): int => (int) $room['id'],
+    $allRooms
+));
+foreach ($allRooms as &$room) {
+    $room['translations'] = $roomTranslations[(int) $room['id']] ?? [];
+}
+unset($room);
+$defaultRoomTranslations = [
+    ['locale' => 'pl', 'name' => '', 'description' => ''],
+    ['locale' => 'en', 'name' => '', 'description' => ''],
+    ['locale' => 'de', 'name' => '', 'description' => ''],
+];
 
 $moderationLog = [];
+$auditPage = max(1, (int) ($_GET['audit_page'] ?? 1));
+$auditPerPage = 50;
+$auditTotalPages = 1;
 try {
+    $auditTotal = (int) $db->query('SELECT COUNT(*) FROM chat_moderation_actions')->fetchColumn();
+    $auditTotalPages = max(1, (int) ceil($auditTotal / $auditPerPage));
+    $auditPage = min($auditPage, $auditTotalPages);
+    $auditOffset = ($auditPage - 1) * $auditPerPage;
     $moderationLog = $db->query("
-        SELECT ma.*, COALESCE(NULLIF(p.company_name,''), p.username, 'Admin') AS actor_name
+        SELECT ma.*, COALESCE(a.username, 'Admin') AS actor_name
         FROM chat_moderation_actions ma
-        LEFT JOIN players p ON p.id = ma.actor_id
+        LEFT JOIN admins a ON a.id = ma.actor_id
         ORDER BY ma.id DESC
-        LIMIT 50
+        LIMIT {$auditPerPage} OFFSET {$auditOffset}
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {}
 
@@ -423,7 +453,7 @@ $viewData = compact(
     'filterPlayer', 'page', 'totalPages', 'reports',
     'banDurations', 'blockedWords', 'expiredCutoff',
     'autoClearEnabled', 'autoClearInterval', 'autoClearLastAt',
-    'allRooms', 'moderationLog'
+    'allRooms', 'moderationLog', 'defaultRoomTranslations', 'auditPage', 'auditTotalPages'
 );
 
 $pageTitle = t('admin.chat.page_title');

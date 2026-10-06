@@ -5,6 +5,13 @@ declare(strict_types=1);
 // Angielskie tlumaczenia modulu czatu gracza.
 
 return [
+    'chat.more_threads' => 'More conversations',
+    'chat.load_older' => 'Older messages',
+    'chat.new_messages' => 'New messages',
+    'chat.err_invalid_read' => 'This message cannot be marked as read.',
+    'chat.err_method' => 'This operation is not available using this method.',
+    'chat.err_banned' => 'Sending messages has been blocked.',
+    'chat.err_thread_limit' => 'The limit for new conversations has been reached. Try again in an hour.',
     'chat.page_title' => 'Players chat',
     'chat.kicker' => 'COMPANY COMMUNICATIONS',
     'chat.title' => 'Players chat',

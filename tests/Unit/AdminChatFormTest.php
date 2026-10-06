@@ -26,5 +26,8 @@ final class AdminChatFormTest extends TestCase
         self::assertFalse($send->hasAttribute('data-confirm'), 'Sending a broadcast must never confirm a player ban.');
         self::assertInstanceOf(DOMElement::class, $ban);
         self::assertSame(tPlain('admin.chat.ban_confirm'), $ban->getAttribute('data-confirm'));
+        self::assertSame(0, $xpath->query('//*[@style or @onclick or @onchange or @onsubmit or @onload]')->length);
+        self::assertStringContainsString('translations[__INDEX__][locale]', $html);
+        self::assertStringNotContainsString('name="name_pl"', $html);
     }
 }

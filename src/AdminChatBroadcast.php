@@ -14,8 +14,9 @@ final class AdminChatBroadcast
         if ($text === '' || mb_strlen($html) > 500) {
             return false;
         }
-        $db->prepare("INSERT INTO chat_messages (sender_id, username, message, channel, is_admin) VALUES (NULL, '[ADMIN]', ?, 'global', 1)")
-            ->execute([$html]);
-        return true;
+        $stmt = $db->prepare("INSERT INTO chat_messages (sender_id, username, message, channel, is_admin, room_id, room_slug)
+            SELECT NULL, '[ADMIN]', ?, 'global', 1, id, slug FROM chat_rooms WHERE slug = 'polski' AND status != 'archived'");
+        $stmt->execute([$html]);
+        return $stmt->rowCount() === 1;
     }
 }

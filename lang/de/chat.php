@@ -5,6 +5,13 @@ declare(strict_types=1);
 // Niemieckie tlumaczenia modulu czatu gracza.
 
 return [
+    'chat.more_threads' => 'Weitere Gespräche',
+    'chat.load_older' => 'Frühere Nachrichten',
+    'chat.new_messages' => 'Neue Nachrichten',
+    'chat.err_invalid_read' => 'Diese Nachricht kann nicht als gelesen markiert werden.',
+    'chat.err_method' => 'Diese Aktion ist mit dieser Methode nicht verfügbar.',
+    'chat.err_banned' => 'Das Senden von Nachrichten wurde gesperrt.',
+    'chat.err_thread_limit' => 'Das Limit für neue Gespräche wurde erreicht. Versuche es in einer Stunde erneut.',
     'chat.page_title' => 'Spieler-Chat',
     'chat.kicker' => 'UNTERNEHMENSKOMMUNIKATION',
     'chat.title' => 'Spieler-Chat',

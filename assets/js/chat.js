@@ -42,8 +42,9 @@
     // 1. Unified Complete Chat Application (/chat)
     // 1. Zunifikowana aplikacja kompletnego czatu (/chat)
     // =========================================================================
-    if (window.CHAT_CONFIG) {
-        var cfg = window.CHAT_CONFIG;
+    var configNode = document.getElementById('chatConfig');
+    if (configNode || window.CHAT_CONFIG) {
+        var cfg = configNode ? JSON.parse(configNode.dataset.config) : window.CHAT_CONFIG;
         var API = cfg.api || '/src/ChatApi.php';
         var myId = parseInt(cfg.playerId || 0, 10);
         var strings = cfg.strings || {};
@@ -52,7 +53,7 @@
             mode: cfg.withPartnerId ? 'direct' : 'room',
             roomSlug: cfg.activeRoomSlug || 'polski',
             roomId: parseInt(cfg.activeRoomId || 1, 10),
-            roomName: 'Polski',
+            roomName: cfg.activeRoomName || '',
             partnerId: cfg.withPartnerId ? parseInt(cfg.withPartnerId, 10) : null,
             partnerName: cfg.withPartnerName || '',
             lastMessageId: 0,
@@ -62,7 +63,13 @@
             directThreads: cfg.directThreads || [],
             pollTimer: null,
             presenceTimer: null,
-            isSending: false
+            isSending: false,
+            epoch: 0,
+            loading: false,
+            polling: false,
+            firstId: 0,
+            readId: 0,
+            threadPages: 1
         };
 
         // DOM elements cache.
@@ -127,6 +134,12 @@
 
             var avatarHtml = renderAvatar(authorName, m.avatar_path, isAdmin, isMine);
             var rowCls = 'chat-msg-row ' + (isMine ? 'chat-msg-row--mine' : 'chat-msg-row--other');
+            var previous = state.previousMessage;
+            if (previous && previous.sender_id === m.sender_id && previous.date === m.date
+                && Math.abs(Date.parse(m.created_at.replace(' ', 'T')) - Date.parse(previous.created_at.replace(' ', 'T'))) < 300000) {
+                rowCls += ' chat-msg-row--grouped';
+            }
+            state.previousMessage = m;
 
             var html = '';
             // Insert date separator if date changed
@@ -161,6 +174,7 @@
         // Renderuj cala os czasu wiadomosci
         function renderMessagesTimeline(messages) {
             state.lastDateLabel = '';
+            state.previousMessage = null;
             if (!messages || messages.length === 0) {
                 var emptyText = strings.emptyMessages || '';
                 dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml(emptyText) + '</div>';
@@ -179,6 +193,7 @@
         // Dolacz nowe wiadomosci (uzywane przy pollingu i po wyslaniu)
         function appendNewMessages(newMessages) {
             if (!newMessages || newMessages.length === 0) return;
+            var follow = nearBottom();
             var emptyHint = dom.messagesArea.querySelector('.chat-empty-room-hint');
             if (emptyHint) emptyHint.remove();
 
@@ -194,13 +209,23 @@
             }
 
             if (added) {
-                scrollToBottom();
+                if (follow) {
+                    scrollToBottom();
+                    acknowledge();
+                } else {
+                    document.getElementById('chatNewMessages').hidden = false;
+                }
             }
         }
 
         // Update room header and placeholder
         // Aktualizuj naglowek pokoju i tekst zastepczy
         function updateConversationHeader() {
+            var active = state.rooms.find(function (room) { return room.id === state.roomId; });
+            if (active) state.roomName = active.name;
+            var readOnly = state.mode === 'room' && (!active || active.status !== 'active') && !cfg.isAdmin;
+            dom.form.hidden = readOnly;
+            document.getElementById('chatReadOnly').hidden = !readOnly;
             if (state.mode === 'room') {
                 dom.convTitle.textContent = '# ' + state.roomName;
                 var roomObj = null;
@@ -227,6 +252,12 @@
         // Load messages for current active room or direct partner
         // Zaladuj wiadomosci dla biezacego pokoju lub rozmowcy prywatnego
         function loadCurrentMessages() {
+            var epoch = ++state.epoch;
+            state.loading = true;
+            state.readId = 0;
+            state.firstId = 0;
+            state.messages = [];
+            document.getElementById('chatNewMessages').hidden = true;
             dom.messagesArea.innerHTML = '<div class="chat-loading-indicator"><span>' + escHtml(strings.loadingMessages || '') + '</span></div>';
             state.lastMessageId = 0;
 
@@ -240,8 +271,13 @@
             fetch(url, { credentials: 'same-origin' })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
+                    if (epoch !== state.epoch) return;
+                    state.loading = false;
                     if (data && data.ok) {
                         var msgs = data.messages || [];
+                        state.messages = msgs;
+                        state.firstId = msgs.length ? Number(msgs[0].id) : 0;
+                        document.getElementById('chatOlder').hidden = msgs.length < 50;
                         if (msgs.length > 0) {
                             state.lastMessageId = parseInt(msgs[msgs.length - 1].id, 10);
                             var lastMsg = msgs[msgs.length - 1];
@@ -251,11 +287,14 @@
                             dom.convLastMsg.textContent = '';
                         }
                         renderMessagesTimeline(msgs);
+                        acknowledge();
                     } else {
                         dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml((data && data.error) || strings.loadError || '') + '</div>';
                     }
                 })
                 .catch(function () {
+                    if (epoch !== state.epoch) return;
+                    state.loading = false;
                     dom.messagesArea.innerHTML = '<div class="chat-empty-room-hint">' + escHtml(strings.connectionError || '') + '</div>';
                 });
         }
@@ -285,8 +324,6 @@
             roomItems.forEach(function (btn) {
                 if (btn.getAttribute('data-room-slug') === slug) {
                     btn.classList.add('chat-room-item--active');
-                    var unread = btn.querySelector('.room-unread-dot');
-                    if (unread) unread.classList.add('room-unread-dot--hidden');
                 } else {
                     btn.classList.remove('chat-room-item--active');
                 }
@@ -327,8 +364,6 @@
             threadItems.forEach(function (btn) {
                 if (parseInt(btn.getAttribute('data-partner-id'), 10) === state.partnerId) {
                     btn.classList.add('chat-thread-item--active');
-                    var badge = btn.querySelector('.thread-badge-gold');
-                    if (badge) badge.remove();
                 } else {
                     btn.classList.remove('chat-thread-item--active');
                 }
@@ -342,7 +377,9 @@
         // Polling loop for active messages
         // Petla odpytywania o nowe wiadomosci
         function pollMessages() {
-            if (document.hidden) return;
+            if (document.hidden || state.loading || state.polling) return;
+            var epoch = state.epoch;
+            state.polling = true;
 
             var url = '';
             if (state.mode === 'room') {
@@ -356,27 +393,31 @@
             fetch(url, { credentials: 'same-origin' })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
+                    if (epoch !== state.epoch) return;
                     if (data && data.ok && data.messages && data.messages.length > 0) {
+                        state.messages = state.messages.concat(data.messages.filter(function (m) { return Number(m.id) > state.lastMessageId; }));
                         appendNewMessages(data.messages);
                         var lastMsg = data.messages[data.messages.length - 1];
                         var lastTpl = strings.lastMessageAt || '';
                         dom.convLastMsg.textContent = lastTpl.replace(':time', lastMsg.time || '');
                     }
                 })
-                .catch(function () {});
+                .catch(function () {})
+                .finally(function () { state.polling = false; });
         }
 
         // Polling loop for presence and active players
         // Petla odpytywania o obecnosc i aktywnych graczy
         function pollPresence() {
             if (document.hidden) return;
+            post({ action: 'heartbeat', room_slug: state.mode === 'room' ? state.roomSlug : null }).catch(function () {});
             fetch(API + '?action=presence&room_slug=' + encodeURIComponent(state.roomSlug), { credentials: 'same-origin' })
                 .then(function (res) { return res.json(); })
                 .then(function (data) {
                     if (data && data.ok) {
                         var online = parseInt(data.total_online || 0, 10);
                         if (dom.globalOnlineCount) dom.globalOnlineCount.textContent = online;
-                        if (dom.rightOnlineCount) dom.rightOnlineCount.textContent = online + ' online';
+                        if (dom.rightOnlineCount) dom.rightOnlineCount.textContent = online + ' ' + strings.online;
                         if (dom.mobOnlineBadge) dom.mobOnlineBadge.textContent = online;
                         if (data.players) renderPlayersList(data.players);
                     }
@@ -418,6 +459,7 @@
             e.preventDefault();
             var text = dom.input.value.trim();
             if (!text || state.isSending) return;
+            var epoch = state.epoch;
 
             state.isSending = true;
             dom.sendBtn.disabled = true;
@@ -457,10 +499,11 @@
                     dom.sendBtn.textContent = strings.send || '';
 
                     if (data && data.ok && data.message) {
-                        dom.input.value = '';
-                        appendNewMessages([data.message]);
-                        var lastTpl = strings.lastMessageAt || '';
-                        dom.convLastMsg.textContent = lastTpl.replace(':time', data.message.time || '');
+                        if (epoch === state.epoch) {
+                            if (dom.input.value.trim() === text) dom.input.value = '';
+                            pollMessages();
+                        }
+                        refreshLists();
                     } else {
                         var err = (data && data.error) || strings.sendFailed || '';
                         showToast(err, 'error');
@@ -474,38 +517,106 @@
                 });
         }
 
+        function post(payload) {
+            payload.csrf_token = cfg.csrfToken;
+            return fetch(API, { method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+            }).then(function (response) { return response.json(); });
+        }
+
+        function nearBottom() {
+            return dom.messagesArea.scrollHeight - dom.messagesArea.clientHeight - dom.messagesArea.scrollTop < 60;
+        }
+
+        function acknowledge() {
+            if (document.hidden || state.loading || state.acknowledging || document.getElementById('chatDrawer').open || !nearBottom() || state.lastMessageId <= state.readId) return;
+            state.acknowledging = true;
+            var epoch = state.epoch;
+            var lastId = state.lastMessageId;
+            post({ action: 'mark_read', type: state.mode, id: state.mode === 'room' ? state.roomId : state.partnerId, last_id: lastId })
+                .then(function (data) {
+                    if (data.ok && epoch === state.epoch) {
+                        state.readId = lastId;
+                        document.getElementById('chatNewMessages').hidden = true;
+                        refreshLists();
+                    }
+                }).catch(function () {}).finally(function () { state.acknowledging = false; });
+        }
+
+        function refreshLists() {
+            if (document.hidden || state.refreshing) return;
+            state.refreshing = true;
+            var requests = [fetch(API + '?action=rooms', { credentials: 'same-origin' }).then(function (r) { return r.json(); })];
+            for (var page = 1; page <= state.threadPages; page++) {
+                requests.push(fetch(API + '?action=direct_threads&page=' + page, { credentials: 'same-origin' }).then(function (r) { return r.json(); }));
+            }
+            Promise.all(requests).then(function (data) {
+                if (!data[0].ok || !data[1].ok) return;
+                state.rooms = data[0].rooms;
+                state.directThreads = data.slice(1).flatMap(function (page) { return page.threads || []; });
+                document.getElementById('chatMoreThreads').hidden = data[data.length - 1].threads.length < 50;
+                dom.roomsList.innerHTML = state.rooms.map(function (room) {
+                    return '<button type="button" class="chat-room-item' + (state.mode === 'room' && room.id === state.roomId ? ' chat-room-item--active' : '') + '" data-room-slug="' + escHtml(room.slug) + '">' +
+                        '<span class="room-item-text"><span class="room-item-name">' + escHtml(room.name) + '</span></span>' +
+                        '<span class="room-unread-dot' + (room.unread_count ? '' : ' room-unread-dot--hidden') + '" aria-label="' + escHtml(strings.unreadBadgeTitle.replace(':count', room.unread_count)) + '"></span></button>';
+                }).join('');
+                var unread = 0;
+                dom.directList.innerHTML = state.directThreads.map(function (thread) {
+                    unread += Number(thread.unread_count);
+                    return '<button type="button" class="chat-thread-item' + (state.mode === 'direct' && thread.partner_id === state.partnerId ? ' chat-thread-item--active' : '') + '" data-partner-id="' + thread.partner_id + '" data-partner-name="' + escHtml(thread.partner_name) + '">' +
+                        '<span class="thread-item-text"><span class="thread-item-name">' + escHtml(thread.partner_name) + '</span><span class="thread-item-sub">' + escHtml(thread.last_message) + '</span></span>' +
+                        (thread.unread_count ? '<span class="thread-badge-gold">' + thread.unread_count + '</span>' : '') + '</button>';
+                }).join('');
+                unread = Number(data[1].unread_total || unread);
+                dom.mobDirectUnread.textContent = unread;
+                dom.mobDirectUnread.classList.toggle('chat-badge-count--hidden', !unread);
+                updateConversationHeader();
+            }).catch(function () {}).finally(function () { state.refreshing = false; });
+        }
+
+        function loadOlder() {
+            if (state.loading || !state.firstId) return;
+            var epoch = state.epoch;
+            var button = document.getElementById('chatOlder');
+            button.disabled = true;
+            var url = state.mode === 'room' ? '?action=room_messages&room_id=' + state.roomId : '?action=direct_messages&partner_id=' + state.partnerId;
+            fetch(API + url + '&limit=50&before_id=' + state.firstId, { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); }).then(function (data) {
+                    if (epoch !== state.epoch || !data.ok) return;
+                    var offset = dom.messagesArea.scrollHeight - dom.messagesArea.scrollTop;
+                    state.messages = data.messages.concat(state.messages);
+                    if (data.messages.length) state.firstId = Number(data.messages[0].id);
+                    renderMessagesTimeline(state.messages);
+                    dom.messagesArea.scrollTop = dom.messagesArea.scrollHeight - offset;
+                    button.hidden = data.messages.length < 50;
+                }).catch(function () { showToast(strings.connectionError, 'error'); })
+                .finally(function () { button.disabled = false; });
+        }
+
         // Mobile tabs switcher: 'rooms', 'direct', 'active', 'center'
         // Przelacznik widokow mobilnych
         function showMobileSection(section) {
-            if (window.innerWidth > 768) return;
-
-            dom.colLeft.classList.remove('chat-col--active-mob');
-            dom.colCenter.classList.remove('chat-col--active-mob');
-            dom.colRight.classList.remove('chat-col--active-mob');
-
-            if (dom.mobRoomsBtn) dom.mobRoomsBtn.classList.remove('chat-mob-btn--active');
-            if (dom.mobDirectBtn) dom.mobDirectBtn.classList.remove('chat-mob-btn--active');
-            if (dom.mobActiveBtn) dom.mobActiveBtn.classList.remove('chat-mob-btn--active');
-
-            if (section === 'rooms') {
-                dom.colLeft.classList.add('chat-col--active-mob');
-                if (dom.mobRoomsBtn) dom.mobRoomsBtn.classList.add('chat-mob-btn--active');
-            } else if (section === 'direct') {
-                dom.colLeft.classList.add('chat-col--active-mob');
-                if (dom.mobDirectBtn) dom.mobDirectBtn.classList.add('chat-mob-btn--active');
-            } else if (section === 'active') {
-                dom.colRight.classList.add('chat-col--active-mob');
-                if (dom.mobActiveBtn) dom.mobActiveBtn.classList.add('chat-mob-btn--active');
-            } else {
-                dom.colCenter.classList.add('chat-col--active-mob');
-            }
+            var drawer = document.getElementById('chatDrawer');
+            if (drawer.open) drawer.close();
+            if (window.innerWidth > 1024 || section === 'center') return;
+            var column = section === 'active' ? dom.colRight : dom.colLeft;
+            var anchor = document.createComment('chat-column');
+            column.before(anchor);
+            drawer.appendChild(column);
+            document.getElementById('chatDrawerTitle').textContent = section === 'active' ? strings.activePlayers : (section === 'direct' ? strings.private : strings.rooms);
+            drawer.addEventListener('close', function restore() {
+                anchor.replaceWith(column);
+                drawer.removeEventListener('close', restore);
+            });
+            drawer.showModal();
+            if (section === 'direct') dom.directList.scrollIntoView({ block: 'start' });
         }
 
         // Start polling timers
         // Uruchomienie timerow odpytywania
         function startPollingTimers() {
             stopPollingTimers();
-            state.pollTimer = setInterval(pollMessages, 9000);
+            state.pollTimer = setInterval(function () { pollMessages(); refreshLists(); }, 9000);
             state.presenceTimer = setInterval(pollPresence, 30000);
         }
 
@@ -519,6 +630,14 @@
         if (dom.form) {
             dom.form.addEventListener('submit', handleFormSubmit);
         }
+        document.getElementById('chatOlder').addEventListener('click', loadOlder);
+        document.getElementById('chatMoreThreads').addEventListener('click', function () {
+            if (!state.refreshing) { state.threadPages++; refreshLists(); }
+        });
+        document.getElementById('chatNewMessages').addEventListener('click', function () { scrollToBottom(); acknowledge(); });
+        document.getElementById('chatDrawerClose').addEventListener('click', function () { document.getElementById('chatDrawer').close(); });
+        dom.messagesArea.addEventListener('scroll', acknowledge, { passive: true });
+        window.addEventListener('resize', function () { if (window.innerWidth > 1024) showMobileSection('center'); });
 
         if (dom.roomsList) {
             dom.roomsList.addEventListener('click', function (e) {
@@ -567,6 +686,7 @@
                 stopPollingTimers();
             } else {
                 pollMessages();
+                acknowledge();
                 pollPresence();
                 startPollingTimers();
             }
@@ -577,6 +697,8 @@
         updateConversationHeader();
         loadCurrentMessages();
         startPollingTimers();
+        pollPresence();
+        dom.colCenter.classList.add('chat-col--active-mob');
 
         // On mobile, default to center conversation
         // Na urzadzeniach mobilnych domyslnie pokaz srodkowa rozmowe
@@ -676,7 +798,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ message: msg })
+            body: JSON.stringify({ message: msg, csrf_token: widgetForm.elements.csrf_token.value })
         })
             .then(function (r) { return r.json(); })
             .then(function (data) {

@@ -1192,3 +1192,20 @@ Walidacja lokalna: Unit+Integration 836 testow / 8356 asercji OK. MySQL: 317 tes
 - Rozszerzenie schematu jest addytywne: nullable `fee_transaction_id` w obu tabelach wnioskow i archiwum, bootstrap przed transakcja. Nie zmienia uprawnien ani kolejnosci ticka; lock `oilcorp_tick` i liczniki pozostaja bez zmian.
 - Historycznych terminow skasowanych przed poprawka nie odtwarzamy. Wczesniejsze oplaty nadal sa widoczne bez dopisywania decyzji.
 - Regresje: pierwszy wniosek, zakonczony upgrade, cztery wyniki ticka, opozniony zapis oplaty, retry, MySQL i PL/EN przy 320/360/390/768/1024/1440 px. Wycofanie przez revert kodu; dodatkowe nullable kolumny pozostawic, bez usuwania danych.
+
+### Czaty, retencja i dynamiczne jezyki pokoi (2026-10-06)
+
+- `ChatService` obsluguje pelna historie stronami, izolacje rozmow prywatnych,
+  atomowe stany odczytu, limity wysylania oraz pokoje tylko do odczytu.
+- Nazwy i opisy pokoi sa w `chat_room_translations`. Kod jezyka jest zgodny z
+  BCP-47 i nie jest ograniczony do PL/EN/DE; panel pozwala dodac np. `ja`.
+  Stare kolumny pozostaja lustrem kompatybilnosci podczas migracji.
+- Schemat nie powstaje podczas requestu. Po backupie bazy uruchomic najpierw
+  `php tools/migrate_chat.php`, a nastepnie `php tools/migrate_chat.php --apply`.
+  Dopiero po udanej migracji wdrazac kod aplikacji.
+- Tick ukrywa partiami tylko stare wiadomosci publiczne zgodnie z konfiguracja;
+  nie usuwa DM, przypietych wpisow ani identyfikatorow historii.
+- API wymaga POST i CSRF dla mutacji, stosuje limity zadaniowe i nie zwraca
+  technicznych wyjatkow. Moderacja oraz zmiany pokoi sa transakcyjne i audytowane.
+- Wycofanie: przywrocic poprzedni kod, pozostawiajac addytywna tabele tlumaczen
+  i poszerzone kolumny. Nie zwezac kolumn ani nie usuwac danych przy rollbacku.

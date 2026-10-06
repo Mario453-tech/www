@@ -7,6 +7,15 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.room_edit' => 'Edit room',
+    'admin.chat.room_update' => 'Save changes',
+    'admin.chat.room_status_archived' => 'Archived',
+    'admin.chat.err_room_fields' => 'Check the room names, descriptions and settings.',
+    'admin.chat.translation_locale' => 'Language code',
+    'admin.chat.translation_name' => 'Room name',
+    'admin.chat.translation_description' => 'Description',
+    'admin.chat.translation_add' => 'Add translation',
+    'admin.chat.translation_remove' => 'Remove translation',
     'admin.chat.editor_hint' => 'Up to 500 characters including formatting. Bold, italic and lists are supported.',
     'admin.chat.admin_msg_label' => 'Communication',
     'admin.chat.admin_msg_send' => 'Send',

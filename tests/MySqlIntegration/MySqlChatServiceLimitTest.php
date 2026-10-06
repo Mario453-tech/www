@@ -38,6 +38,7 @@ final class MySqlChatServiceLimitTest extends TestCase
         $this->db->exec('CREATE TEMPORARY TABLE chat_rooms (
             id INT PRIMARY KEY,
             slug VARCHAR(50) NOT NULL,
+            status VARCHAR(20) NOT NULL DEFAULT \'active\',
             name_pl VARCHAR(100) NULL,
             name_en VARCHAR(100) NULL,
             name_de VARCHAR(100) NULL
@@ -47,6 +48,10 @@ final class MySqlChatServiceLimitTest extends TestCase
             current_room_slug VARCHAR(50) NULL,
             last_active_at DATETIME NOT NULL,
             is_online TINYINT NOT NULL
+        )');
+        $this->db->exec('CREATE TEMPORARY TABLE chat_room_translations (
+            room_id INT NOT NULL, locale VARCHAR(20) NOT NULL, name VARCHAR(100) NOT NULL,
+            description VARCHAR(255) NULL, PRIMARY KEY (room_id, locale)
         )');
         $this->db->exec('CREATE TEMPORARY TABLE chat_messages (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -71,6 +76,7 @@ final class MySqlChatServiceLimitTest extends TestCase
             (2, 'active', 'Beta', 'beta')");
         $this->db->exec("INSERT INTO chat_rooms (id, slug, name_pl, name_en, name_de)
             VALUES (1, 'polski', 'Polski', 'Polish', 'Polnisch')");
+        $this->db->exec("INSERT INTO chat_room_translations VALUES (1, 'pl', 'Polski', NULL), (1, 'en', 'Polish', NULL)");
         $this->db->exec("INSERT INTO chat_presence (player_id, current_room_slug, last_active_at, is_online) VALUES
             (1, 'polski', NOW(), 1),
             (2, 'polski', NOW(), 1)");
@@ -92,7 +98,7 @@ final class MySqlChatServiceLimitTest extends TestCase
         self::assertCount(1, $this->service->getDirectMessages(1, 2, 0, 1));
 
         $active = $this->service->getActivePlayers(1, 1);
-        self::assertSame(1, $active['total_online']);
+        self::assertSame(2, $active['total_online']);
         self::assertCount(1, $active['players']);
     }
 }

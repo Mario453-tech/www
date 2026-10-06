@@ -17,6 +17,7 @@ declare(strict_types=1);
         <p class="chat-loading"><?= htmlspecialchars(t('chat.loading_messages'), ENT_QUOTES, 'UTF-8') ?></p>
     </div>
     <form class="chat-form" id="chatForm" autocomplete="off">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="text" id="chatInput" class="chat-input"
                placeholder="<?= t('chat.placeholder_widget') ?>"
                maxlength="500" required

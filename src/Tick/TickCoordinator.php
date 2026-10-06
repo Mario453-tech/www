@@ -8,6 +8,7 @@ require_once __DIR__ . '/TickModuleScheduler.php';
 require_once __DIR__ . '/TickRunResult.php';
 require_once __DIR__ . '/TickStatsRepository.php';
 require_once __DIR__ . '/../LogisticsIncidentRetentionService.php';
+require_once __DIR__ . '/../ChatRetentionService.php';
 
 final class TickCoordinator
 {
@@ -312,6 +313,14 @@ final class TickCoordinator
     private function cleanup(): void
     {
         $this->cleanupTickHistoryIfDue();
+        try {
+            $count = (new ChatRetentionService($this->db))->cleanup();
+            if ($count > 0 && class_exists('GameLog', false)) {
+                GameLog::info('tick', 'Chat retention completed', ['messages_hidden' => $count]);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) GameLog::error('tick', 'Chat retention failed', $e);
+        }
 
         try {
             // Use the database clock, matching the timestamps written by the game.

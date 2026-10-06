@@ -13,7 +13,6 @@ class ChatService
     public function __construct(?PDO $db = null)
     {
         $this->db = $db ?? Database::getInstance()->getConnection();
-        ensureChatSchema();
     }
 
     // -------------------------------------------------------------------------
@@ -23,10 +22,10 @@ class ChatService
 
     // Get list of active rooms with member count and unread count for player.
     // Pobierz liste aktywnych pokoi z liczba czlonkow i nieprzeczytanych wiadomosci dla gracza.
+    /** @return list<array<string, mixed>> */
     public function getRooms(int $playerId, string $locale = 'pl'): array
     {
-        $nameCol = in_array($locale, ['en', 'de'], true) ? "name_{$locale}" : 'name_pl';
-        $descCol = in_array($locale, ['en', 'de'], true) ? "description_{$locale}" : 'description_pl';
+        $locale = $this->normalizeLocale($locale);
 
         $sql = "
             SELECT 
@@ -34,8 +33,10 @@ class ChatService
                 r.slug,
                 r.type,
                 r.locale_code,
-                COALESCE(NULLIF(r.{$nameCol}, ''), r.name_pl) AS name,
-                COALESCE(NULLIF(r.{$descCol}, ''), r.description_pl) AS description,
+                COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END),
+                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl) AS name,
+                COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END),
+                    MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl) AS description,
                 r.sort_order,
                 r.status,
                 (
@@ -55,7 +56,7 @@ class ChatService
                     FROM chat_messages cm
                     WHERE cm.room_id = r.id
                       AND cm.is_deleted = 0
-                      AND cm.sender_id != :player_id
+                      AND (cm.sender_id IS NULL OR cm.sender_id != :player_id)
                       AND cm.id > COALESCE((
                           SELECT rs.last_read_message_id
                           FROM chat_read_states rs
@@ -66,12 +67,14 @@ class ChatService
                       ), 0)
                 ) AS unread_count
             FROM chat_rooms r
+            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
             WHERE r.status != 'archived'
+            GROUP BY r.id
             ORDER BY r.sort_order ASC, r.id ASC
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(['player_id' => $playerId]);
+        $stmt->execute(['player_id' => $playerId, 'locale_name' => $locale, 'locale_desc' => $locale]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         return array_map(function ($row) {
@@ -86,10 +89,10 @@ class ChatService
 
     // Get room details by slug.
     // Pobierz szczegoly pokoju po slugu.
+    /** @return array<string, mixed>|null */
     public function getRoomBySlug(string $slug, string $locale = 'pl'): ?array
     {
-        $nameCol = in_array($locale, ['en', 'de'], true) ? "name_{$locale}" : 'name_pl';
-        $descCol = in_array($locale, ['en', 'de'], true) ? "description_{$locale}" : 'description_pl';
+        $locale = $this->normalizeLocale($locale);
 
         $stmt = $this->db->prepare("
             SELECT 
@@ -97,8 +100,10 @@ class ChatService
                 r.slug,
                 r.type,
                 r.locale_code,
-                COALESCE(NULLIF(r.{$nameCol}, ''), r.name_pl) AS name,
-                COALESCE(NULLIF(r.{$descCol}, ''), r.description_pl) AS description,
+                COALESCE(MAX(CASE WHEN rt.locale = :locale_name THEN rt.name END),
+                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl) AS name,
+                COALESCE(MAX(CASE WHEN rt.locale = :locale_desc THEN rt.description END),
+                    MAX(CASE WHEN rt.locale = 'en' THEN rt.description END), r.description_pl) AS description,
                 r.sort_order,
                 r.status,
                 (
@@ -114,10 +119,12 @@ class ChatService
                       AND p.last_active_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
                 ) AS member_count
             FROM chat_rooms r
-            WHERE r.slug = ? AND r.status != 'archived'
+            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
+            WHERE r.slug = :slug AND r.status != 'archived'
+            GROUP BY r.id
             LIMIT 1
         ");
-        $stmt->execute([$slug]);
+        $stmt->execute(['locale_name' => $locale, 'locale_desc' => $locale, 'slug' => $slug]);
         $room = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if (!$room) {
@@ -138,7 +145,8 @@ class ChatService
 
     // Get messages for a given room.
     // Pobierz wiadomosci dla danego pokoju.
-    public function getRoomMessages(int $roomId, int $afterId = 0, int $limit = 50): array
+    /** @return list<array<string, mixed>> */
+    public function getRoomMessages(int $roomId, int $afterId = 0, int $limit = 50, int $beforeId = 0): array
     {
         $limit = max(1, min(100, $limit));
         $params = [$roomId];
@@ -148,6 +156,11 @@ class ChatService
             $whereAfter = 'AND m.id > ?';
             $params[] = $afterId;
         }
+        if ($beforeId > 0) {
+            $whereAfter .= ' AND m.id < ?';
+            $params[] = $beforeId;
+        }
+        $order = $afterId > 0 ? 'ASC' : 'DESC';
 
         $sql = "
             SELECT 
@@ -166,11 +179,12 @@ class ChatService
                 COALESCE(NULLIF(p.company_name, ''), p.username, 'Gracz') AS sender_name,
                 p.avatar_path
             FROM chat_messages m
+            JOIN chat_rooms r ON r.id = m.room_id AND r.status != 'archived'
             LEFT JOIN players p ON p.id = m.sender_id
             WHERE m.room_id = ? 
               AND m.is_deleted = 0
               {$whereAfter}
-            ORDER BY m.id DESC
+            ORDER BY m.id {$order}
             LIMIT {$limit}
         ";
 
@@ -180,14 +194,21 @@ class ChatService
 
         // Reverse to chronological order (oldest to newest)
         // Odwroc do porzadku chronologicznego (od najstarszych do najnowszych)
-        $messages = array_reverse($messages);
+        $messages = $afterId > 0 ? $messages : array_reverse($messages);
 
         return array_map([$this, 'formatMessage'], $messages);
     }
 
     // Send a message to a room.
     // Wyslij wiadomosc do pokoju.
+    /** @return array<string, mixed> */
     public function sendRoomMessage(int $playerId, int $roomId, string $text, bool $isAdmin = false): array
+    {
+        return $this->withSenderLock($playerId, fn () => $this->insertRoomMessage($playerId, $roomId, $text, $isAdmin));
+    }
+
+    /** @return array<string, mixed> */
+    private function insertRoomMessage(int $playerId, int $roomId, string $text, bool $isAdmin): array
     {
         $text = trim($text);
         if ($text === '') {
@@ -201,7 +222,7 @@ class ChatService
         // Sprawdz czy gracz jest wyciszony/zablokowany
         $banReason = $this->checkBanned($playerId);
         if ($banReason !== null) {
-            throw new RuntimeException($banReason);
+            throw new RuntimeException('chat.err_banned');
         }
 
         // Check rate limiting
@@ -230,13 +251,15 @@ class ChatService
         // Wstaw wiadomosc
         $insertStmt = $this->db->prepare("
             INSERT INTO chat_messages (
-                sender_id, channel, room_id, room_slug, message, is_admin, created_at
+                sender_id, username, channel, room_id, room_slug, message, is_admin, created_at
             ) VALUES (
-                ?, 'room', ?, ?, ?, ?, NOW()
+                ?, ?, ?, ?, ?, ?, ?, NOW()
             )
         ");
         $insertStmt->execute([
             $playerId,
+            $this->senderUsername($playerId),
+            $room['slug'] === 'polski' ? 'global' : 'room',
             $roomId,
             $room['slug'],
             $text,
@@ -244,10 +267,6 @@ class ChatService
         ]);
 
         $messageId = (int) $this->db->lastInsertId();
-
-        // Mark room as read for the sender
-        // Oznacz pokoj jako przeczytany dla nadawcy
-        $this->markAsRead($playerId, 'room', $roomId, $messageId);
 
         // Fetch formatted message
         // Pobierz sformatowana wiadomosc
@@ -285,8 +304,10 @@ class ChatService
 
     // Get list of direct conversation partners for player.
     // Pobierz liste rozmow prywatnych gracza z ostatnia wiadomoscia i licznikiem nieprzeczytanych.
-    public function getDirectThreads(int $playerId): array
+    /** @return list<array<string, mixed>> */
+    public function getDirectThreads(int $playerId, int $page = 1): array
     {
+        $offset = (max(1, min(10000, $page)) - 1) * 50;
         $sql = "
             SELECT 
                 p.id AS partner_id,
@@ -340,7 +361,7 @@ class ChatService
                 ) m2 ON m1.id = m2.max_id
             ) last_msg ON last_msg.pid = p.id
             ORDER BY COALESCE(last_msg.id, 0) DESC, p.id ASC
-            LIMIT 50
+            LIMIT 50 OFFSET {$offset}
         ";
 
         $stmt = $this->db->prepare($sql);
@@ -376,9 +397,21 @@ class ChatService
         }, $rows);
     }
 
+    public function getDirectUnreadCount(int $playerId): int
+    {
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM chat_messages m
+            LEFT JOIN chat_read_states r ON r.player_id = m.receiver_id AND r.conversation_type = 'direct'
+                AND r.conversation_id = m.sender_id
+            WHERE m.channel = 'private' AND m.receiver_id = ? AND m.is_deleted = 0
+                AND m.id > COALESCE(r.last_read_message_id, 0)");
+        $stmt->execute([$playerId]);
+        return (int) $stmt->fetchColumn();
+    }
+
     // Get direct messages between two players.
     // Pobierz wiadomosci prywatne pomiedzy dwoma graczami.
-    public function getDirectMessages(int $playerId, int $partnerId, int $afterId = 0, int $limit = 50): array
+    /** @return list<array<string, mixed>> */
+    public function getDirectMessages(int $playerId, int $partnerId, int $afterId = 0, int $limit = 50, int $beforeId = 0): array
     {
         $limit = max(1, min(100, $limit));
         $params = [$playerId, $partnerId, $partnerId, $playerId];
@@ -388,6 +421,11 @@ class ChatService
             $whereAfter = 'AND m.id > ?';
             $params[] = $afterId;
         }
+        if ($beforeId > 0) {
+            $whereAfter .= ' AND m.id < ?';
+            $params[] = $beforeId;
+        }
+        $order = $afterId > 0 ? 'ASC' : 'DESC';
 
         $sql = "
             SELECT 
@@ -408,7 +446,7 @@ class ChatService
               AND m.is_deleted = 0
               AND ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?))
               {$whereAfter}
-            ORDER BY m.id DESC
+            ORDER BY m.id {$order}
             LIMIT {$limit}
         ";
 
@@ -416,13 +454,35 @@ class ChatService
         $stmt->execute($params);
         $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        $messages = array_reverse($messages);
+        $messages = $afterId > 0 ? $messages : array_reverse($messages);
         return array_map([$this, 'formatMessage'], $messages);
     }
 
     // Send a direct message to a player.
     // Wyslij wiadomosc prywatna do gracza.
+    /** @return array<string, mixed> */
     public function sendDirectMessage(int $playerId, int $partnerId, string $text): array
+    {
+        return $this->withSenderLock($playerId, fn () => $this->insertDirectMessage($playerId, $partnerId, $text));
+    }
+
+    /** @param array<string, mixed> $attachment
+     * @return array<string, mixed>
+     */
+    public function sendDirectAttachment(int $playerId, int $partnerId, string $text, array $attachment): array
+    {
+        return $this->withSenderLock($playerId, function () use ($playerId, $partnerId, $text, $attachment): array {
+            $message = $this->insertDirectMessage($playerId, $partnerId, $text !== '' ? $text : t('chat.attachment_photo'));
+            $stmt = $this->db->prepare("UPDATE chat_messages SET message = ?, attachment_path = ?, attachment_name = ?,
+                attachment_type = ?, attachment_size = ? WHERE id = ? AND sender_id = ? AND receiver_id = ? AND channel = 'private'");
+            $stmt->execute([$text, $attachment['attachment_path'], $attachment['attachment_name'], $attachment['attachment_type'],
+                $attachment['attachment_size'], $message['id'], $playerId, $partnerId]);
+            return $message;
+        });
+    }
+
+    /** @return array<string, mixed> */
+    private function insertDirectMessage(int $playerId, int $partnerId, string $text): array
     {
         if ($playerId === $partnerId) {
             throw new InvalidArgumentException('chat.err_cannot_message_self');
@@ -440,7 +500,7 @@ class ChatService
         // Sprawdz czy nadawca jest zablokowany
         $banReason = $this->checkBanned($playerId);
         if ($banReason !== null) {
-            throw new RuntimeException($banReason);
+            throw new RuntimeException('chat.err_banned');
         }
 
         // Check rate limiting
@@ -451,7 +511,7 @@ class ChatService
 
         // Check if partner exists
         // Sprawdz czy partner istnieje
-        $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ? LIMIT 1");
+        $stmt = $this->db->prepare("SELECT id FROM players WHERE id = ? AND status = 'active' LIMIT 1");
         $stmt->execute([$partnerId]);
         if (!$stmt->fetchColumn()) {
             throw new InvalidArgumentException('chat.err_partner_not_found');
@@ -461,17 +521,24 @@ class ChatService
         // Wstaw wiadomosc
         $insertStmt = $this->db->prepare("
             INSERT INTO chat_messages (
-                sender_id, receiver_id, channel, message, created_at
+                sender_id, receiver_id, username, channel, message, created_at
             ) VALUES (
-                ?, ?, 'private', ?, NOW()
+                ?, ?, ?, 'private', ?, NOW()
             )
         ");
-        $insertStmt->execute([$playerId, $partnerId, $text]);
+        $existing = $this->db->prepare("SELECT id FROM chat_messages WHERE channel = 'private'
+            AND ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) LIMIT 1");
+        $existing->execute([$playerId, $partnerId, $partnerId, $playerId]);
+        if (!$existing->fetchColumn()) {
+            $count = $this->db->prepare("SELECT COUNT(DISTINCT receiver_id) FROM chat_messages
+                WHERE sender_id = ? AND channel = 'private' AND created_at > DATE_SUB(NOW(), INTERVAL 1 HOUR)");
+            $count->execute([$playerId]);
+            if ((int) $count->fetchColumn() >= 10) {
+                throw new RuntimeException('chat.err_thread_limit');
+            }
+        }
+        $insertStmt->execute([$playerId, $partnerId, $this->senderUsername($playerId), $text]);
         $messageId = (int) $this->db->lastInsertId();
-
-        // Mark as read for the sender
-        // Oznacz jako przeczytane dla nadawcy
-        $this->markAsRead($playerId, 'direct', $partnerId, $messageId);
 
         // Fetch formatted message
         // Pobierz sformatowana wiadomosc
@@ -508,7 +575,9 @@ class ChatService
     // Aktualizuj obecnosc gracza w pokoju.
     public function updatePresence(int $playerId, ?string $roomSlug = null): void
     {
-        $roomSlug = $roomSlug ?: 'polski';
+        if ($roomSlug !== null && $this->getRoomBySlug($roomSlug) === null) {
+            throw new InvalidArgumentException('chat.err_room_not_found');
+        }
         $stmt = $this->db->prepare("
             INSERT INTO chat_presence (player_id, current_room_slug, last_active_at, is_online)
             VALUES (?, ?, NOW(), 1)
@@ -522,49 +591,53 @@ class ChatService
 
     // Get list of active players and recent players.
     // Pobierz liste aktywnych graczy oraz ostatnio aktywnych.
-    public function getActivePlayers(int $currentUserId, int $limit = 20): array
+    /** @return array{total_online:int,players:list<array<string,mixed>>} */
+    public function getActivePlayers(int $currentUserId, int $limit = 20, string $locale = 'pl'): array
     {
         $limit = max(1, min(100, $limit));
+        $locale = $this->normalizeLocale($locale);
         $sql = "
             SELECT 
                 p.id,
                 COALESCE(NULLIF(p.company_name, ''), p.username, 'Gracz') AS name,
                 p.avatar_path,
                 cp.current_room_slug,
+                cp.is_online,
                 cp.last_active_at,
-                r.name_pl AS room_name_pl,
-                r.name_en AS room_name_en,
-                r.name_de AS room_name_de
+                COALESCE(MAX(CASE WHEN rt.locale = :locale THEN rt.name END),
+                    MAX(CASE WHEN rt.locale = 'en' THEN rt.name END), r.name_pl, '') AS room_name
             FROM chat_presence cp
             JOIN players p ON p.id = cp.player_id
             LEFT JOIN chat_rooms r ON r.slug = cp.current_room_slug
+            LEFT JOIN chat_room_translations rt ON rt.room_id = r.id
             WHERE p.status = 'active'
               AND cp.last_active_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            GROUP BY p.id, p.company_name, p.username, p.avatar_path, cp.current_room_slug,
+                cp.is_online, cp.last_active_at, r.name_pl
             ORDER BY cp.last_active_at DESC
             LIMIT {$limit}
         ";
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+        $stmt->execute(['locale' => $locale]);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $now = time();
-        $totalOnline = 0;
+        $totalOnline = (int) $this->db->query("SELECT COUNT(*) FROM chat_presence cp
+            JOIN players p ON p.id = cp.player_id WHERE p.status = 'active' AND cp.is_online = 1
+            AND cp.last_active_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)")->fetchColumn();
 
-        $list = array_map(function ($row) use ($now, &$totalOnline) {
+        $list = array_map(function ($row) use ($now) {
             $lastActiveTs = strtotime((string) $row['last_active_at']);
-            $isOnline = ($lastActiveTs !== false && ($now - $lastActiveTs) <= 300);
-            if ($isOnline) {
-                $totalOnline++;
-            }
+            $isOnline = (bool) $row['is_online'] && ($lastActiveTs !== false && ($now - $lastActiveTs) <= 300);
 
             return [
                 'id' => (int) $row['id'],
                 'name' => (string) $row['name'],
                 'avatar_path' => $row['avatar_path'] ? (string) $row['avatar_path'] : null,
                 'is_online' => $isOnline,
-                'room_slug' => $row['current_room_slug'] ? (string) $row['current_room_slug'] : 'polski',
-                'room_name' => $row['room_name_pl'] ?: ucfirst((string) ($row['current_room_slug'] ?? 'Polski')),
+                'room_slug' => $row['current_room_slug'],
+                'room_name' => (string) ($row['room_name'] ?? ''),
             ];
         }, $rows);
 
@@ -583,34 +656,58 @@ class ChatService
     // Oznacz pokoj lub rozmowe prywatna jako przeczytana do danego ID wiadomosci.
     public function markAsRead(int $playerId, string $type, int $convId, int $lastId): void
     {
-        if ($convId <= 0 || $lastId <= 0) {
-            return;
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) {
+            $this->db->beginTransaction();
         }
+        try {
+            if ($convId <= 0 || $lastId <= 0 || !in_array($type, ['room', 'direct'], true)) {
+                throw new InvalidArgumentException('chat.err_invalid_read');
+            }
+            if ($type === 'direct') {
+                $check = $this->db->prepare("SELECT id FROM chat_messages WHERE id = ? AND channel = 'private'
+                    AND is_deleted = 0 AND ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))");
+                $check->execute([$lastId, $playerId, $convId, $convId, $playerId]);
+            } else {
+                $check = $this->db->prepare("SELECT m.id FROM chat_messages m JOIN chat_rooms r ON r.id = m.room_id
+                    WHERE m.id = ? AND m.room_id = ? AND m.is_deleted = 0 AND r.status != 'archived'");
+                $check->execute([$lastId, $convId]);
+            }
+            if (!$check->fetchColumn()) {
+                throw new InvalidArgumentException('chat.err_invalid_read');
+            }
 
-        $type = ($type === 'direct') ? 'direct' : 'room';
-
-        $stmt = $this->db->prepare("
-            INSERT INTO chat_read_states (
-                player_id, conversation_type, conversation_id, last_read_message_id, last_read_at, updated_at
-            ) VALUES (
-                ?, ?, ?, ?, NOW(), NOW()
-            )
-            ON DUPLICATE KEY UPDATE 
-                last_read_message_id = GREATEST(last_read_message_id, VALUES(last_read_message_id)),
-                last_read_at = NOW(),
-                updated_at = NOW()
-        ");
-        $stmt->execute([$playerId, $type, $convId, $lastId]);
-
-        // Keep backward compatibility with chat_conversation_reads for legacy DM
-        // Zachowaj kompatybilnosc wsteczna z chat_conversation_reads
-        if ($type === 'direct') {
-            $legacyStmt = $this->db->prepare("
-                INSERT INTO chat_conversation_reads (player_id, partner_id, last_read_message_id)
-                VALUES (?, ?, ?)
-                ON DUPLICATE KEY UPDATE last_read_message_id = GREATEST(last_read_message_id, VALUES(last_read_message_id))
+            $stmt = $this->db->prepare("
+                INSERT INTO chat_read_states (
+                    player_id, conversation_type, conversation_id, last_read_message_id, last_read_at, updated_at
+                ) VALUES (
+                    ?, ?, ?, ?, NOW(), NOW()
+                )
+                ON DUPLICATE KEY UPDATE
+                    last_read_message_id = GREATEST(last_read_message_id, VALUES(last_read_message_id)),
+                    last_read_at = NOW(),
+                    updated_at = NOW()
             ");
-            $legacyStmt->execute([$playerId, $convId, $lastId]);
+            $stmt->execute([$playerId, $type, $convId, $lastId]);
+
+            // Keep backward compatibility with chat_conversation_reads for legacy DM.
+            // Zachowaj kompatybilnosc wsteczna z chat_conversation_reads.
+            if ($type === 'direct') {
+                $legacyStmt = $this->db->prepare("
+                    INSERT INTO chat_conversation_reads (player_id, partner_id, last_read_message_id)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE last_read_message_id = GREATEST(last_read_message_id, VALUES(last_read_message_id))
+                ");
+                $legacyStmt->execute([$playerId, $convId, $lastId]);
+            }
+            if ($ownsTransaction) {
+                $this->db->commit();
+            }
+        } catch (Throwable $e) {
+            if ($ownsTransaction && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
         }
     }
 
@@ -621,96 +718,195 @@ class ChatService
 
     // Create a new chat room (admin only).
     // Utworz nowy pokoj czatu (tylko administrator).
+    /** @param list<array{locale:mixed,name:mixed,description?:mixed}> $translations */
     public function createRoom(
         int $adminId,
         string $slug,
         string $type,
         ?string $localeCode,
-        string $namePl,
-        string $nameEn,
-        string $nameDe,
-        ?string $descPl,
-        ?string $descEn,
-        ?string $descDe,
+        array $translations,
         int $sortOrder = 0,
         string $status = 'active'
     ): int {
-        $slug = preg_replace('/[^a-z0-9_-]/', '', strtolower(trim($slug)));
-        if ($slug === '') {
+        $slug = strtolower(trim($slug));
+        if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/D', $slug) || strlen($slug) > 50) {
             throw new InvalidArgumentException('admin.chat.err_invalid_slug');
         }
-
-        $stmt = $this->db->prepare("
-            INSERT INTO chat_rooms (
-                slug, type, locale_code, name_pl, name_en, name_de, 
-                description_pl, description_en, description_de, 
-                sort_order, status, created_by, created_at, updated_at
-            ) VALUES (
-                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW()
-            )
-        ");
-        $stmt->execute([
-            $slug,
-            in_array($type, ['language', 'custom', 'system'], true) ? $type : 'custom',
-            $localeCode ?: null,
-            trim($namePl),
-            trim($nameEn),
-            trim($nameDe),
-            $descPl ? trim($descPl) : null,
-            $descEn ? trim($descEn) : null,
-            $descDe ? trim($descDe) : null,
-            $sortOrder,
-            in_array($status, ['active', 'read_only'], true) ? $status : 'active',
-            $adminId,
-        ]);
-
-        $roomId = (int) $this->db->lastInsertId();
-
-        $this->logModerationAction($adminId, 'room_created', 'room', $roomId, "Utworzono pokoj: {$slug}");
-        return $roomId;
+        if ($sortOrder < 0 || $sortOrder > 9999 || !in_array($status, ['active', 'read_only'], true)) {
+            throw new InvalidArgumentException('admin.chat.err_room_fields');
+        }
+        $localeCode = $localeCode !== null && trim($localeCode) !== ''
+            ? strtolower(str_replace('_', '-', trim($localeCode))) : null;
+        $this->validateRoomMetadata($type, $localeCode, $status);
+        $translations = $this->normalizeTranslations($translations);
+        $legacy = $this->legacyTranslations($translations);
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) $this->db->beginTransaction();
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO chat_rooms (
+                    slug, type, locale_code, name_pl, name_en, name_de,
+                    description_pl, description_en, description_de,
+                    sort_order, status, created_by, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ");
+            $stmt->execute([
+                $slug, $type, $localeCode,
+                $legacy['pl']['name'], $legacy['en']['name'], $legacy['de']['name'],
+                $legacy['pl']['description'], $legacy['en']['description'], $legacy['de']['description'],
+                $sortOrder, $status, $adminId,
+            ]);
+            $roomId = (int) $this->db->lastInsertId();
+            $this->saveRoomTranslations($roomId, $translations, false);
+            $this->logModerationAction($adminId, 'room_created', 'room', $roomId, "Created room: {$slug}");
+            if ($ownsTransaction) $this->db->commit();
+            return $roomId;
+        } catch (Throwable $e) {
+            if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
     }
 
     // Update existing room.
     // Zaktualizuj istniejacy pokoj.
+    /** @param list<array{locale:mixed,name:mixed,description?:mixed}> $translations */
     public function updateRoom(
         int $adminId,
         int $roomId,
-        string $namePl,
-        string $nameEn,
-        string $nameDe,
-        ?string $descPl,
-        ?string $descEn,
-        ?string $descDe,
+        array $translations,
         int $sortOrder,
-        string $status
+        string $status,
+        string $type = 'custom',
+        ?string $localeCode = null
     ): void {
-        $stmt = $this->db->prepare("
-            UPDATE chat_rooms
-            SET 
-                name_pl = ?,
-                name_en = ?,
-                name_de = ?,
-                description_pl = ?,
-                description_en = ?,
-                description_de = ?,
-                sort_order = ?,
-                status = ?,
-                updated_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->execute([
-            trim($namePl),
-            trim($nameEn),
-            trim($nameDe),
-            $descPl ? trim($descPl) : null,
-            $descEn ? trim($descEn) : null,
-            $descDe ? trim($descDe) : null,
-            $sortOrder,
-            in_array($status, ['active', 'read_only', 'archived'], true) ? $status : 'active',
-            $roomId,
-        ]);
+        if ($sortOrder < 0 || $sortOrder > 9999) throw new InvalidArgumentException('admin.chat.err_room_fields');
+        $localeCode = $localeCode !== null && trim($localeCode) !== ''
+            ? strtolower(str_replace('_', '-', trim($localeCode))) : null;
+        $this->validateRoomMetadata($type, $localeCode, $status);
+        $translations = $this->normalizeTranslations($translations);
+        $legacy = $this->legacyTranslations($translations);
+        $ownsTransaction = !$this->db->inTransaction();
+        if ($ownsTransaction) $this->db->beginTransaction();
+        try {
+            $exists = $this->db->prepare('SELECT id FROM chat_rooms WHERE id = ? FOR UPDATE');
+            $exists->execute([$roomId]);
+            if (!$exists->fetchColumn()) throw new InvalidArgumentException('chat.err_room_not_found');
+            $stmt = $this->db->prepare("
+                UPDATE chat_rooms SET
+                    name_pl = ?, name_en = ?, name_de = ?,
+                    description_pl = ?, description_en = ?, description_de = ?, sort_order = ?,
+                    archived_at = CASE WHEN ? = 'archived' THEN COALESCE(archived_at, NOW()) ELSE NULL END,
+                    status = ?, type = ?, locale_code = ?, updated_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([
+                $legacy['pl']['name'], $legacy['en']['name'], $legacy['de']['name'],
+                $legacy['pl']['description'], $legacy['en']['description'], $legacy['de']['description'],
+                $sortOrder, $status, $status, $type, $localeCode, $roomId,
+            ]);
+            $this->saveRoomTranslations($roomId, $translations, true);
+            $this->logModerationAction($adminId, 'room_updated', 'room', $roomId, "Updated room #{$roomId}");
+            if ($ownsTransaction) $this->db->commit();
+        } catch (Throwable $e) {
+            if ($ownsTransaction && $this->db->inTransaction()) $this->db->rollBack();
+            throw $e;
+        }
+    }
 
-        $this->logModerationAction($adminId, 'room_updated', 'room', $roomId, "Zaktualizowano pokoj ID: {$roomId}");
+    private function validateRoomMetadata(string $type, ?string $locale, string $status): void
+    {
+        if (!in_array($type, ['language', 'custom', 'system'], true)
+            || !in_array($status, ['active', 'read_only', 'archived'], true)
+            || ($locale && !preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/D', $locale))) {
+            throw new InvalidArgumentException('admin.chat.err_room_fields');
+        }
+    }
+
+    /**
+     * @param list<int> $roomIds
+     * @return array<int, list<array{locale:string,name:string,description:?string}>>
+     */
+    public function getRoomTranslations(array $roomIds): array
+    {
+        $roomIds = array_values(array_unique(array_filter(array_map('intval', $roomIds), static fn (int $id): bool => $id > 0)));
+        if ($roomIds === []) return [];
+        $placeholders = implode(',', array_fill(0, count($roomIds), '?'));
+        $stmt = $this->db->prepare("SELECT room_id, locale, name, description
+            FROM chat_room_translations WHERE room_id IN ({$placeholders}) ORDER BY locale ASC");
+        $stmt->execute($roomIds);
+        $result = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $result[(int) $row['room_id']][] = [
+                'locale' => (string) $row['locale'],
+                'name' => (string) $row['name'],
+                'description' => $row['description'] !== null ? (string) $row['description'] : null,
+            ];
+        }
+        return $result;
+    }
+
+    private function normalizeLocale(string $locale): string
+    {
+        $locale = strtolower(str_replace('_', '-', trim($locale)));
+        return preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/D', $locale) ? $locale : 'en';
+    }
+
+    /**
+     * @param list<array{locale:mixed,name:mixed,description?:mixed}> $rows
+     * @return array<string, array{name:string,description:?string}>
+     */
+    private function normalizeTranslations(array $rows): array
+    {
+        $translations = [];
+        foreach ($rows as $row) {
+            if (!is_array($row)) throw new InvalidArgumentException('admin.chat.err_room_fields');
+            $rawLocale = trim((string) ($row['locale'] ?? ''));
+            $name = trim((string) ($row['name'] ?? ''));
+            $description = trim((string) ($row['description'] ?? ''));
+            if ($rawLocale === '' && $name === '' && $description === '') continue;
+            $locale = strtolower(str_replace('_', '-', $rawLocale));
+            if (!preg_match('/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/D', $locale)
+                || isset($translations[$locale]) || $name === '' || mb_strlen($name) > 100
+                || mb_strlen($description) > 255) {
+                throw new InvalidArgumentException('admin.chat.err_room_fields');
+            }
+            $translations[$locale] = ['name' => $name, 'description' => $description !== '' ? $description : null];
+        }
+        if ($translations === []) throw new InvalidArgumentException('admin.chat.err_room_fields');
+        return $translations;
+    }
+
+    /**
+     * @param array<string, array{name:string,description:?string}> $translations
+     * @return array{pl:array{name:string,description:?string},en:array{name:string,description:?string},de:array{name:string,description:?string}}
+     */
+    private function legacyTranslations(array $translations): array
+    {
+        $first = reset($translations);
+        $fallback = $translations['en'] ?? $translations['pl'] ?? $first;
+        return [
+            'pl' => $translations['pl'] ?? $fallback,
+            'en' => $translations['en'] ?? $fallback,
+            'de' => $translations['de'] ?? $fallback,
+        ];
+    }
+
+    /** @param array<string, array{name:string,description:?string}> $translations */
+    private function saveRoomTranslations(int $roomId, array $translations, bool $replace): void
+    {
+        $stmt = $this->db->prepare("INSERT INTO chat_room_translations
+            (room_id, locale, name, description, created_at, updated_at)
+            VALUES (?, ?, ?, ?, NOW(), NOW())
+            ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description), updated_at = NOW()");
+        foreach ($translations as $locale => $translation) {
+            $stmt->execute([$roomId, $locale, $translation['name'], $translation['description']]);
+        }
+        if ($replace) {
+            $placeholders = implode(',', array_fill(0, count($translations), '?'));
+            $delete = $this->db->prepare("DELETE FROM chat_room_translations
+                WHERE room_id = ? AND locale NOT IN ({$placeholders})");
+            $delete->execute(array_merge([$roomId], array_keys($translations)));
+        }
     }
 
     // Archive room (soft delete).
@@ -724,7 +920,7 @@ class ChatService
         ");
         $stmt->execute([$roomId]);
 
-        $this->logModerationAction($adminId, 'room_archived', 'room', $roomId, $reason ?? 'Archiwizacja pokoju');
+        $this->logModerationAction($adminId, 'room_archived', 'room', $roomId, $reason ?? 'Archived room');
     }
 
     // Hide message (moderator action).
@@ -774,16 +970,22 @@ class ChatService
     // Zaloguj akcje moderacyjna.
     private function logModerationAction(int $actorId, string $action, string $targetType, int $targetId, ?string $reason): void
     {
-        try {
-            $stmt = $this->db->prepare("
+        $stmt = $this->db->prepare("
                 INSERT INTO chat_moderation_actions (actor_id, action, target_type, target_id, reason, created_at)
                 VALUES (?, ?, ?, ?, ?, NOW())
             ");
             $stmt->execute([$actorId, $action, $targetType, $targetId, $reason]);
-        } catch (Throwable) {
-            // Log fallback silently
-            // Cichy fallback logowania
+    }
+
+    public function recordAdminAction(int $adminId, string $action, int $targetId): void
+    {
+        $targetType = str_contains($action, 'room') ? 'room' : 'player';
+        if (in_array($action, ['delete_msg', 'pin_msg', 'unpin_msg'], true)) {
+            $stmt = $this->db->prepare('SELECT channel FROM chat_messages WHERE id = ?');
+            $stmt->execute([$targetId]);
+            $targetType = $stmt->fetchColumn() === 'private' ? 'direct_message' : 'room_message';
         }
+        $this->logModerationAction($adminId, $action, $targetType, $targetId, 'Applied via admin panel');
     }
 
     // -------------------------------------------------------------------------
@@ -793,6 +995,9 @@ class ChatService
 
     // Format single message row for API output.
     // Formatuj pojedynczy wiersz wiadomosci dla wyjscia API.
+    /** @param array<string, mixed> $m
+     * @return array<string, mixed>
+     */
     private function formatMessage(array $m): array
     {
         $ts = strtotime((string) $m['created_at']);
@@ -824,7 +1029,6 @@ class ChatService
     // Sprawdz czy gracz jest zablokowany.
     public function checkBanned(int $playerId): ?string
     {
-        try {
             $stmt = $this->db->prepare("SELECT reason, expires_at FROM chat_bans WHERE player_id = ? LIMIT 1");
             $stmt->execute([$playerId]);
             $ban = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -834,14 +1038,45 @@ class ChatService
             }
 
             if ($ban['expires_at'] !== null && strtotime((string) $ban['expires_at']) <= time()) {
-                $this->db->prepare("DELETE FROM chat_bans WHERE player_id = ?")->execute([$playerId]);
                 return null;
             }
 
-            return $ban['reason'] ?: 'Blokada czatu';
-        } catch (Throwable) {
-            return null;
+            return $ban['reason'] ?: 'chat.err_banned';
+    }
+
+    /** @return array<string, mixed> */
+    private function withSenderLock(int $playerId, callable $operation): array
+    {
+        $owns = !$this->db->inTransaction();
+        if ($owns) {
+            $this->db->beginTransaction();
         }
+        try {
+            // Serialize rate checks with writes. / Serializuj limit z zapisem.
+            $suffix = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '';
+            $lock = $this->db->prepare("SELECT id FROM players WHERE id = ? AND status = 'active'" . $suffix);
+            $lock->execute([$playerId]);
+            if (!$lock->fetchColumn()) {
+                throw new InvalidArgumentException('chat.err_partner_not_found');
+            }
+            $result = $operation();
+            if ($owns) {
+                $this->db->commit();
+            }
+            return $result;
+        } catch (Throwable $e) {
+            if ($owns && $this->db->inTransaction()) {
+                $this->db->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    private function senderUsername(int $playerId): string
+    {
+        $stmt = $this->db->prepare('SELECT username FROM players WHERE id = ?');
+        $stmt->execute([$playerId]);
+        return (string) $stmt->fetchColumn();
     }
 
     // Check rate limit: max 5 messages in 10 seconds.

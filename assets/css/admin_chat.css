@@ -132,6 +132,31 @@
     flex: 1;
     min-width: 180px;
 }
+.config-row.is-disabled {
+    opacity: .45;
+    pointer-events: none;
+}
+.admin-room-translations {
+    display: grid;
+    gap: 12px;
+    margin: 12px 0;
+}
+.admin-room-translation {
+    display: grid;
+    grid-template-columns: minmax(90px, .45fr) minmax(160px, 1fr) minmax(180px, 1.4fr) auto;
+    gap: 10px;
+    align-items: end;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+@media (max-width: 760px) {
+    .admin-room-translation {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .admin-room-translation .btn {
+        min-height: 44px;
+    }
+}
 .admin-audit-list {
     display: flex;
     flex-direction: column;

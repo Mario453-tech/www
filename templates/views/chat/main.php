@@ -13,6 +13,7 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
 ?>
 
 <div class="chat-container">
+    <?php if ($flash !== ''): ?><p role="status"><?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
     <!-- Page Header bar matching vector mockup -->
     <!-- Pasek naglowka strony zgodny z makieta wektorowa -->
     <header class="chat-header-bar">
@@ -31,15 +32,15 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
 
     <!-- Mobile Navigation Switcher for narrow screens (< 1024px) -->
     <!-- Przelacznik nawigacji mobilnej dla waskich ekranow (< 1024px) -->
-    <div class="chat-mobile-nav" role="tablist" aria-label="<?= t('chat.page_title') ?>">
-        <button type="button" class="chat-mob-btn chat-mob-btn--active" id="chatMobRoomsBtn" role="tab" aria-selected="true">
+    <div class="chat-mobile-nav" aria-label="<?= t('chat.page_title') ?>">
+        <button type="button" class="chat-mob-btn" id="chatMobRoomsBtn" aria-haspopup="dialog" aria-controls="chatDrawer">
             <?= t('chat.btn_rooms') ?>
         </button>
-        <button type="button" class="chat-mob-btn" id="chatMobDirectBtn" role="tab" aria-selected="false">
+        <button type="button" class="chat-mob-btn" id="chatMobDirectBtn" aria-haspopup="dialog" aria-controls="chatDrawer">
             <?= t('chat.btn_private') ?>
             <span class="chat-badge-count chat-badge-count--hidden" id="chatMobDirectUnread">0</span>
         </button>
-        <button type="button" class="chat-mob-btn" id="chatMobActiveBtn" role="tab" aria-selected="false">
+        <button type="button" class="chat-mob-btn" id="chatMobActiveBtn" aria-haspopup="dialog" aria-controls="chatDrawer">
             <?= t('chat.btn_active') ?>
             <span class="chat-badge-count" id="chatMobOnlineBadge"><?= $totalOnline ?></span>
         </button>
@@ -115,6 +116,7 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
                 </div>
 
                 <!-- Admin info box at bottom of left column -->
+                <button type="button" id="chatMoreThreads" class="chat-history-button" <?= count($directThreads) < 50 ? 'hidden' : '' ?>><?= t('chat.more_threads') ?></button>
                 <div class="chat-admin-box">
                     <span class="chat-admin-box__label"><?= t('chat.admin_box_title') ?></span>
                     <p class="chat-admin-box__desc"><?= t('chat.admin_box_desc') ?></p>
@@ -141,21 +143,38 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
             </div>
 
             <!-- Messages Timeline Area -->
-            <section class="chat-messages-area" id="chatMessagesArea" role="log" aria-live="polite">
-                <div class="chat-loading-indicator" id="chatLoadingIndicator">
-                    <span><?= t('chat.loading_messages') ?></span>
-                </div>
+            <button type="button" id="chatOlder" class="chat-history-button" hidden><?= t('chat.load_older') ?></button>
+            <section class="chat-messages-area" id="chatMessagesArea" role="log" aria-live="polite" aria-label="<?= t('chat.title') ?>">
+                <?php foreach ($history as $message): ?>
+                <article class="chat-msg-row <?= $message['sender_id'] === $playerId ? 'chat-msg-row--mine' : 'chat-msg-row--other' ?>">
+                    <div class="chat-msg-body-wrapper">
+                        <header class="chat-msg-header"><span><?= htmlspecialchars($message['sender_name'], ENT_QUOTES, 'UTF-8') ?></span> <time><?= htmlspecialchars($message['time'], ENT_QUOTES, 'UTF-8') ?></time></header>
+                        <div class="chat-msg-bubble"><?= htmlspecialchars($message['message'], ENT_QUOTES, 'UTF-8') ?></div>
+                    </div>
+                </article>
+                <?php endforeach; ?>
             </section>
+            <button type="button" id="chatNewMessages" class="chat-history-button" hidden><?= t('chat.new_messages') ?></button>
+            <p id="chatReadOnly" <?= ($activeRoom['status'] ?? '') === 'read_only' && !$withPartnerId ? '' : 'hidden' ?>><?= t('chat.read_only_room') ?></p>
+            <noscript>
+                <?php if (count($history) === 50): ?>
+                <a href="?<?= htmlspecialchars(http_build_query(['room' => $activeRoomSlug, 'with' => $withPartnerId, 'before_id' => $history[0]['id']]), ENT_QUOTES, 'UTF-8') ?>"><?= t('chat.load_older') ?></a>
+                <?php endif; ?>
+            </noscript>
 
             <!-- Bottom Floating / Sticky Input Bar -->
-            <form class="chat-composer" id="chatComposer" autocomplete="off">
+            <form class="chat-composer" id="chatComposer" method="post" action="/chat" autocomplete="off" <?= ($activeRoom['status'] ?? '') === 'read_only' && !$withPartnerId ? 'hidden' : '' ?>>
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(CSRF::generateToken(), ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="room_slug" value="<?= htmlspecialchars($activeRoomSlug, ENT_QUOTES, 'UTF-8') ?>">
+                <input type="hidden" name="partner_id" value="<?= (int) $withPartnerId ?>">
+                <label for="chatMsgInput" class="chat-input-label"><?= t('chat.input_aria') ?></label>
                 <div class="chat-composer-row">
-                    <input type="text"
+                    <textarea name="message" rows="2"
                            id="chatMsgInput"
                            class="chat-composer-input"
                            maxlength="1000"
                            placeholder="<?= $withPartnerId ? t('chat.placeholder_direct', ['player' => $withPartnerName]) : t('chat.placeholder_room', ['room' => $activeRoomName]) ?>"
-                           required>
+                           required></textarea>
                     <button type="submit" class="chat-composer-btn" id="chatSendBtn">
                         <?= t('chat.send') ?>
                     </button>
@@ -205,16 +224,22 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
             </div>
         </aside>
     </div>
+    <dialog id="chatDrawer" class="chat-drawer" aria-labelledby="chatDrawerTitle">
+        <header class="chat-drawer-heading"><h2 id="chatDrawerTitle"><?= t('chat.rooms') ?></h2>
+            <button type="button" id="chatDrawerClose" aria-label="<?= t('chat.close') ?>">&#215;</button>
+        </header>
+    </dialog>
 </div>
 
-<script>
-window.CHAT_CONFIG = <?= json_encode([
+<div id="chatConfig" hidden data-config="<?= htmlspecialchars(json_encode([
     'api' => '/src/ChatApi.php',
     'playerId' => (int) $playerId,
     'csrfToken' => CSRF::generateToken(),
     'locale' => (string) $locale,
     'activeRoomSlug' => $activeRoomSlug,
     'activeRoomId' => $activeRoomId,
+    'activeRoomName' => $activeRoomName,
+    'isAdmin' => false,
     'withPartnerId' => $withPartnerId,
     'withPartnerName' => $withPartnerName,
     'rooms' => $rooms,
@@ -222,6 +247,8 @@ window.CHAT_CONFIG = <?= json_encode([
     'presence' => $presenceData,
     'strings' => [
         'send' => t('chat.send'),
+        'rooms' => t('chat.rooms'),
+        'activePlayers' => t('chat.active_players'),
         'sending' => t('chat.sending'),
         'emptyMessages' => t('chat.empty_messages'),
         'readOnlyRoom' => t('chat.read_only_room'),
@@ -249,5 +276,4 @@ window.CHAT_CONFIG = <?= json_encode([
         'unreadBadgeTitle' => t('chat.unread_badge_title', ['count' => ':count']),
         'defaultPlayerName' => t('chat.default_player_name'),
     ]
-], JSON_UNESCAPED_UNICODE) ?>;
-</script>
+], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), ENT_QUOTES, 'UTF-8') ?>"></div>

@@ -1,4 +1,11 @@
-<?php extract($viewData, EXTR_SKIP); ?>
+<?php
+extract($viewData, EXTR_SKIP);
+$defaultRoomTranslations = $defaultRoomTranslations ?? [
+    ['locale' => 'pl', 'name' => '', 'description' => ''],
+    ['locale' => 'en', 'name' => '', 'description' => ''],
+    ['locale' => 'de', 'name' => '', 'description' => ''],
+];
+?>
 
 <h1><?= t('admin.chat.title') ?></h1>
 
@@ -68,10 +75,10 @@
             <input type="hidden" name="action" value="delete_expired">
             <button type="submit" class="btn btn-secondary"><?= t('admin.chat.delete_expired') ?></button>
         </form>
-        <form method="post" class="mt-sm" onsubmit="return false;">
+        <form method="post" class="mt-sm" data-confirm="<?= htmlspecialchars(t('admin.chat.clear_all'), ENT_QUOTES, 'UTF-8') ?>" data-confirm-type="danger">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="clear_all">
-            <button type="button" class="btn btn-danger" onclick="openClearChatModal(this.closest('form'))">
+            <button type="submit" class="btn btn-danger">
                  <?= t('admin.chat.clear_all') ?>
             </button>
         </form>
@@ -84,7 +91,9 @@
         <p class="muted font-xs mb-4"><?= t('admin.chat.last_cleared') ?>: <?= htmlspecialchars(date('d.m.Y H:i', strtotime($autoClearLastAt))) ?></p>
         <?php endif ?>
 
-        <form method="post" id="auto-clear-form">
+        <form method="post" id="auto-clear-form"
+              data-enabled-label="<?= htmlspecialchars(t('admin.chat.enabled'), ENT_QUOTES, 'UTF-8') ?>"
+              data-disabled-label="<?= htmlspecialchars(t('admin.chat.disabled'), ENT_QUOTES, 'UTF-8') ?>">
             <?= CSRF::field() ?>
             <input type="hidden" name="action" value="save_auto_clear">
 
@@ -97,8 +106,7 @@
                     <label class="toggle-switch">
                         <input type="checkbox" name="auto_clear_enabled" value="1"
                                id="autoClearToggle"
-                               <?= $autoClearEnabled ? 'checked' : '' ?>
-                               onchange="updateAutoClearState()">
+                               <?= $autoClearEnabled ? 'checked' : '' ?>>
                         <span class="toggle-slider"></span>
                     </label>
                     <span id="autoClearStatus" class="badge ml-6 <?= $autoClearEnabled ? 'badge-active' : 'badge-inactive' ?>">
@@ -107,13 +115,13 @@
                 </div>
             </div>
 
-            <div class="config-row config-row--wide" id="autoClearIntervalRow" <?= !$autoClearEnabled ? 'style="opacity:.45;pointer-events:none"' : '' ?>>
+            <div class="config-row config-row--wide<?= !$autoClearEnabled ? ' is-disabled' : '' ?>" id="autoClearIntervalRow">
                 <div>
                     <div class="config-key-label"><?= t('admin.chat.interval_label') ?></div>
                     <div class="config-key-code"><?= t('admin.chat.interval_hint') ?></div>
                 </div>
                 <div class="config-row-value flex-row-gap">
-                    <?php
+<?php
                     $intervalOpts = [
                         15  => t('admin.chat.interval_15m'),
                         30  => t('admin.chat.interval_30m'),
@@ -124,8 +132,7 @@
                     foreach ($intervalOpts as $val => $lbl): ?>
                     <label class="radio-pill <?= $autoClearInterval === $val ? 'radio-pill--active' : '' ?>">
                         <input type="radio" name="auto_clear_interval" value="<?= $val ?>"
-                               <?= $autoClearInterval === $val ? 'checked' : '' ?>
-                               onchange="document.querySelectorAll('.radio-pill').forEach(p=>p.classList.remove('radio-pill--active'));this.closest('.radio-pill').classList.add('radio-pill--active')">
+                               <?= $autoClearInterval === $val ? 'checked' : '' ?>>
                         <?= $lbl ?>
                     </label>
                     <?php endforeach ?>
@@ -138,57 +145,6 @@
         </form>
     </section>
 </div>
-
-<!--  MODAL: Wyczy cay czat  -->
-<div id="clearChatModal" class="ac-modal-overlay" style="display:none" onclick="if(event.target===this)closeClearChatModal()">
-    <div class="ac-modal">
-        <div class="ac-modal-header">
-            <span class="ac-modal-icon"></span>
-            <strong><?= t('admin.chat.clear_all') ?></strong>
-        </div>
-        <p class="ac-modal-body">
-            <?= t('admin.chat.clear_modal_body') ?>
-        </p>
-        <div class="ac-modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="closeClearChatModal()"><?= t('admin.chat.cancel') ?></button>
-            <button type="button" class="btn btn-danger" id="clearChatConfirmBtn" onclick="submitClearChat()">
-                 <?= t('admin.chat.clear_confirm_btn') ?>
-            </button>
-        </div>
-    </div>
-</div>
-
-<script>
-var _clearChatForm = null;
-
-function openClearChatModal(form) {
-    _clearChatForm = form;
-    document.getElementById('clearChatModal').style.display = 'flex';
-}
-function closeClearChatModal() {
-    document.getElementById('clearChatModal').style.display = 'none';
-    _clearChatForm = null;
-}
-function submitClearChat() {
-    if (_clearChatForm) {
- // usu blokad onsubmit i wylij
-        _clearChatForm.onsubmit = null;
-        _clearChatForm.submit();
-    }
-}
-function updateAutoClearState() {
-    var enabled = document.getElementById('autoClearToggle').checked;
-    var status  = document.getElementById('autoClearStatus');
-    var row     = document.getElementById('autoClearIntervalRow');
-    status.textContent = enabled ? <?= json_encode(t('admin.chat.enabled')) ?> : <?= json_encode(t('admin.chat.disabled')) ?>;
-    status.className   = 'badge ml-6 ' + (enabled ? 'badge-active' : 'badge-inactive');
-    row.style.opacity       = enabled ? '1' : '.45';
-    row.style.pointerEvents = enabled ? 'auto' : 'none';
-}
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeClearChatModal();
-});
-</script>
 
 <!-- Ban + aktywne blokady -->
 <div class="admin-row">
@@ -528,6 +484,34 @@ document.addEventListener('keydown', function(e) {
                 <button type="submit" class="btn btn-sm btn-danger"><?= t('admin.chat.room_archive_btn') ?></button>
             </form>
             <?php endif ?>
+            <details class="admin-card-details">
+                <summary><?= t('admin.chat.room_edit') ?></summary>
+                <form method="post" class="admin-create-room-details">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="action" value="update_room">
+                    <input type="hidden" name="room_id" value="<?= (int) $rm['id'] ?>">
+                    <div class="admin-room-translations" data-translation-list data-next-index="<?= count($rm['translations']) ?>">
+                        <?php foreach ($rm['translations'] as $translationIndex => $translation): ?>
+                        <div class="admin-room-translation" data-translation-row>
+                            <label class="form-label"><?= t('admin.chat.translation_locale') ?><input class="form-control" name="translations[<?= $translationIndex ?>][locale]" maxlength="20" pattern="[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*" required value="<?= htmlspecialchars($translation['locale'], ENT_QUOTES, 'UTF-8') ?>"></label>
+                            <label class="form-label"><?= t('admin.chat.translation_name') ?><input class="form-control" name="translations[<?= $translationIndex ?>][name]" maxlength="100" required value="<?= htmlspecialchars($translation['name'], ENT_QUOTES, 'UTF-8') ?>"></label>
+                            <label class="form-label"><?= t('admin.chat.translation_description') ?><textarea class="form-control" name="translations[<?= $translationIndex ?>][description]" maxlength="255"><?= htmlspecialchars($translation['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea></label>
+                            <button type="button" class="btn btn-sm btn-danger" data-remove-translation><?= t('admin.chat.translation_remove') ?></button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" data-add-translation><?= t('admin.chat.translation_add') ?></button>
+                    <label class="form-label"><?= t('admin.chat.room_locale_label') ?><input class="form-control" name="locale_code" maxlength="20" pattern="[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*" value="<?= htmlspecialchars($rm['locale_code'] ?? '', ENT_QUOTES, 'UTF-8') ?>"></label>
+                    <label class="form-label"><?= t('admin.chat.room_type_label') ?><select name="type" class="form-control">
+                        <?php foreach (['language', 'custom', 'system'] as $roomType): ?><option value="<?= $roomType ?>" <?= $rm['type'] === $roomType ? 'selected' : '' ?>><?= t('admin.chat.room_type_' . $roomType) ?></option><?php endforeach; ?>
+                    </select></label>
+                    <label class="form-label"><?= t('admin.chat.room_sort_label') ?><input class="form-control" type="number" name="sort_order" min="0" max="9999" value="<?= (int) $rm['sort_order'] ?>"></label>
+                    <label class="form-label"><?= t('admin.chat.room_status_label') ?><select name="status" class="form-control">
+                        <?php foreach (['active', 'read_only', 'archived'] as $roomStatus): ?><option value="<?= $roomStatus ?>" <?= $rm['status'] === $roomStatus ? 'selected' : '' ?>><?= t('admin.chat.room_status_' . $roomStatus) ?></option><?php endforeach; ?>
+                    </select></label>
+                    <button type="submit" class="btn btn-primary"><?= t('admin.chat.room_update') ?></button>
+                </form>
+            </details>
         </div>
         <?php endforeach ?>
     </div>
@@ -541,7 +525,7 @@ document.addEventListener('keydown', function(e) {
             <div class="admin-create-room-row">
                 <div class="admin-create-room-col">
                     <label class="form-label"><?= t('admin.chat.room_slug_label') ?></label>
-                    <input type="text" name="slug" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_slug_ph'), ENT_QUOTES, 'UTF-8') ?>" required pattern="[a-z0-9_-]+">
+                    <input type="text" name="slug" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_slug_ph'), ENT_QUOTES, 'UTF-8') ?>" required pattern="[a-z0-9]+(?:-[a-z0-9]+)*">
                 </div>
                 <div class="admin-create-room-col">
                     <label class="form-label"><?= t('admin.chat.room_type_label') ?></label>
@@ -553,37 +537,20 @@ document.addEventListener('keydown', function(e) {
                 </div>
                 <div class="admin-create-room-col">
                     <label class="form-label"><?= t('admin.chat.room_locale_label') ?></label>
-                    <input type="text" name="locale_code" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_locale_ph'), ENT_QUOTES, 'UTF-8') ?>" maxlength="5">
+                    <input type="text" name="locale_code" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_locale_ph'), ENT_QUOTES, 'UTF-8') ?>" maxlength="20" pattern="[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*">
                 </div>
             </div>
-            <div class="admin-create-room-row">
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_name_pl_label') ?></label>
-                    <input type="text" name="name_pl" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_pl_ph'), ENT_QUOTES, 'UTF-8') ?>">
+            <div class="admin-room-translations" data-translation-list data-next-index="<?= count($defaultRoomTranslations) ?>">
+                <?php foreach ($defaultRoomTranslations as $translationIndex => $translation): ?>
+                <div class="admin-room-translation" data-translation-row>
+                    <label class="form-label"><?= t('admin.chat.translation_locale') ?><input class="form-control" name="translations[<?= $translationIndex ?>][locale]" maxlength="20" pattern="[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*" required value="<?= htmlspecialchars($translation['locale'], ENT_QUOTES, 'UTF-8') ?>"></label>
+                    <label class="form-label"><?= t('admin.chat.translation_name') ?><input class="form-control" name="translations[<?= $translationIndex ?>][name]" maxlength="100" required></label>
+                    <label class="form-label"><?= t('admin.chat.translation_description') ?><textarea class="form-control" name="translations[<?= $translationIndex ?>][description]" maxlength="255"></textarea></label>
+                    <button type="button" class="btn btn-sm btn-danger" data-remove-translation><?= t('admin.chat.translation_remove') ?></button>
                 </div>
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_name_en_label') ?></label>
-                    <input type="text" name="name_en" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_en_ph'), ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_name_de_label') ?></label>
-                    <input type="text" name="name_de" class="form-control" required placeholder="<?= htmlspecialchars(t('admin.chat.room_name_de_ph'), ENT_QUOTES, 'UTF-8') ?>">
-                </div>
+                <?php endforeach; ?>
             </div>
-            <div class="admin-create-room-row">
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_desc_pl_label') ?></label>
-                    <input type="text" name="description_pl" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_pl_ph'), ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_desc_en_label') ?></label>
-                    <input type="text" name="description_en" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_en_ph'), ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-                <div class="admin-create-room-col">
-                    <label class="form-label"><?= t('admin.chat.room_desc_de_label') ?></label>
-                    <input type="text" name="description_de" class="form-control" placeholder="<?= htmlspecialchars(t('admin.chat.room_desc_de_ph'), ENT_QUOTES, 'UTF-8') ?>">
-                </div>
-            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-add-translation><?= t('admin.chat.translation_add') ?></button>
             <div class="admin-create-room-row">
                 <div class="admin-create-room-col">
                     <label class="form-label"><?= t('admin.chat.room_sort_label') ?></label>
@@ -602,6 +569,14 @@ document.addEventListener('keydown', function(e) {
             </div>
         </form>
     </details>
+    <template id="chat-room-translation-template">
+        <div class="admin-room-translation" data-translation-row>
+            <label class="form-label"><?= t('admin.chat.translation_locale') ?><input class="form-control" name="translations[__INDEX__][locale]" maxlength="20" pattern="[A-Za-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})*" required placeholder="ja"></label>
+            <label class="form-label"><?= t('admin.chat.translation_name') ?><input class="form-control" name="translations[__INDEX__][name]" maxlength="100" required></label>
+            <label class="form-label"><?= t('admin.chat.translation_description') ?><textarea class="form-control" name="translations[__INDEX__][description]" maxlength="255"></textarea></label>
+            <button type="button" class="btn btn-sm btn-danger" data-remove-translation><?= t('admin.chat.translation_remove') ?></button>
+        </div>
+    </template>
 </section>
 
 <!-- Moderation Audit Log / Dziennik audytu moderacji -->
@@ -621,5 +596,12 @@ document.addEventListener('keydown', function(e) {
         </div>
         <?php endforeach ?>
     </div>
+    <?php if ($auditTotalPages > 1): ?>
+    <nav class="pagination" aria-label="<?= htmlspecialchars(t('admin.chat.pagination_aria'), ENT_QUOTES, 'UTF-8') ?>">
+        <?php if ($auditPage > 1): ?><a class="btn btn-secondary btn-sm" href="?audit_page=<?= $auditPage - 1 ?>"><?= t('common.prev') ?></a><?php endif ?>
+        <span><?= $auditPage ?> / <?= $auditTotalPages ?></span>
+        <?php if ($auditPage < $auditTotalPages): ?><a class="btn btn-secondary btn-sm" href="?audit_page=<?= $auditPage + 1 ?>"><?= t('common.next') ?></a><?php endif ?>
+    </nav>
+    <?php endif ?>
 </section>
 <?php endif ?>

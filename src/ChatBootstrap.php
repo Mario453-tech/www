@@ -4,30 +4,25 @@
 // Bootstrap schematu systemu czatu
 
 if (!function_exists('ensureChatSchema')) {
-    function ensureChatSchema(): void
+    function ensureChatSchema(?PDO $connection = null): void
     {
-        static $done = false;
-        if ($done) {
-            return;
+        if (PHP_SAPI !== 'cli') {
+            throw new LogicException('Chat schema migration requires CLI.');
         }
-        $done = true;
 
         try {
-            $db = Database::getInstance()->getConnection();
+            $db = $connection ?? Database::getInstance()->getConnection();
 
-            Database::addColumnIfMissing('chat_messages', 'is_deleted', "TINYINT(1) NOT NULL DEFAULT 0 AFTER `message`");
-            Database::addColumnIfMissing('chat_messages', 'is_admin', "TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_deleted`");
-            Database::addColumnIfMissing('chat_messages', 'is_pinned', "TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_admin`");
-            Database::addColumnIfMissing('chat_messages', 'pinned_at', "DATETIME NULL DEFAULT NULL AFTER `is_pinned`");
-            Database::addColumnIfMissing('chat_messages', 'attachment_path', "VARCHAR(255) NULL DEFAULT NULL AFTER `pinned_at`");
-            Database::addColumnIfMissing('chat_messages', 'attachment_name', "VARCHAR(255) NULL DEFAULT NULL AFTER `attachment_path`");
-            Database::addColumnIfMissing('chat_messages', 'attachment_type', "VARCHAR(50) NULL DEFAULT NULL AFTER `attachment_name`");
-            Database::addColumnIfMissing('chat_messages', 'attachment_size', "INT UNSIGNED NULL DEFAULT NULL AFTER `attachment_type`");
-
-            // Add room_id and room_slug to chat_messages if missing
-            // Dodaj room_id i room_slug do chat_messages jesli brak
-            Database::addColumnIfMissing('chat_messages', 'room_id', "INT UNSIGNED NULL DEFAULT NULL AFTER `channel`");
-            Database::addColumnIfMissing('chat_messages', 'room_slug', "VARCHAR(50) NULL DEFAULT NULL AFTER `room_id`");
+            $columns = array_column($db->query('SHOW COLUMNS FROM chat_messages')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+            foreach (['is_deleted' => 'TINYINT NOT NULL DEFAULT 0', 'is_admin' => 'TINYINT NOT NULL DEFAULT 0',
+                'is_pinned' => 'TINYINT NOT NULL DEFAULT 0', 'pinned_at' => 'DATETIME NULL',
+                'attachment_path' => 'VARCHAR(255) NULL', 'attachment_name' => 'VARCHAR(255) NULL',
+                'attachment_type' => 'VARCHAR(50) NULL', 'attachment_size' => 'INT UNSIGNED NULL',
+                'room_id' => 'INT UNSIGNED NULL', 'room_slug' => 'VARCHAR(50) NULL'] as $name => $definition) {
+                if (!in_array($name, $columns, true)) {
+                    $db->exec("ALTER TABLE chat_messages ADD COLUMN `{$name}` {$definition}");
+                }
+            }
 
             // Create chat_rooms
             // Utworz chat_rooms
@@ -57,31 +52,44 @@ if (!function_exists('ensureChatSchema')) {
             // Seed default language rooms idempotently
             // Zasil domyslne pokoje jezykowe w sposob idempotentny
             $db->exec("
-                INSERT INTO `chat_rooms` (`id`, `slug`, `type`, `locale_code`, `name_pl`, `name_en`, `name_de`, `description_pl`, `description_en`, `description_de`, `sort_order`, `status`, `created_at`, `updated_at`)
+                INSERT INTO `chat_rooms` (`slug`, `type`, `locale_code`, `name_pl`, `name_en`, `name_de`, `description_pl`, `description_en`, `description_de`, `sort_order`, `status`, `created_at`, `updated_at`)
                 VALUES
-                (1, 'polski', 'language', 'pl', 'Polski', 'Polish', 'Polnisch', 'Pokój językowy dla społeczności polskiej', 'Language room for Polish community', 'Sprachraum für die polnische Community', 10, 'active', NOW(), NOW()),
-                (2, 'english', 'language', 'en', 'English', 'English', 'Englisch', 'Global language room for all players', 'Global language room for all players', 'Globaler Sprachraum für alle Spieler', 20, 'active', NOW(), NOW()),
-                (3, 'germany', 'language', 'de', 'Germany', 'German', 'Deutsch', 'Sprachraum für deutschsprachige Spieler', 'Language room for German-speaking players', 'Sprachraum für deutschsprachige Spieler', 30, 'active', NOW(), NOW())
-                ON DUPLICATE KEY UPDATE
-                    `slug` = VALUES(`slug`),
-                    `name_pl` = VALUES(`name_pl`),
-                    `name_en` = VALUES(`name_en`),
-                    `name_de` = VALUES(`name_de`),
-                    `sort_order` = VALUES(`sort_order`)
+                ('polski', 'language', 'pl', 'Polski', 'Polish', 'Polnisch', 'Pokój językowy dla społeczności polskiej', 'Language room for Polish community', 'Sprachraum für die polnische Community', 10, 'active', NOW(), NOW()),
+                ('english', 'language', 'en', 'English', 'English', 'Englisch', 'Pokój anglojęzyczny', 'Global language room for all players', 'Globaler Sprachraum für alle Spieler', 20, 'active', NOW(), NOW()),
+                ('germany', 'language', 'de', 'Germany', 'Germany', 'Deutsch', 'Pokój niemieckojęzyczny', 'Language room for German-speaking players', 'Sprachraum für deutschsprachige Spieler', 30, 'active', NOW(), NOW())
+                ON DUPLICATE KEY UPDATE `id` = `id`
             ");
+
+            // Store room labels independently from application languages.
+            // Przechowuj etykiety pokoi niezaleznie od jezykow aplikacji.
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS `chat_room_translations` (
+                    `room_id` INT UNSIGNED NOT NULL,
+                    `locale` VARCHAR(20) NOT NULL,
+                    `name` VARCHAR(100) NOT NULL,
+                    `description` VARCHAR(255) NULL DEFAULT NULL,
+                    `created_at` DATETIME NOT NULL,
+                    `updated_at` DATETIME NOT NULL,
+                    PRIMARY KEY (`room_id`, `locale`),
+                    INDEX `idx_chat_room_translations_locale` (`locale`, `room_id`)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            foreach (['pl', 'en', 'de'] as $seedLocale) {
+                $nameColumn = 'name_' . $seedLocale;
+                $descriptionColumn = 'description_' . $seedLocale;
+                $db->exec("
+                    INSERT INTO chat_room_translations (room_id, locale, name, description, created_at, updated_at)
+                    SELECT id, '{$seedLocale}', `{$nameColumn}`, `{$descriptionColumn}`, NOW(), NOW()
+                    FROM chat_rooms
+                    WHERE `{$nameColumn}` != ''
+                    ON DUPLICATE KEY UPDATE room_id = room_id
+                ");
+            }
 
             // Backfill legacy global messages with room_id = 1, room_slug = 'polski'
             // Uzupelnij historyczne wiadomosci globalne o room_id = 1, room_slug = 'polski'
-            try {
-                $db->exec("
-                    UPDATE `chat_messages`
-                    SET `room_id` = 1, `room_slug` = 'polski'
-                    WHERE `channel` = 'global' AND `room_id` IS NULL
-                ");
-            } catch (Throwable) {
-                // Ignore if chat_messages does not exist yet
-                // Ignoruj jesli chat_messages jeszcze nie istnieje
-            }
+            $db->exec("UPDATE chat_messages m JOIN chat_rooms r ON r.slug = 'polski'
+                SET m.room_id = r.id, m.room_slug = r.slug WHERE m.channel = 'global' AND m.room_id IS NULL");
 
             // Create chat_reports
             // Utworz chat_reports
@@ -166,12 +174,25 @@ if (!function_exists('ensureChatSchema')) {
                 // Ignore if nav_items table does not exist
                 // Ignoruj jesli tabela nav_items nie istnieje
             }
+            $db->exec("ALTER TABLE chat_messages MODIFY channel ENUM('global','private','room') NOT NULL DEFAULT 'global'");
+            $column = $db->query("SHOW COLUMNS FROM chat_messages LIKE 'message'")->fetch(PDO::FETCH_ASSOC);
+            if ($column && preg_match('/^varchar\((\d+)\)$/i', $column['Type'], $length) && (int) $length[1] < 1000) {
+                $db->exec('ALTER TABLE chat_messages MODIFY message TEXT NOT NULL');
+            }
+            $index = $db->query("SHOW INDEX FROM chat_messages WHERE Key_name = 'idx_chat_room_history'")->fetch();
+            if (!$index) {
+                $db->exec('CREATE INDEX idx_chat_room_history ON chat_messages (room_id, is_deleted, id)');
+            }
+            $db->exec("CREATE TABLE IF NOT EXISTS chat_request_limits (
+                bucket_key CHAR(64) PRIMARY KEY, started_at BIGINT NOT NULL, hits INT NOT NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         } catch (Throwable $e) {
             if (class_exists('GameLog', false)) {
                 GameLog::warn('ChatBootstrap', 'ensureChatSchema failed', [
                     'message' => $e->getMessage(),
                 ]);
             }
+            throw $e;
         }
     }
 }

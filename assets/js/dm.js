@@ -217,6 +217,7 @@
                 box.innerHTML = '';
                 lastId = 0;
                 appendMessages(d.messages || [], false);
+                acknowledgeMessages();
                 loadConversations();
             })
             .catch(function () {});
@@ -228,11 +229,20 @@
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 appendMessages(d.messages || [], true);
+                acknowledgeMessages();
                 if ((d.messages || []).length) {
                     loadConversations();
                 }
             })
             .catch(function () {});
+    }
+
+    function acknowledgeMessages() {
+        if (document.hidden || !lastId || !WITH_ID) return;
+        fetch(DM_API, { method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cfg.csrfToken },
+            body: JSON.stringify({ action: 'mark_read', type: 'direct', id: WITH_ID, last_id: lastId })
+        }).catch(function () {});
     }
 
     function uploadAttachmentInChunks(file) {
@@ -256,6 +266,7 @@
                     credentials: 'same-origin',
                     headers: {
                         'Content-Type': 'application/octet-stream',
+                        'X-CSRF-Token': cfg.csrfToken,
                         'X-Upload-Action': 'dm_upload_chunk',
                         'X-Upload-Token': token,
                         'X-Upload-Name': file.name,
@@ -300,7 +311,7 @@
         return fetch(DM_API, {
             method: 'POST',
             credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cfg.csrfToken },
             body: JSON.stringify({
                 action: 'send',
                 message: message,
@@ -356,7 +367,7 @@
             fetch(DM_API, {
                 method: 'POST',
                 credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': cfg.csrfToken },
                 body: JSON.stringify({ action: 'delete_attachment', message_id: messageId })
             })
                 .then(function (r) { return r.json(); })

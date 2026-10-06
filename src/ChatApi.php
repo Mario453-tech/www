@@ -4,28 +4,33 @@ require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/ChatBootstrap.php';
 require_once __DIR__ . '/ChatMessageHtml.php';
 require_once __DIR__ . '/ChatService.php';
+require_once __DIR__ . '/ChatRequestPolicy.php';
+require_once __DIR__ . '/ChatRequestLimiter.php';
 ob_clean();
 header('Content-Type: application/json; charset=utf-8');
 
-try {
-    Auth::requireLogin();
-} catch (Throwable $e) {
-    echo json_encode(['error' => t('common.not_logged_in')], JSON_UNESCAPED_UNICODE);
-    exit;
-}
+set_exception_handler(static function (Throwable $e): void {
+    $error = ChatRequestPolicy::error($e);
+    if ($error['status'] === 500) {
+        GameLog::error('ChatApi', 'Chat request failed', [
+            'exception_class' => get_class($e), 'code' => (string) $e->getCode(),
+        ]);
+    }
+    if ($error['status'] === 429) {
+        header('Retry-After: ' . ($error['key'] === 'chat.err_thread_limit' ? 3600 : 10));
+    }
+    chatJson(['error' => t($error['key'])], $error['status']);
+});
 
-if (!Auth::isLoggedIn()) {
-    echo json_encode(['error' => t('common.not_logged_in')], JSON_UNESCAPED_UNICODE);
-    exit;
+if (!Auth::isLoggedIn() && !Auth::tryRememberMe()) {
+    chatJson(['error' => t('common.not_logged_in')], 401);
 }
 
 try {
     $db = Database::getInstance()->getConnection();
-    ensureChatSchema();
     $chatService = new ChatService($db);
 } catch (Throwable $e) {
-    echo json_encode(['error' => t('common.app_error')], JSON_UNESCAPED_UNICODE);
-    exit;
+    throw $e;
 }
 
 $playerId = Auth::getUserId();
@@ -39,13 +44,34 @@ if ($rawInput !== '' && ($contentType === 'application/json' || str_contains($co
         $jsonInput = $decoded;
     }
 }
-$action = $_REQUEST['action']
+$action = $_POST['action'] ?? $_GET['action']
     ?? ($jsonInput['action'] ?? null)
     ?? ($_SERVER['HTTP_X_UPLOAD_ACTION'] ?? '')
     ?? '';
 
-function chatJson(array $payload): never
+$action = is_string($action) ? $action : '!invalid';
+$csrfToken = $_POST['csrf_token'] ?? $_POST['_token'] ?? ($jsonInput['csrf_token'] ?? null)
+    ?? ($jsonInput['_token'] ?? null) ?? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
+$status = ChatRequestPolicy::status($method, $action, true, is_string($csrfToken) && CSRF::validateToken($csrfToken));
+if ($status !== 200) {
+    if ($status === 405) {
+        header('Allow: GET, POST');
+    }
+    chatJson(['error' => t($status === 419 ? 'common.csrf_error' : 'chat.err_method')], $status);
+}
+if ($method === 'POST') {
+    $group = in_array($action, ['', 'send', 'send_room', 'send_direct'], true) ? 'send' : $action;
+    $maximum = $group === 'send' ? 30 : ($group === 'dm_upload_chunk' ? 600 : 120);
+    $wait = (new ChatRequestLimiter($db))->consume('chat:' . $group . ':' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), $maximum, 60);
+    if ($wait > 0) {
+        header('Retry-After: ' . $wait);
+        chatJson(['error' => t('chat.err_rate_limited'), 'retry_after' => $wait], 429);
+    }
+}
+
+function chatJson(array $payload, int $status = 200): never
 {
+    http_response_code($status);
     foreach (['messages', 'pinned'] as $key) {
         if (isset($payload[$key]) && is_array($payload[$key])) {
             $payload[$key] = array_map([ChatMessageHtml::class, 'forApi'], $payload[$key]);
@@ -298,6 +324,11 @@ if ($method === 'POST' && ($_SERVER['HTTP_X_UPLOAD_ACTION'] ?? '') === 'dm_uploa
 }
 
 if ($method === 'POST') {
+    if ($action === 'heartbeat') {
+        $input = $jsonInput ?? $_POST;
+        $chatService->updatePresence($playerId, isset($input['room_slug']) ? (string) $input['room_slug'] : null);
+        chatJson(['ok' => true]);
+    }
     // Validate CSRF token for state-changing actions
     // Waliduj token CSRF dla akcji modyfikujacych stan
     $csrfToken = $_POST['csrf_token']
@@ -318,6 +349,16 @@ if ($method === 'POST') {
         $receiverId = isset($input['receiver_id']) ? (int) $input['receiver_id'] : null;
         $channel = $receiverId ? 'private' : 'global';
         $attachmentToken = trim((string) ($input['attachment_token'] ?? ''));
+
+        if ($attachmentToken === '') {
+            if ($receiverId) {
+                $message = $chatService->sendDirectMessage($playerId, $receiverId, $msg);
+            } else {
+                $room = $chatService->getRoomBySlug('polski');
+                $message = $chatService->sendRoomMessage($playerId, (int) ($room['id'] ?? 0), $msg);
+            }
+            chatJson(['ok' => true, 'id' => $message['id'], 'attachment' => false]);
+        }
 
         if ($msg === '' && $attachmentToken === '') {
             chatJson(['error' => t('chat.err_msg_length')]);
@@ -356,32 +397,13 @@ if ($method === 'POST') {
             try {
                 $attachment = chatFinalizeAttachment($db, $playerId, $receiverId, $attachmentToken);
             } catch (Throwable $e) {
-                chatJson(['error' => $e->getMessage()]);
+                GameLog::error('ChatApi.php', 'Attachment finalization failed', ['exception_class' => get_class($e)]);
+                chatJson(['error' => t('dm.err_upload_save')], 500);
             }
         }
 
-        $stmt = $db->prepare("
-            INSERT INTO chat_messages (
-                sender_id, receiver_id, channel, username, message,
-                attachment_path, attachment_name, attachment_type, attachment_size
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        $stmt->execute([
-            $playerId,
-            $receiverId,
-            $channel,
-            $displayName,
-            $msg,
-            $attachment['attachment_path'],
-            $attachment['attachment_name'],
-            $attachment['attachment_type'],
-            $attachment['attachment_size'],
-        ]);
-        $messageId = (int) $db->lastInsertId();
-
-        if ($receiverId) {
-            chatUpsertRead($db, $playerId, $receiverId, $messageId);
-        }
+        $message = $chatService->sendDirectAttachment($playerId, (int) $receiverId, $msg, $attachment);
+        $messageId = $message['id'];
 
         chatJson([
             'ok' => true,
@@ -495,14 +517,14 @@ if ($method === 'POST') {
             }
         }
         $text = (string) ($input['message'] ?? '');
-        $isAdmin = !empty($_SESSION['admin_logged_in']) && !empty($_SESSION['admin_id']);
+        $isAdmin = AdminAuth::isLoggedIn();
         try {
             $msg = $chatService->sendRoomMessage($playerId, $roomId, $text, $isAdmin);
             chatJson(['ok' => true, 'message' => $msg]);
         } catch (InvalidArgumentException $e) {
-            chatJson(['error' => t($e->getMessage())]);
+            throw $e;
         } catch (Throwable $e) {
-            chatJson(['error' => $e->getMessage()]);
+            throw $e;
         }
     }
 
@@ -516,9 +538,9 @@ if ($method === 'POST') {
             $msg = $chatService->sendDirectMessage($playerId, $partnerId, $text);
             chatJson(['ok' => true, 'message' => $msg]);
         } catch (InvalidArgumentException $e) {
-            chatJson(['error' => t($e->getMessage())]);
+            throw $e;
         } catch (Throwable $e) {
-            chatJson(['error' => $e->getMessage()]);
+            throw $e;
         }
     }
 
@@ -556,10 +578,6 @@ if ($action === 'init') {
     $messages = [];
     if ($activeRoom) {
         $messages = $chatService->getRoomMessages($activeRoom['id'], 0, 50);
-        $chatService->updatePresence($playerId, $activeRoom['slug']);
-        if (!empty($messages)) {
-            $chatService->markAsRead($playerId, 'room', $activeRoom['id'], (int) end($messages)['id']);
-        }
     }
 
     $directThreads = $chatService->getDirectThreads($playerId);
@@ -595,60 +613,30 @@ if ($action === 'room_messages') {
     }
     $afterId = (int) ($_GET['after_id'] ?? 0);
     $limit = (int) ($_GET['limit'] ?? 50);
-    $messages = $chatService->getRoomMessages($roomId, $afterId, $limit);
-    if (!empty($messages)) {
-        $chatService->markAsRead($playerId, 'room', $roomId, (int) end($messages)['id']);
-    }
+    $messages = $chatService->getRoomMessages($roomId, $afterId, $limit, (int) ($_GET['before_id'] ?? 0));
     chatJson(['ok' => true, 'messages' => $messages]);
 }
 
 if ($action === 'direct_threads') {
-    $threads = $chatService->getDirectThreads($playerId);
-    chatJson(['ok' => true, 'threads' => $threads]);
+    $threads = $chatService->getDirectThreads($playerId, (int) ($_GET['page'] ?? 1));
+    chatJson(['ok' => true, 'threads' => $threads, 'unread_total' => $chatService->getDirectUnreadCount($playerId)]);
 }
 
 if ($action === 'direct_messages') {
     $partnerId = (int) ($_GET['partner_id'] ?? 0);
     $afterId = (int) ($_GET['after_id'] ?? 0);
     $limit = (int) ($_GET['limit'] ?? 50);
-    $messages = $chatService->getDirectMessages($playerId, $partnerId, $afterId, $limit);
-    if (!empty($messages)) {
-        $chatService->markAsRead($playerId, 'direct', $partnerId, (int) end($messages)['id']);
-    }
+    $messages = $chatService->getDirectMessages($playerId, $partnerId, $afterId, $limit, (int) ($_GET['before_id'] ?? 0));
     chatJson(['ok' => true, 'messages' => $messages]);
 }
 
 if ($action === 'presence') {
-    $roomSlug = trim((string) ($_REQUEST['room_slug'] ?? 'polski'));
-    $chatService->updatePresence($playerId, $roomSlug);
-    $presence = $chatService->getActivePlayers($playerId, 20);
+    $presence = $chatService->getActivePlayers($playerId, 20, $_SESSION['locale'] ?? 'pl');
     chatJson([
         'ok' => true,
         'total_online' => $presence['total_online'],
         'players' => $presence['players'],
     ]);
-}
-
-try {
-    $autoClearRows = $db->query("SELECT `key`,`value` FROM well_config WHERE `key` IN ('chat_auto_clear_enabled','chat_auto_clear_interval','chat_auto_clear_last_at')")->fetchAll(PDO::FETCH_KEY_PAIR);
-    if (!empty($autoClearRows['chat_auto_clear_enabled']) && (int) $autoClearRows['chat_auto_clear_enabled'] === 1) {
-        $interval = max(15, (int) ($autoClearRows['chat_auto_clear_interval'] ?? 30));
-        $lastAt = $autoClearRows['chat_auto_clear_last_at'] ?? null;
-        $ago = $lastAt ? (time() - strtotime((string) $lastAt)) : PHP_INT_MAX;
-        if ($ago >= $interval * 60) {
-            $cutoff = date('Y-m-d H:i:s', time() - $interval * 60);
-            $db->prepare("
-                UPDATE chat_messages
-                SET is_deleted=1
-                WHERE created_at < ? AND is_deleted=0 AND (is_pinned=0 OR is_pinned IS NULL) AND channel='global'
-            ")->execute([$cutoff]);
-            $db->prepare("
-                INSERT INTO well_config (`key`,`value`) VALUES ('chat_auto_clear_last_at',NOW())
-                ON DUPLICATE KEY UPDATE `value`=NOW()
-            ")->execute([]);
-        }
-    }
-} catch (Throwable $e) {
 }
 
 if ($action === 'conversations') {
@@ -759,6 +747,7 @@ try {
 }
 
 if (isset($_GET['pinned_only'])) {
+    if ($chatService->getRoomBySlug('polski') === null) chatJson(['pinned' => [], 'my_id' => $playerId]);
     $pinned = [];
     if ($chatHasAdminCols) {
         try {
@@ -823,11 +812,13 @@ if ($withPlayer) {
         $row = chatNormalizePreview($row);
     }
     unset($row);
-    chatUpsertRead($db, $playerId, $withPlayer, $maxId);
 
     chatJson(['messages' => $rows, 'my_id' => $playerId]);
 }
 
+if ($chatService->getRoomBySlug('polski') === null) {
+    chatJson(['messages' => [], 'pinned' => [], 'my_id' => $playerId]);
+}
 if ($since > 0) {
     if ($chatHasAdminCols) {
         $stmt = $db->prepare("
