@@ -15,5 +15,8 @@ final class ChatWidgetResilienceTest extends TestCase
         self::assertStringContainsString('data-error=', $view);
         self::assertStringContainsString('if (!response.ok || data.error)', $script);
         self::assertStringContainsString('showWidgetState(widgetBox.dataset.error', $script);
+        self::assertStringContainsString("?action=init&room=polski", $script);
+        self::assertStringContainsString("action: 'send_room'", $script);
+        self::assertStringNotContainsString('chat-open-full-btn', $view);
     }
 }

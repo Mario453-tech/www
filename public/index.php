@@ -315,7 +315,7 @@ $extraCss   = [
     '/assets/css/chat.css',
     '/assets/css/director.css',
 ];
-$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js'];
+$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js', '/assets/js/dashboard_news.js'];
 require_once __DIR__ . '/../templates/header.php';
 require __DIR__ . '/../templates/views/index/main.php';
 

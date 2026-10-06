@@ -727,6 +727,7 @@
     var widgetApi = '/src/ChatApi.php';
     var wLastId = 0;
     var wMyId = 0;
+    var wRoomId = 0;
     var wInput = document.getElementById('chatInput');
     var wInterval = null;
 
@@ -752,7 +753,7 @@
         var isMine = senderId === wMyId;
         var isAdmin = parseInt(m.is_admin || 0, 10) === 1;
         var cls = 'chat-msg' + (isMine ? ' chat-msg--mine' : '') + (isAdmin ? ' chat-msg--admin' : '');
-        var author = m.username || (window.CHAT_CONFIG && window.CHAT_CONFIG.strings && window.CHAT_CONFIG.strings.defaultPlayerName) || '';
+        var author = m.sender_name || m.username || (window.CHAT_CONFIG && window.CHAT_CONFIG.strings && window.CHAT_CONFIG.strings.defaultPlayerName) || '';
         var time = m.time || '';
 
         return '<div class="' + cls + '" data-id="' + parseInt(m.id, 10) + '">' +
@@ -781,7 +782,8 @@
 
     function pollWidget() {
         if (document.hidden) return;
-        fetch(widgetApi + '?since=' + wLastId, { credentials: 'same-origin' })
+        if (!wRoomId) return;
+        fetch(widgetApi + '?action=room_messages&room_id=' + wRoomId + '&after_id=' + wLastId + '&limit=50', { credentials: 'same-origin' })
             .then(widgetResponse)
             .then(function (data) {
                 if (data.my_id) wMyId = parseInt(data.my_id, 10);
@@ -793,10 +795,11 @@
     }
 
     function loadWidget() {
-        fetch(widgetApi, { credentials: 'same-origin' })
+        fetch(widgetApi + '?action=init&room=polski', { credentials: 'same-origin' })
             .then(widgetResponse)
             .then(function (data) {
                 wMyId = parseInt(data.my_id || 0, 10);
+                wRoomId = parseInt(data.active_room && data.active_room.id || 0, 10);
                 var loading = widgetBox.querySelector('.chat-loading');
                 if (loading) loading.remove();
                 appendWidgetMessages(data.messages || []);
@@ -818,14 +821,19 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             credentials: 'same-origin',
-            body: JSON.stringify({ message: msg, csrf_token: widgetForm.elements.csrf_token.value })
+            body: JSON.stringify({
+                action: 'send_room',
+                room_id: wRoomId,
+                message: msg,
+                csrf_token: widgetForm.elements.csrf_token.value
+            })
         })
             .then(widgetResponse)
             .then(function (data) {
                 if (btn) btn.disabled = false;
                 if (data && data.ok) {
                     wInput.value = '';
-                    pollWidget();
+                    appendWidgetMessages(data.message ? [data.message] : []);
                 } else if (data && data.error) {
                     showToast(data.error, 'error');
                 }

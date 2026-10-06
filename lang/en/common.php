@@ -62,6 +62,8 @@ return [
     'header.close_menu' => 'Close menu',
     'header.nav_aria' => 'User navigation',
     'news.panel_title' => 'Company news',
+    'news.empty' => 'No news available.',
+    'news.load_error' => 'News could not be loaded.',
     'modal.confirm' => 'Confirm',
     'modal.cancel' => 'Cancel',
     'modal.ok' => 'OK',

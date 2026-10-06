@@ -62,6 +62,8 @@ return [
     'header.close_menu' => 'Zamknij menu',
     'header.nav_aria' => 'Nawigacja użytkownika',
     'news.panel_title' => 'Aktualności spółki',
+    'news.empty' => 'Brak aktualności.',
+    'news.load_error' => 'Nie udało się załadować aktualności.',
     'modal.confirm' => 'Potwierdź',
     'modal.cancel' => 'Anuluj',
     'modal.ok' => 'OK',

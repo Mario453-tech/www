@@ -8,7 +8,6 @@ declare(strict_types=1);
     <h2 id="chat-heading">
         <?= htmlspecialchars(t('chat.page_title'), ENT_QUOTES, 'UTF-8') ?>
         <span class="chat-online" id="chatOnline"></span>
-        <a href="/chat" class="chat-open-full-btn" title="<?= t('chat.page_title') ?>">&nearr;</a>
     </h2>
     <!-- Pinned admin messages live outside the scroll area. -->
     <!-- Przypiete wiadomosci admina znajduja sie poza obszarem przewijania. -->

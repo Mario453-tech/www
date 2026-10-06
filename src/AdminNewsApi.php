@@ -91,11 +91,12 @@ try {
 
 $hasTitleHtml = true;
 try {
-    Database::addColumnIfMissing('admin_news', 'title_html', 'TEXT NULL AFTER `title`');
+    $column = $db->query("SHOW COLUMNS FROM admin_news LIKE 'title_html'");
+    $hasTitleHtml = (bool) $column->fetch(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {
     $hasTitleHtml = false;
     if (class_exists('GameLog', false)) {
-        GameLog::error('AdminNewsApi', 'admin_news.title_html migration failed', $e);
+        GameLog::error('AdminNewsApi', 'News schema check failed', $e);
     }
 }
 

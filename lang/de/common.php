@@ -61,6 +61,8 @@ return [
     'header.close_menu' => 'Menü schließen',
     'header.nav_aria' => 'Benutzernavigation',
     'news.panel_title' => 'Unternehmensnachrichten',
+    'news.empty' => 'Keine Nachrichten verfügbar.',
+    'news.load_error' => 'Nachrichten konnten nicht geladen werden.',
     'modal.confirm' => 'Bestätigen',
     'modal.cancel' => 'Abbrechen',
     'modal.ok' => 'OK',
