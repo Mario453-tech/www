@@ -12,8 +12,9 @@ $activeRoomId   = (int) ($activeRoom['id'] ?? 1);
 $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
 ?>
 
-<div class="chat-container">
+<div class="chat-container<?= !empty($dashboardEmbed) ? ' chat-container--dashboard' : '' ?>">
     <?php if ($flash !== ''): ?><p role="status"><?= htmlspecialchars($flash, ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
+    <?php if (empty($dashboardEmbed)): ?>
     <!-- Page Header bar matching vector mockup -->
     <!-- Pasek naglowka strony zgodny z makieta wektorowa -->
     <header class="chat-header-bar">
@@ -29,6 +30,7 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
             </span>
         </div>
     </header>
+    <?php endif; ?>
 
     <!-- Mobile Navigation Switcher for narrow screens (< 1024px) -->
     <!-- Przelacznik nawigacji mobilnej dla waskich ekranow (< 1024px) -->

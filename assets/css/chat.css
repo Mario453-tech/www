@@ -11,6 +11,47 @@
     max-height: 420px;
 }
 
+.chat-news-wrapper--full-chat {
+    height: 560px;
+    max-height: 560px;
+}
+
+.chat-container--dashboard {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+}
+
+.chat-container--dashboard .chat-mobile-nav {
+    margin: 0 0 8px;
+}
+
+.chat-container--dashboard .chat-shell {
+    grid-template-columns: minmax(170px, 210px) minmax(280px, 1fr) minmax(160px, 190px);
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+}
+
+.chat-container--dashboard .chat-col-inner {
+    padding: 12px 10px;
+}
+
+.chat-container--dashboard .chat-conversation-header,
+.chat-container--dashboard .chat-composer {
+    padding: 12px 14px;
+}
+
+.chat-container--dashboard .chat-messages-area {
+    padding: 12px 14px;
+}
+
+.chat-dashboard-error {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 /* Panel aktualnoci zajmuje ~30% szerokoci */
 .news-panel {
     flex: 0 0 280px;

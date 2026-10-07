@@ -118,7 +118,7 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
     </aside>
     <?php endif ?>
 
-    <div class="chat-news-wrapper">
+    <div class="chat-news-wrapper chat-news-wrapper--full-chat">
         <?php require __DIR__ . '/../../components/news_panel.php'; ?>
         <?php require __DIR__ . '/../../components/chat.php'; ?>
     </div>

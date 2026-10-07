@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../src/init.php';
+require_once __DIR__ . '/../src/ChatService.php';
 
 $_pageStart = GameLog::pageStart('public/index.php');
 
@@ -60,6 +61,45 @@ $playerData = $player->getData();
 
 if (!$playerData) {
     $playerData = ['cash' => 0, 'status' => 'active', 'capacity' => 0, 'used' => 0];
+}
+
+$dashboardChatViewData = null;
+try {
+    $chatDb = Database::getInstance()->getConnection();
+    $chatService = new ChatService($chatDb);
+    $chatLocale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
+    $chatRooms = $chatService->getRooms($playerId, $chatLocale);
+    $chatActiveRoom = null;
+    foreach ($chatRooms as $chatRoom) {
+        if (($chatRoom['slug'] ?? '') === 'polski') {
+            $chatActiveRoom = $chatRoom;
+            break;
+        }
+    }
+    if ($chatActiveRoom === null && $chatRooms !== []) {
+        $chatActiveRoom = $chatRooms[0];
+    }
+    $chatPresence = $chatService->getActivePlayers($playerId, 20, $chatLocale);
+    $dashboardChatViewData = [
+        'rooms' => $chatRooms,
+        'activeRoom' => $chatActiveRoom,
+        'directThreads' => $chatService->getDirectThreads($playerId),
+        'presenceData' => $chatPresence,
+        'playerId' => $playerId,
+        'withPartnerId' => null,
+        'withPartnerName' => '',
+        'history' => $chatActiveRoom
+            ? $chatService->getRoomMessages((int) $chatActiveRoom['id'], 0, 50)
+            : [],
+        'flash' => '',
+        'locale' => $chatLocale,
+        'dashboardEmbed' => true,
+    ];
+} catch (Throwable $e) {
+    GameLog::error('index.php', 'Dashboard chat loading failed', [
+        'exception_class' => get_class($e),
+        'player_id' => $playerId,
+    ]);
 }
 
 // Dane finansowe gracza
@@ -306,6 +346,7 @@ $viewData = compact(
     'notifications', 'actions',
     'alertWells', 'eventImpactPerHour', 'eventRemainingSeconds', 'trendPricePct',
     'techNotifications'
+    , 'dashboardChatViewData'
 );
 
 $pageTitle  = t('index.title');
