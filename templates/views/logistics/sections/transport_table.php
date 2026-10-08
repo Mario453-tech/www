@@ -18,10 +18,7 @@
             <?php foreach ($wells as $well): ?>
             <div class="logistics-table-row">
                 <span>
-                    #<?= (int)$well['id'] ?>
-                    <?php if (!empty($well['well_name']) && (string)$well['well_name'] !== 'Odwiert #' . (int)$well['id']): ?>
-                        · <?= htmlspecialchars((string)$well['well_name'], ENT_QUOTES, 'UTF-8') ?>
-                    <?php endif ?>
+                    <?= htmlspecialchars((string)(!empty($well['well_name']) ? $well['well_name'] : ('#' . (int)$well['id'])), ENT_QUOTES, 'UTF-8') ?>
                     <?php if (($well['status'] ?? '') === 'servicing'): ?>
                     <span class="badge logistics-pipeline-badge logistics-pipeline-badge--servicing logistics-pipeline-badge--table"><?= t('logistics.pipeline.status_servicing') ?></span>
                     <?php endif ?>

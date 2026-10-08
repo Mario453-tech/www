@@ -18,7 +18,7 @@ final class TechnicalDisasterStatusTest extends SqliteIntegrationTestCase
             player_id INTEGER NOT NULL,
             location_name TEXT NOT NULL,
             status TEXT NOT NULL,
-            well_name TEXT GENERATED ALWAYS AS (location_name) VIRTUAL
+            well_name TEXT GENERATED ALWAYS AS ("E-" || id) VIRTUAL
         )');
         $this->db->exec('CREATE TABLE technical_tasks (
             id INTEGER PRIMARY KEY,
@@ -102,6 +102,30 @@ final class TechnicalDisasterStatusTest extends SqliteIntegrationTestCase
         $this->assertSame([], $rows);
         $status = $this->db->query('SELECT status FROM industrial_disasters WHERE id = 103')->fetchColumn();
         $this->assertSame('active', $status);
+    }
+
+    public function testFailureHistoryUsesOwnedWellCode(): void
+    {
+        $this->db->exec("INSERT INTO wells VALUES (10, 1, 'Pole 10', 'active')");
+        $this->db->exec("INSERT INTO wells VALUES (13, 2, 'Pole 13', 'active')");
+        $this->db->exec('CREATE TABLE failure_log (id INTEGER PRIMARY KEY, player_id INTEGER, well_id INTEGER, occurred_at TEXT)');
+        $this->db->exec("INSERT INTO failure_log VALUES (1, 1, 10, '2026-07-18 10:00:00'),
+            (2, 1, 13, '2026-07-18 09:00:00')");
+
+        $loader = new class {
+            use TechnicalPageDataTrait;
+
+            private int $playerId = 1;
+
+            public function failures(PDO $db): array
+            {
+                return $this->loadFailures($db);
+            }
+        };
+        $rows = $loader->failures($this->db);
+        $this->assertSame('E-10', $rows[0]['well_name']);
+        $this->assertNull($rows[1]['well_name']);
+        $this->assertNull($rows[1]['location_name']);
     }
 
     private function loadDisasters(int $playerId): array

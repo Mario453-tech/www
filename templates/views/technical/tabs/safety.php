@@ -205,7 +205,7 @@ $specLabelsSafety = [
             $condCls = $cond >= 70 ? 'c-good' : ($cond >= 40 ? 'c-warn' : 'c-bad');
         ?>
             <li>
-                <span class="fw7"><?= t('technical.well_num', ['id' => $w['id']]) ?></span>
+                <span class="fw7"><?= !empty($w['well_name']) ? htmlspecialchars((string)$w['well_name'], ENT_QUOTES, 'UTF-8') : t('technical.well_num', ['id' => $w['id']]) ?></span>
                 <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
                 <span class="<?= $condCls ?> fw7">&middot; <?= t('technical.condition_label') ?>: <?= $cond ?>%</span>
                 <?php if ($stCode === 'paused_staff' && !empty($w['paused_staff_reason'])): ?>
@@ -242,7 +242,7 @@ if (!empty($riskWells)):
             $risk = round(max(0, (70 - $cond) * 0.5), 1);
         ?>
             <li>
-                <span class="fw7 c-warn"><?= t('technical.well_num', ['id' => $w['id']]) ?></span>
+                <span class="fw7 c-warn"><?= !empty($w['well_name']) ? htmlspecialchars((string)$w['well_name'], ENT_QUOTES, 'UTF-8') : t('technical.well_num', ['id' => $w['id']]) ?></span>
                 <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
                 <span class="c-warn fw7">&middot; <?= t('technical.condition_label') ?>: <?= round($cond, 1) ?>%</span>
                 <span class="c-bad fs12">&middot; <?= t('technical.failure_risk_per_h', ['risk' => $risk]) ?></span>
@@ -345,7 +345,7 @@ foreach ($failures as $f):
     <span>
         <span class="<?= htmlspecialchars($ft['cls'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($ft['label'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
         <?php if ($f['well_id'] > 0): ?>
-            <small class="c-muted2">&middot; #<?= $f['well_id'] ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
+            <small class="c-muted2">&middot; <?= !empty($f['well_name']) ? htmlspecialchars((string)$f['well_name'], ENT_QUOTES, 'UTF-8') : t('technical.well_num', ['id' => $f['well_id']]) ?> <?= htmlspecialchars($f['location_name'] ?? '') ?></small>
         <?php endif ?>
     </span>
     <span class="<?= $f['repair_cost'] > 0 ? 'c-bad' : 'c-muted' ?>">

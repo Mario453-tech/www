@@ -328,9 +328,9 @@ trait TechnicalPageDataTrait
     {
         try {
             $stmt = $db->prepare("
-                SELECT fl.*, w.location_name
+                SELECT fl.*, w.location_name, w.well_name
                 FROM failure_log fl
-                LEFT JOIN wells w ON fl.well_id = w.id
+                LEFT JOIN wells w ON fl.well_id = w.id AND w.player_id = fl.player_id
                 WHERE fl.player_id = ?
                 ORDER BY fl.occurred_at DESC
                 LIMIT 20
