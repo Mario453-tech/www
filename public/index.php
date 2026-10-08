@@ -214,6 +214,9 @@ if ($activeTrend) {
 
 // Status bar
 $statusItems = GameShell::statusItems($playerId);
+$dashboardPeriod = HomeDashboardQuery::normalizePeriod((string)($_GET['period'] ?? '30d'));
+$dashboardStats = (new HomeDashboardQuery(Database::getInstance()->getConnection()))
+    ->get($playerId, $dashboardPeriod, $wells);
 if (isset($statusItems[2])) {
     $statusItems[2]['sub'] = $activeTrend ? (($trendPricePct > 0 ? ' +' : ' ') . $trendPricePct . '% (event)') : '';
     $statusItems[2]['class'] = $activeTrend ? ($trendPricePct < 0 ? 'money cv-bad' : 'money cv-good') : 'money';
@@ -263,7 +266,7 @@ try {
 $seizedWells = [];
 try {
     $seizedStmt = $db->prepare("
-        SELECT id, location_name AS name, level, base_production_per_hour
+        SELECT id, COALESCE(NULLIF(well_name, ''), location_name) AS name, level, base_production_per_hour
         FROM wells
         WHERE player_id = :pid AND status = 'seized'
         ORDER BY level DESC
@@ -346,7 +349,7 @@ $viewData = compact(
     'notifications', 'actions',
     'alertWells', 'eventImpactPerHour', 'eventRemainingSeconds', 'trendPricePct',
     'techNotifications'
-    , 'dashboardChatViewData'
+    , 'dashboardChatViewData', 'dashboardStats'
 );
 
 $pageTitle  = t('index.title');
@@ -355,8 +358,9 @@ $extraCss   = [
     '/assets/css/home.css',
     '/assets/css/chat.css',
     '/assets/css/director.css',
+    '/assets/css/home_dashboard.css',
 ];
-$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js', '/assets/js/dashboard_news.js'];
+$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js', '/assets/js/dashboard_news.js', '/assets/js/home_dashboard.js', '/assets/js/director_notifications.js'];
 require_once __DIR__ . '/../templates/header.php';
 require __DIR__ . '/../templates/views/index/main.php';
 

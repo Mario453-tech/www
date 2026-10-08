@@ -15,13 +15,11 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
 
 <div class="dashboard fade-in">
 
+    <div class="oe-page-title"><span class="oe-kicker"><?= t('home_dashboard.title') ?></span><h1><?= t('home_dashboard.subtitle') ?></h1></div>
+
     <?php require __DIR__ . '/../../components/status_grid.php'; ?>
 
     <?php require __DIR__ . '/../../components/trend_alert.php'; ?>
-
-    <?php require __DIR__ . '/../../components/director_notifications.php'; ?>
-
-    <?php require __DIR__ . '/../../components/tech_notifications.php'; ?>
 
     <?php if (!empty($alertWells)): ?>
     <?php $__firstAlert = $alertWells[array_key_first($alertWells)]; ?>
@@ -32,19 +30,17 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
         <div class="alert-strip__body">
             <strong><?= count($alertWells) ?> <?= htmlspecialchars($alertPlural, ENT_QUOTES, 'UTF-8') ?></strong>
             <div class="alert-strip__chips">
-                <?php foreach ($alertWells as $__aw): ?>
+                <?php foreach (array_slice($alertWells, 0, 2) as $__aw): ?>
                 <a class="alert-strip__chip <?= (float)($__aw['_cond'] ?? 100) < 30 ? 'alert-strip__chip--crit' : 'alert-strip__chip--warn' ?>"
-                   href="#wg-card-<?= (int)$__aw['id'] ?>"
-                   onclick="return wgFocusWell(<?= (int)$__aw['id'] ?>);">
-                    <?= htmlspecialchars($__aw['location_name'] ?? ($wellFallbackPrefix . $__aw['id'])) ?>
+                   href="#wg-card-<?= (int)$__aw['id'] ?>">
+                    <?= htmlspecialchars(!empty($__aw['well_name']) ? $__aw['well_name'] : ($__aw['location_name'] ?? ($wellFallbackPrefix . $__aw['id'])), ENT_QUOTES, 'UTF-8') ?>
                      <?= round((float)($__aw['_cond'] ?? 0), 0) ?>%
                 </a>
                 <?php endforeach ?>
             </div>
         </div>
         <a class="alert-strip__cta"
-           href="#wg-card-<?= (int)$__firstAlert['id'] ?>"
-           onclick="return wgFocusWell(<?= (int)$__firstAlert['id'] ?>);">
+           href="#wells-heading">
             <?= htmlspecialchars($alertGoLabel, ENT_QUOTES, 'UTF-8') ?>
         </a>
     </div>
@@ -118,10 +114,8 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
     </aside>
     <?php endif ?>
 
-    <div class="chat-news-wrapper chat-news-wrapper--full-chat">
-        <?php require __DIR__ . '/../../components/news_panel.php'; ?>
-        <?php require __DIR__ . '/../../components/chat.php'; ?>
-    </div>
+    <?php require __DIR__ . '/../../components/company_statistics.php'; ?>
+    <?php require __DIR__ . '/../../components/activity_center.php'; ?>
 
     <section class="card" aria-labelledby="wells-heading">
         <h2 id="wells-heading"><?= t('index.wells_heading') ?></h2>
