@@ -16,6 +16,16 @@ $defaultRoomTranslations = $defaultRoomTranslations ?? [
 <div class="alert alert-error"><?= htmlspecialchars($err) ?></div>
 <?php endif ?>
 
+<section class="panel" id="chat-migration">
+    <h2 class="panel-title"><?= t('admin.chat.migration_title') ?></h2>
+    <p class="muted"><?= t('admin.chat.migration_hint') ?></p>
+    <form method="post">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="migrate_request_limits">
+        <button type="submit" class="btn btn-primary"><?= t('admin.chat.migration_apply') ?></button>
+    </form>
+</section>
+
 <!-- Statystyki -->
 <div class="admin-stats-row">
     <div class="admin-stat-card">

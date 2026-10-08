@@ -4,6 +4,7 @@
 
 - Brak `chat_request_limits` (MySQL 1146) nie przerywa niezaleznej retencji wiadomosci. Tick zapisuje ostrzezenie o wymaganej migracji; pozostale bledy bazy nadal sa raportowane jako bledy. Limit partii obejmuje rowniez usuwanie starych bucketow.
 - Na serwerze bez SSH zaimportowac przez panel bazy `sql/manual/chat_request_limits.sql` do bazy gry. Skrypt tworzy tylko brakujaca tabele; nie usuwa wiadomosci. Alternatywa CLI: `php tools/migrate_chat.php --apply` po backupie bazy. Kod requestow i tick nie uruchamia DDL.
+- Dodano jawna akcje `Admin -> Czat -> Uzupelnij strukture czatu`: POST + CSRF + autoryzacja admina, angielski AdminLog i PRG 303. Serwis tworzy tylko tabele limitera i weryfikuje wymagane kolumny oraz klucz glowny. Nie uruchamia sie podczas GET ani ticka. DDL jest wykonywane poza transakcja, bo MySQL zatwierdza je niejawnie. Regresje MySQL potwierdzaja ponowienie bez utraty bucketow i odmowe przy aktywnej transakcji (16/46).
 - Walidacja: regresje Unit 2/7, MySQL czatu 14/43, PHPStan serwisu, lint PHP, encoding i diff check. Wycofanie kodu przez revert; nowa tabela moze pozostac.
 
 ### 2026-10-08 - Domkniecie bledow analizy i testow

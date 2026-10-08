@@ -7,6 +7,11 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.migration_title' => 'Chat update',
+    'admin.chat.migration_hint' => 'Adds the table protecting against excessive requests. Preserves messages, rooms and settings.',
+    'admin.chat.migration_apply' => 'Update chat structure',
+    'admin.chat.migration_success' => 'Chat protection structure is ready.',
+    'admin.chat.migration_error' => 'Could not update the chat structure. Details were recorded in the logs.',
     'admin.chat.room_edit' => 'Edit room',
     'admin.chat.room_update' => 'Save changes',
     'admin.chat.room_status_archived' => 'Archived',

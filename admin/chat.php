@@ -6,6 +6,7 @@ require_once __DIR__ . '/init.php';
 require_once __DIR__ . '/../src/ChatBootstrap.php';
 require_once __DIR__ . '/../src/ChatService.php';
 require_once __DIR__ . '/../src/ChatRequestPolicy.php';
+require_once __DIR__ . '/../src/ChatLimiterMigrationService.php';
 AdminAuth::requireLogin();
 
 $db  = Database::getInstance()->getConnection();
@@ -27,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($action, ['delete_msg', 'delete_player_msgs', 'delete_expired', 'clear_all',
             'ban_player', 'unban_player', 'send_admin', 'pin_msg', 'unpin_msg', 'resolve_report',
             'add_blocked_word', 'delete_blocked_word', 'toggle_blocked_word', 'save_auto_clear',
-            'create_room', 'update_room', 'archive_room'], true)) {
+            'create_room', 'update_room', 'archive_room', 'migrate_request_limits'], true)) {
             $_SESSION['admin_chat_flash'] = ['err' => t('common.app_error')];
             header('Location: chat.php');
             exit;
@@ -35,6 +36,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $permission = in_array($action, ['create_room', 'update_room', 'archive_room'], true) ? 'chat.rooms.manage' : 'chat.moderate';
         if (!ChatRequestPolicy::allows($permission, AdminAuth::isLoggedIn())) {
             throw new RuntimeException('Chat permission denied');
+        }
+        if ($action === 'migrate_request_limits') {
+            try {
+                (new ChatLimiterMigrationService($db))->apply();
+                AdminLog::log('chat_limiter_migration', 'Chat request limiter schema verified');
+                $_SESSION['admin_chat_flash'] = ['msg' => t('admin.chat.migration_success')];
+            } catch (Throwable $e) {
+                GameLog::error('admin/chat.php', 'Chat request limiter migration failed', $e);
+                AdminLog::log('chat_limiter_migration_error', 'Chat request limiter migration failed');
+                $_SESSION['admin_chat_flash'] = ['err' => t('admin.chat.migration_error')];
+            }
+            header('Location: /admin/chat.php#chat-migration', true, 303);
+            exit;
         }
         $db->beginTransaction();
         $chatService = new ChatService($db);

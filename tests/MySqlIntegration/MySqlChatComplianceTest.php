@@ -5,6 +5,7 @@ use PHPUnit\Framework\TestCase;
 require_once dirname(__DIR__, 2) . '/src/ChatService.php';
 require_once dirname(__DIR__, 2) . '/src/ChatRetentionService.php';
 require_once dirname(__DIR__, 2) . '/src/ChatRequestLimiter.php';
+require_once dirname(__DIR__, 2) . '/src/ChatLimiterMigrationService.php';
 
 // Migrate connection-local fixtures only. / Migruj tylko dane tymczasowe polaczenia.
 final class ChatTemporaryPDO extends PDO
@@ -130,6 +131,30 @@ final class MySqlChatComplianceTest extends TestCase
         self::assertGreaterThan(0, $limiter->consume('send:ip', 2, 60));
         self::assertFalse($this->db->inTransaction());
         self::assertSame(0, $limiter->consume('presence:ip', 2, 60));
+    }
+
+    public function testExplicitLimiterMigrationPreservesBucketsOnRetry(): void
+    {
+        $this->db->exec('DROP TEMPORARY TABLE chat_request_limits');
+        $migration = new ChatLimiterMigrationService($this->db);
+        $migration->apply();
+        $limiter = new ChatRequestLimiter($this->db);
+        self::assertSame(0, $limiter->consume('migration', 1, 60));
+        $migration->apply();
+        self::assertGreaterThan(0, $limiter->consume('migration', 1, 60));
+    }
+
+    public function testLimiterMigrationRejectsActiveTransaction(): void
+    {
+        $this->db->beginTransaction();
+        try {
+            (new ChatLimiterMigrationService($this->db))->apply();
+            self::fail('Migration implicitly committed a transaction');
+        } catch (LogicException $e) {
+            self::assertTrue($this->db->inTransaction());
+        } finally {
+            $this->db->rollBack();
+        }
     }
 
     public function testRetentionPreservesDmPinnedMessagesAndMonotonicIds(): void

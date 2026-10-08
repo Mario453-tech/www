@@ -7,6 +7,11 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.chat.migration_title' => 'Aktualizacja czatu',
+    'admin.chat.migration_hint' => 'Uzupełnia tabelę ochrony przed zbyt częstymi żądaniami. Zachowuje wiadomości, pokoje i ustawienia.',
+    'admin.chat.migration_apply' => 'Uzupełnij strukturę czatu',
+    'admin.chat.migration_success' => 'Struktura ochrony czatu jest gotowa.',
+    'admin.chat.migration_error' => 'Nie udało się zaktualizować struktury czatu. Szczegóły zapisano w logach.',
     'admin.chat.room_edit' => 'Edytuj pokój',
     'admin.chat.room_update' => 'Zapisz zmiany',
     'admin.chat.room_status_archived' => 'Zarchiwizowany',
