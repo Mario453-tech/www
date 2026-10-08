@@ -135,6 +135,12 @@ jobs:
     name: Upload to FTP
     runs-on: ubuntu-latest
     needs: [test]
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: oilempire-production-ftp
+      cancel-in-progress: false
 
     steps:
       - name: Checkout
@@ -144,6 +150,22 @@ jobs:
           # poprzednim a obecnym commitem (deploy tylko zmienionych plikow).
           # Full history — needed to diff changed files between pushes.
           fetch-depth: 0
+
+      # Drain older uploads started before deployment serialization was enabled.
+      # Poczekaj na starsze uploady rozpoczte przed wlaczeniem serializacji wdrozen.
+      - name: Wait for earlier deployments
+        timeout-minutes: 30
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          while true; do
+            RUNS=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/deploy-ftp.yml/runs?branch=$GITHUB_REF_NAME&per_page=100")
+            OLDER=$(printf '%s' "$RUNS" | jq --argjson current "$GITHUB_RUN_ID" '[.workflow_runs[] | select(.id < $current and .status != "completed")] | length')
+            if [ "$OLDER" -eq 0 ]; then break; fi
+            echo "Waiting for $OLDER earlier deployment run(s)"
+            sleep 20
+          done
 
       - name: Write .env from secret
         run: |

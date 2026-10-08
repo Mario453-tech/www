@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-09 - Licznik i izolacja modulow ticka
+
+- Usunieto reset `tick_run_sequence` do zera przed kazdym pelnym tickiem. Licznik jest inicjalizowany tylko przy braku klucza i nastepnie atomowo inkrementowany; reczne uruchomienie modulu nadal tylko odczytuje numer. Zapobiega to ciaglemu pomijaniu planowanych modulow po ich pierwszym uruchomieniu.
+- Regresje MySQL na tabelach tymczasowych odtwarzaly reset 2->1 i 42->1 przed naprawa; po naprawie sprawdzaja rosnace numery oraz ponowne uruchomienie modulu z interwalem 1. Test SQLite potwierdza, ze reczne uruchomienie nie zmienia konfiguracji, wyniku ani logow innego modulu.
+- Uploady FTP sa serializowane; nowy deploy czeka takze na wczesniejsze uruchomienia sprzed dodania serializacji, aby starszy pelny mirror nie nadpisal nowszej poprawki. Nie wymaga migracji bazy. Wycofanie przez revert commitu.
+
 ### 2026-10-09 - Weryfikacja publikacji pulpitu
 
 - Kontrola produkcji wykryla HTTP 404 dla `home_dashboard.css` i `home_dashboard.js`, mimo zielonych ostatnich deployow przyrostowych. Kod nowego pulpitu znajduje sie w `public/index.php`, ale poprzedni smoke test sprawdzal tylko API.

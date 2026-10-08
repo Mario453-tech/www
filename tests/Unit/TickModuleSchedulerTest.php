@@ -212,6 +212,28 @@ final class TickModuleSchedulerTest extends BaseTestCase
         $this->assertSame(2, $GLOBALS['scheduled_module_runs']);
     }
 
+    public function testManualRunPreservesOtherModulesSettingsResultsAndLogs(): void
+    {
+        $targetDir = $this->moduleDir('ScheduledIsolatedTargetModule', 'scheduled_target');
+        $otherDir = $this->moduleDir('ScheduledIsolatedOtherModule', 'scheduled_other');
+        $target = TickRegistry::find('scheduled_target', $targetDir);
+        $other = TickRegistry::find('scheduled_other', $otherDir);
+        $this->assertInstanceOf(TickModule::class, $target);
+        $this->assertInstanceOf(TickModule::class, $other);
+        $this->scheduler->sync([$target, $other]);
+        $this->repository->update('scheduled_other', false, 9, 17);
+        $this->repository->markFinished('scheduled_other', 10, 'test',
+            TickModuleConfigRepository::STATUS_ERROR, 12, [], 'Previous failure', false);
+        $before = $this->repository->find('scheduled_other');
+        $logs = $this->repository->logs('scheduled_other');
+
+        $result = (new TickEngine($targetDir, $this->scheduler))->runOne('scheduled_target', $this->context(11));
+
+        $this->assertSame(TickRunResult::STATUS_SUCCESS, $result->moduleRuns['scheduled_target']['status']);
+        $this->assertSame($before, $this->repository->find('scheduled_other'));
+        $this->assertSame($logs, $this->repository->logs('scheduled_other'));
+    }
+
     private function context(int $sequence): TickContext
     {
         $ctx = new TickContext($this->db, new DateTimeImmutable('2026-07-11 02:00:00'), 'test');

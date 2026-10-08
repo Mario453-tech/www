@@ -176,7 +176,14 @@ final class TickCoordinator
 
     private function nextRunSequence(): int
     {
-        $this->upsertConfig('tick_run_sequence', '0', 'Tick run sequence', 'system');
+        // Initialize once; resetting the counter prevents scheduled modules from running.
+        // Inicjalizuj raz; zerowanie licznika blokuje uruchamianie planowanych modulow.
+        $seed = $this->db->prepare(
+            'INSERT INTO well_config (`key`, `value`, `label`, `category`)
+             VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE `key` = VALUES(`key`)'
+        );
+        $seed->execute(['tick_run_sequence', '0', 'Tick run sequence', 'system']);
         $stmt = $this->db->prepare(
             "UPDATE well_config
                 SET `value` = LAST_INSERT_ID(CAST(`value` AS UNSIGNED) + 1)
