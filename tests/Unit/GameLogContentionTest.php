@@ -41,6 +41,9 @@ final class GameLogContentionTest extends BaseTestCase
             self::assertFalse($status['running'], 'Logging must not wait for a maintenance lock');
             self::assertSame(0, $status['exitcode']);
             self::assertStringContainsString('contention-probe', file_get_contents($fallback));
+            // Windows prevents reads under an exclusive lock; the child has already finished.
+            // Windows blokuje odczyt pod blokada wylaczna; proces potomny juz sie zakonczyl.
+            self::assertTrue(flock($handle, LOCK_UN));
             self::assertSame('', file_get_contents($path));
         } finally {
             foreach ($pipes as $pipe) { fclose($pipe); }

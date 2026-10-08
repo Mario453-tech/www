@@ -9,6 +9,7 @@ final class TickHistoryQuery
     {
     }
 
+    /** @return array{rows:list<array<string,mixed>>,total:int,pages:int,page:int} */
     public function page(string $source, int $page, int $perPage = 50): array
     {
         $source = in_array($source, ['cron', 'force', 'cron_http'], true) ? $source : '';
@@ -41,6 +42,7 @@ final class TickHistoryQuery
         return ['rows' => $list->fetchAll(PDO::FETCH_ASSOC), 'total' => $total, 'pages' => $pages, 'page' => $page];
     }
 
+    /** @return array<string,mixed>|false */
     public function summary24h(): array|false
     {
         $since = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'

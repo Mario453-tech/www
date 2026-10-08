@@ -360,9 +360,6 @@ if ($method === 'POST') {
             chatJson(['ok' => true, 'id' => $message['id'], 'attachment' => false]);
         }
 
-        if ($msg === '' && $attachmentToken === '') {
-            chatJson(['error' => t('chat.err_msg_length')]);
-        }
         if ($channel === 'global' && mb_strlen($msg) > 300) {
             chatJson(['error' => t('chat.err_msg_length')]);
         }

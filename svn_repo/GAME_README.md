@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-08 - Domkniecie bledow analizy i testow
+
+- Uzupelniono typy wynikow historii ticka i dostaw morskich oraz kontrakt zmiennych przekazywanych pomiedzy plikami danych logistyki. Usunieto nieosiagalny warunek w legacy wysylaniu czatu; walidacja pustych wiadomosci pozostaje w serwisie.
+- Test kolizji logowania zwalnia blokade dopiero po zakonczeniu procesu potomnego i kontroli fallbacku. Nadal sprawdza czas zakonczenia, zapis awaryjny oraz brak wpisu w glownym pliku; dziala rowniez na Windows.
+- Walidacja: pelny PHPStan bez bledow, Unit 256 testow, Integration 664 testy (dwa warianty MySQL wykonane osobno), targeted MySQL historii ticka i czatu, lint PHP, encoding i diff check. Zmiana nie wymaga migracji bazy; wycofanie przez revert commitu.
+
 ### 2026-10-08 - Pulpit i regionalne nazwy odwiertow
 
 - Gorne menu grupuje istniejace, filtrowane uprawnieniami pozycje w Operacje, Biznes i Firma. Pulpit, Pomoc i Czat pozostaja bezposrednimi linkami. Konfiguracja grup w panelu admina jest odlozona.

@@ -9,7 +9,7 @@ final class MarineHistoryService
 {
     public function __construct(private PDO $db) {}
 
-    /** @return array{items:array,total:int,page:int,pages:int} */
+    /** @return array{items:list<array<string,mixed>>,total:int,page:int,pages:int} */
     public function page(int $playerId, int $page): array
     {
         $stmt = $this->db->prepare("SELECT COUNT(*) FROM marine_deliveries WHERE player_id = ? AND status IN ('delivered','lost')");
