@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-09 - Retencja czatu przy starszym schemacie
+
+- Brak `chat_request_limits` (MySQL 1146) nie przerywa niezaleznej retencji wiadomosci. Tick zapisuje ostrzezenie o wymaganej migracji; pozostale bledy bazy nadal sa raportowane jako bledy. Limit partii obejmuje rowniez usuwanie starych bucketow.
+- Na serwerze bez SSH zaimportowac przez panel bazy `sql/manual/chat_request_limits.sql` do bazy gry. Skrypt tworzy tylko brakujaca tabele; nie usuwa wiadomosci. Alternatywa CLI: `php tools/migrate_chat.php --apply` po backupie bazy. Kod requestow i tick nie uruchamia DDL.
+- Walidacja: regresje Unit 2/7, MySQL czatu 14/43, PHPStan serwisu, lint PHP, encoding i diff check. Wycofanie kodu przez revert; nowa tabela moze pozostac.
+
 ### 2026-10-08 - Domkniecie bledow analizy i testow
 
 - Uzupelniono typy wynikow historii ticka i dostaw morskich oraz kontrakt zmiennych przekazywanych pomiedzy plikami danych logistyki. Usunieto nieosiagalny warunek w legacy wysylaniu czatu; walidacja pustych wiadomosci pozostaje w serwisie.
