@@ -7,6 +7,14 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.wells.migration_button' => 'Run name migration',
+    'admin.wells.migration_confirm' => 'Assign sequential regional names to all existing wells? This operation is idempotent.',
+    'admin.wells.migration_error' => 'The well name migration failed. Check the administrator logs.',
+    'admin.wells.migration_hint' => 'Creates name counters and assigns sequential regional labels to existing wells, such as E-1 and AP-2.',
+    'admin.wells.migration_preview_error' => 'The migration status could not be checked.',
+    'admin.wells.migration_status' => 'Wells: :total. Pending changes: :pending.',
+    'admin.wells.migration_success' => 'Migration completed. Renamed wells: :count.',
+    'admin.wells.migration_title' => 'Regional well names',
     'admin.wells.cat.balance' => 'Game balance',
     'admin.wells.cat.crisis' => 'Financial crisis and bankruptcy',
     'admin.wells.cat.drilling' => 'Well construction',

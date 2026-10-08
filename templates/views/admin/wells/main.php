@@ -6,6 +6,30 @@
 <div class="alert alert-<?= $msgType ?>"><?= htmlspecialchars($msg) ?></div>
 <?php endif ?>
 
+<section class="panel mb-8" id="migration-well-names">
+    <p class="panel-title"><?= t('admin.wells.migration_title') ?></p>
+    <p class="panel-hint"><?= t('admin.wells.migration_hint') ?></p>
+    <?php if ($migrationPreviewError): ?>
+        <p class="alert alert-error"><?= t('admin.wells.migration_preview_error') ?></p>
+    <?php else: ?>
+        <p class="panel-hint"><?= t('admin.wells.migration_status', [
+            'total' => (int)$migrationPreview['total'],
+            'pending' => (int)$migrationPreview['renamed'],
+        ]) ?></p>
+    <?php endif ?>
+    <form method="post" action="/admin/wells.php?tab=config#migration-well-names"
+          class="js-confirm-form"
+          data-confirm="<?= htmlspecialchars(tPlain('admin.wells.migration_confirm')) ?>"
+          data-confirm-title="<?= htmlspecialchars(tPlain('admin.wells.migration_button')) ?>"
+          data-confirm-type="warning">
+        <?= CSRF::field() ?>
+        <input type="hidden" name="action" value="migrate_well_names">
+        <button type="submit" class="btn btn-warning"<?= $migrationPreviewError ? ' disabled' : '' ?>>
+            <?= t('admin.wells.migration_button') ?>
+        </button>
+    </form>
+</section>
+
 <div class="admin-tabs" role="tablist">
     <button onclick="wellsShowTab('config')"  id="tab-btn-config"  class="admin-tab" role="tab"><?= t('admin.wells.tab_config') ?></button>
     <button onclick="wellsShowTab('sell')"    id="tab-btn-sell"    class="admin-tab" role="tab"><?= t('admin.wells.tab_sell') ?></button>

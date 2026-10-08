@@ -9,10 +9,44 @@ try {
 require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
 require_once __DIR__ . '/../src/WellService.php';
+require_once __DIR__ . '/../src/WellNaming.php';
+require_once __DIR__ . '/../src/WellNamingSchema.php';
+require_once __DIR__ . '/../src/WellNamingMigrationService.php';
 
 $wellSvc = new WellService();
 $db      = Database::getInstance()->getConnection();
-$msg     = $msgType = '';
+$flash   = $_SESSION['admin_wells_flash'] ?? [];
+unset($_SESSION['admin_wells_flash']);
+$msg     = (string)($flash['message'] ?? '');
+$msgType = (string)($flash['type'] ?? '');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'migrate_well_names') {
+    if (!CSRF::validateToken($_POST['csrf_token'] ?? '')) {
+        $_SESSION['admin_wells_flash'] = [
+            'type' => 'error',
+            'message' => t('common.csrf_error'),
+        ];
+    } else {
+        try {
+            $result = (new WellNamingMigrationService($db))->deploy();
+            $renamed = (int)$result['applied']['renamed'];
+            AdminLog::log('well_names_migration', "Well name migration completed; renamed={$renamed}");
+            $_SESSION['admin_wells_flash'] = [
+                'type' => 'success',
+                'message' => t('admin.wells.migration_success', ['count' => $renamed]),
+            ];
+        } catch (Throwable $e) {
+            GameLog::error('admin/wells.php', 'Well name migration failed', $e);
+            AdminLog::log('well_names_migration_error', 'Well name migration failed');
+            $_SESSION['admin_wells_flash'] = [
+                'type' => 'error',
+                'message' => t('admin.wells.migration_error'),
+            ];
+        }
+    }
+    header('Location: /admin/wells.php?tab=config#migration-well-names');
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !CSRF::validateToken($_POST['csrf_token'] ?? '')) {
     $msg     = t('common.csrf_error');
@@ -139,6 +173,15 @@ $config  = $wellSvc->getAllConfig();
 $grouped = [];
 foreach ($config as $c) $grouped[$c['category']][] = $c;
 
+$migrationPreview = ['total' => 0, 'renamed' => 0];
+$migrationPreviewError = false;
+try {
+    $migrationPreview = (new WellNamingMigrationService($db))->run(false);
+} catch (Throwable $e) {
+    $migrationPreviewError = true;
+    GameLog::error('admin/wells.php', 'Well name migration preview failed', $e);
+}
+
 // --- Player filter ---
 $filterPlayerId = (int)($_GET['pid'] ?? 0);
 
@@ -198,6 +241,8 @@ $viewData = [
     'players'       => $players,
     'filterPlayerId'=> $filterPlayerId,
     'hubByWell'     => $hubByWell,
+    'migrationPreview' => $migrationPreview,
+    'migrationPreviewError' => $migrationPreviewError,
 ];
 
 $pageTitle = 'Odwierty — GM';

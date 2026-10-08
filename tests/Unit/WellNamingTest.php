@@ -80,4 +80,22 @@ final class WellNamingTest extends TestCase
             self::assertSame('Rumaila', $this->db->query('SELECT well_name FROM wells WHERE id = 11')->fetchColumn());
         }
     }
+
+    public function testAdminMigrationRequiresAuthenticationCsrfAndPostRedirectGet(): void
+    {
+        $root = dirname(__DIR__, 2);
+        $controller = (string)file_get_contents($root . '/admin/wells.php');
+        $view = (string)file_get_contents($root . '/templates/views/admin/wells/main.php');
+        $pl = require $root . '/lang/pl/admin/wells.php';
+        $en = require $root . '/lang/en/admin/wells.php';
+
+        self::assertStringContainsString('AdminAuth::requireLogin()', $controller);
+        self::assertStringContainsString("CSRF::validateToken(\$_POST['csrf_token']", $controller);
+        self::assertStringContainsString("=== 'migrate_well_names'", $controller);
+        self::assertStringContainsString("header('Location: /admin/wells.php?tab=config#migration-well-names')", $controller);
+        self::assertStringContainsString('method="post"', $view);
+        self::assertStringContainsString('name="action" value="migrate_well_names"', $view);
+        self::assertArrayHasKey('admin.wells.migration_button', $pl);
+        self::assertSame(array_keys($pl), array_keys($en));
+    }
 }

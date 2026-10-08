@@ -7,6 +7,14 @@ declare(strict_types=1);
  */
 
 return [
+    'admin.wells.migration_button' => 'Uruchom migrację nazw',
+    'admin.wells.migration_confirm' => 'Nadać wszystkim istniejącym odwiertom kolejne nazwy regionalne? Operacja jest idempotentna.',
+    'admin.wells.migration_error' => 'Migracja nazw odwiertów nie powiodła się. Sprawdź logi administratora.',
+    'admin.wells.migration_hint' => 'Tworzy licznik nazw i nadaje istniejącym odwiertom kolejne oznaczenia w regionach, np. E-1 i AP-2.',
+    'admin.wells.migration_preview_error' => 'Nie udało się sprawdzić stanu migracji.',
+    'admin.wells.migration_status' => 'Odwierty: :total. Do zmiany: :pending.',
+    'admin.wells.migration_success' => 'Migracja zakończona. Zmieniono nazwy: :count.',
+    'admin.wells.migration_title' => 'Regionalne nazwy odwiertów',
     'admin.wells.cat.balance' => 'Balans rozgrywki',
     'admin.wells.cat.crisis' => 'Kryzys finansowy i bankructwo',
     'admin.wells.cat.drilling' => 'Budowa odwiertu',
