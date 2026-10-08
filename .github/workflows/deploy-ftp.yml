@@ -335,7 +335,27 @@ jobs:
       # Failed healthcheck marks the deployment as failed in CI.
       - name: Smoke-test produkcji / Production smoke-test
         run: |
+          set -euo pipefail
           SITE="${{ secrets.SITE_URL }}"
+          SITE="${SITE%/}"
+          # Verify the deployed dashboard assets, not only unrelated API health.
+          # Sprawdz zasoby wdrozonego pulpitu, nie tylko stan niezaleznego API.
+          for ASSET in assets/css/home_dashboard.css assets/js/home_dashboard.js assets/css/game_nav.css assets/js/game_nav.js; do
+            TARGET=$(mktemp)
+            if ! curl -fsS --max-time 30 "$SITE/$ASSET?deploy=${GITHUB_SHA}" -o "$TARGET"; then
+              echo "FAIL: missing dashboard asset: $ASSET"
+              rm -f "$TARGET"
+              exit 1
+            fi
+            EXPECTED=$(sha256sum "$ASSET" | cut -d ' ' -f 1)
+            ACTUAL=$(sha256sum "$TARGET" | cut -d ' ' -f 1)
+            rm -f "$TARGET"
+            if [ "$EXPECTED" != "$ACTUAL" ]; then
+              echo "FAIL: stale or invalid dashboard asset: $ASSET"
+              exit 1
+            fi
+            echo "Dashboard asset OK: $ASSET"
+          done
           echo "=== Healthcheck: $SITE/api/v1/healthcheck.php ==="
           HC=$(curl -fsS --max-time 30 "$SITE/api/v1/healthcheck.php" 2>&1) || {
             echo "FAIL: healthcheck nieosiagalny (HTTP error lub timeout)"

@@ -1,5 +1,10 @@
 ## Changelog
 
+### 2026-10-09 - Weryfikacja publikacji pulpitu
+
+- Kontrola produkcji wykryla HTTP 404 dla `home_dashboard.css` i `home_dashboard.js`, mimo zielonych ostatnich deployow przyrostowych. Kod nowego pulpitu znajduje sie w `public/index.php`, ale poprzedni smoke test sprawdzal tylko API.
+- Smoke test wymaga teraz obecnosci i zgodnosci SHA-256 zasobow pulpitu oraz nawigacji z publikowanym commitem. Brak albo stara wersja pliku blokuje zielony wynik wdrozenia. Commit workflow i dokumentacji uruchamia istniejacy pelny mirror, gdy diff nie zawiera plikow aplikacji.
+
 ### 2026-10-09 - Retencja czatu przy starszym schemacie
 
 - Brak `chat_request_limits` (MySQL 1146) nie przerywa niezaleznej retencji wiadomosci. Tick zapisuje ostrzezenie o wymaganej migracji; pozostale bledy bazy nadal sa raportowane jako bledy. Limit partii obejmuje rowniez usuwanie starych bucketow.
