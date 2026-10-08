@@ -7,6 +7,24 @@ final class WellNamingMigrationService
     {
     }
 
+    /** @return array{status:string,preview:array<string,mixed>,applied:array<string,mixed>,verification:array<string,mixed>} */
+    public function deploy(): array
+    {
+        WellNamingSchema::ensure($this->db);
+        $preview = $this->run(false);
+        $applied = $this->run(true);
+        $verification = $this->run(false);
+        if ($verification['renamed'] !== 0) {
+            throw new RuntimeException('Well name migration verification failed.');
+        }
+        return [
+            'status' => 'completed',
+            'preview' => $preview,
+            'applied' => $applied,
+            'verification' => $verification,
+        ];
+    }
+
     /** @return array{total:int,renamed:int,preview:list<array{id:int,from:string,to:string}>} */
     public function run(bool $apply): array
     {

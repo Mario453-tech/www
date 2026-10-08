@@ -4,6 +4,7 @@ declare(strict_types=1);
 use PHPUnit\Framework\TestCase;
 
 require_once dirname(__DIR__, 2) . '/src/WellNaming.php';
+require_once dirname(__DIR__, 2) . '/src/WellNamingSchema.php';
 require_once dirname(__DIR__, 2) . '/src/WellNamingMigrationService.php';
 
 final class WellNamingTest extends TestCase
@@ -43,8 +44,8 @@ final class WellNamingTest extends TestCase
 
     public function testApplyIsIdempotentAndAllocationContinuesAfterDeletion(): void
     {
-        $this->db->exec('CREATE TABLE well_name_counters (player_id INTEGER, region_id INTEGER, last_number INTEGER,
-            PRIMARY KEY (player_id, region_id))');
+        WellNamingSchema::ensure($this->db);
+        WellNamingSchema::ensure($this->db);
         $service = new WellNamingMigrationService($this->db);
         self::assertSame(4, $service->run(true)['renamed']);
         self::assertSame(0, $service->run(true)['renamed']);
@@ -57,6 +58,17 @@ final class WellNamingTest extends TestCase
         self::assertSame('E-3', WellNaming::allocate($this->db, 7, 1, 'north_europe'));
         $this->db->commit();
         self::assertSame(0, $service->run(false)['renamed']);
+    }
+
+    public function testDeployCreatesSchemaAppliesAndVerifiesMigration(): void
+    {
+        $result = (new WellNamingMigrationService($this->db))->deploy();
+
+        self::assertSame('completed', $result['status']);
+        self::assertSame(4, $result['preview']['renamed']);
+        self::assertSame(4, $result['applied']['renamed']);
+        self::assertSame(0, $result['verification']['renamed']);
+        self::assertSame('E-1', $this->db->query('SELECT well_name FROM wells WHERE id = 11')->fetchColumn());
     }
 
     public function testApplyRequiresCounterSchemaAndKeepsNames(): void

@@ -14,7 +14,8 @@ final class WellNaming
 
     public static function prefix(?string $regionCode): string
     {
-        return self::PREFIXES[strtolower(trim((string)$regionCode))] ?? 'W';
+        $normalizedRegionCode = strtolower(trim((string)$regionCode));
+        return self::PREFIXES[$normalizedRegionCode] ?? 'W';
     }
 
     public static function name(?string $regionCode, int $number): string

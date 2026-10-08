@@ -9,20 +9,27 @@ if (PHP_SAPI !== 'cli') {
 require_once dirname(__DIR__) . '/src/Database.php';
 require_once dirname(__DIR__) . '/src/GameLog.php';
 require_once dirname(__DIR__) . '/src/WellNaming.php';
+require_once dirname(__DIR__) . '/src/WellNamingSchema.php';
 require_once dirname(__DIR__) . '/src/WellNamingMigrationService.php';
 
 $arguments = array_slice($_SERVER['argv'] ?? [], 1);
 $applySchema = in_array('--apply-schema', $arguments, true);
 $apply = in_array('--apply', $arguments, true);
-if ($applySchema && $apply) {
-    fwrite(STDERR, "Choose --apply-schema or --apply.\n");
+$deploy = in_array('--deploy', $arguments, true);
+if (count(array_filter([$applySchema, $apply, $deploy])) > 1) {
+    fwrite(STDERR, "Choose --apply-schema, --apply or --deploy.\n");
     exit(2);
 }
 try {
     $db = Database::getInstance()->getConnection();
     if ($applySchema) {
-        $db->exec((string)file_get_contents(dirname(__DIR__) . '/migrations/well_name_counters.sql'));
+        WellNamingSchema::ensure($db);
         fwrite(STDOUT, "Well name counter schema is ready.\n");
+        exit(0);
+    }
+    if ($deploy) {
+        $result = (new WellNamingMigrationService($db))->deploy();
+        fwrite(STDOUT, json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . PHP_EOL);
         exit(0);
     }
     $result = (new WellNamingMigrationService($db))->run($apply);
