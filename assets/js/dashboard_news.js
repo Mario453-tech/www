@@ -39,7 +39,7 @@
     }
 
     function load() {
-        fetch('/src/AdminNewsApi.php', { credentials: 'same-origin' })
+        fetch('/api/internal/AdminNewsApi.php', { credentials: 'same-origin' })
             .then(function (response) {
                 if (!response.ok) throw new Error('News request failed');
                 return response.json();

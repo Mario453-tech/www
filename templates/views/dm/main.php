@@ -98,7 +98,7 @@
 <script>
 window.DM_CONFIG = {
     csrfToken: <?= json_encode(CSRF::generateToken()) ?>,
-    api: '/src/ChatApi.php',
+    api: '/api/internal/ChatApi.php',
     myId: <?= (int) $myId ?>,
     withId: <?= $withId ? (int) $withId : 'null' ?>,
     strings: <?= json_encode([

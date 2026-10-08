@@ -14,6 +14,14 @@
 - Wdrozenie wymaga maintenance window i backupu bazy. Migracje mozna uruchomic w `Admin -> Odwierty -> Regionalne nazwy odwiertow` albo z terminala przez `php tools/migrate_well_names.php --deploy`. Operacja tworzy schemat, wykonuje backfill i potwierdza idempotencje. Formularz admina wymaga logowania, POST i CSRF oraz zapisuje angielski `AdminLog`. Nie wykonano migracji na bazie produkcyjnej.
 - Wycofanie: przywrocic poprzedni kod aplikacji; nowa tabela i nazwy moga pozostac, bo stare widoki nadal rozpoznaja `well_name`. Przywracanie starych nazw wymaga osobnego backupu danych sprzed migracji.
 
+### 2026-10-09 - Ochrona katalogow implementacyjnych
+
+- Publiczne endpointy modulu zostaly przeniesione z `/src/*.php` do adapterow `/api/internal/*.php`; logika i autoryzacja pozostaja w klasach zrodlowych.
+- Bezposrednie zadania do `src`, konfiguracji, narzedzi, migracji, backupow, logow, testow, szablonow, vendora, dokumentacji i kodu mobile sa przekierowywane na strone glowna bez zachowania query stringa. `src/.htaccess` dodatkowo odmawia dostepu niezaleznie od glownego rewrite.
+- W panelu admina stare pliki diagnostyczne i wewnetrzny `AdminLog.php` sa przekierowywane do `/admin/`. Publiczny pozostaje tylko chroniony tokenem eksport logow; pozostale strony panelu wymagaja logowania albo kieruja do chronionego celu.
+- HTTP tick pozostaje dostepny tylko przez `/cron/tick.php` i nadal wymaga `cron_secret_key`; pozostale adresy katalogu cron sa przekierowywane.
+- Stare samodzielne diagnostyki admina, rynku, ticka, polaczenia DB, selfcheck oraz skrypty `diag/check/test` zostaly usuniete z repozytorium. Deploy FTP usuwa ich dokladna liste takze z produkcji. Pozostawiono produkcyjny `/api/v1/healthcheck.php` uzywany przez CI oraz wymagany walidator `tools/check_encoding.php`.
+
 ### 2026-10-05 - Zunifikowany modul czatu (pokoje jezykowe, wiadomosci prywatne, obecnosc i panel admina)
 
 - Wdrozenie kompletnego, zunifikowanego czatu gracza zgodnie ze specyfikacja i wektorowa makieta `chat-kompletny.svg`.

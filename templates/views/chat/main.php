@@ -234,7 +234,7 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
 </div>
 
 <div id="chatConfig" hidden data-config="<?= htmlspecialchars(json_encode([
-    'api' => '/src/ChatApi.php',
+    'api' => '/api/internal/ChatApi.php',
     'playerId' => (int) $playerId,
     'csrfToken' => CSRF::generateToken(),
     'locale' => (string) $locale,

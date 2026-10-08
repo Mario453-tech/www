@@ -16,7 +16,7 @@
     }
     window.WG_CSRF = node ? node.dataset.csrf || '' : '';
     window.WG_LANG = lang;
-    window.WG_PIPELINE_API = node ? node.dataset.pipelineApi || '/src/PipelineApi.php' : '/src/PipelineApi.php';
+    window.WG_PIPELINE_API = node ? node.dataset.pipelineApi || '/api/internal/PipelineApi.php' : '/api/internal/PipelineApi.php';
 })();
 
 /* Translation helper - uses window.WG_LANG injected by well_grid.php */
@@ -424,7 +424,7 @@ function wgToggleTransport(wellId) {
 // Sprzedaz odwiertu
 async function wgSellPreview(wellId) {
     try {
-        const res  = await fetch('/src/WellSellApi.php?well_id=' + wellId);
+        const res  = await fetch('/api/internal/WellSellApi.php?well_id=' + wellId);
         const data = await res.json();
 
         if (data.error) {
@@ -501,7 +501,7 @@ async function wgSellPreview(wellId) {
 function wgConfirmSell(wellId) {
     var csrf = (typeof window.WG_CSRF !== 'undefined') ? window.WG_CSRF : '';
 
-    fetch('/src/WellSellApi.php', {
+    fetch('/api/internal/WellSellApi.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ well_id: wellId, csrf_token: csrf }),
@@ -628,7 +628,7 @@ var _wgPipelineType = 'standard';
 async function wgPipelineTypeSelect(wellId, transportType, csrf) {
     var profiles = null;
     try {
-        const r = await fetch((window.WG_PIPELINE_API || '/src/PipelineApi.php') + '?action=pipeline_profiles');
+        const r = await fetch((window.WG_PIPELINE_API || '/api/internal/PipelineApi.php') + '?action=pipeline_profiles');
         const d = await r.json();
         profiles = d.profiles || null;
     } catch (e) { /* fetch failed, render without costs */ }
@@ -695,7 +695,7 @@ async function wgSetTransportRequest(wellId, transportType, csrf, pipelineType) 
             fd.append('pipeline_type', pipelineType);
         }
 
-        const res  = await fetch('/src/WellStaffApi.php', { method: 'POST', body: fd });
+        const res  = await fetch('/api/internal/WellStaffApi.php', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
             if (typeof window.showGameToast === 'function') {
@@ -763,7 +763,7 @@ async function wgSetOutboundTransportRequest(wellId, transportType, csrf) {
         fd.append('transport_type', transportType);
         fd.append('_token', csrf);
 
-        const res  = await fetch('/src/WellStaffApi.php', { method: 'POST', body: fd });
+        const res  = await fetch('/api/internal/WellStaffApi.php', { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
             if (typeof window.showGameToast === 'function') {

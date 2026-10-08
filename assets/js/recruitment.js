@@ -25,7 +25,7 @@ function esc(v) {
 
 class RecruitmentSystem {
     constructor() {
-        this.apiUrl = 'src/RecruitmentAPI.php';
+        this.apiUrl = '/api/internal/RecruitmentAPI.php';
         this.currentRoleId = null;
         this.currentRequestId = null;
         this.selectedCandidateId = null;

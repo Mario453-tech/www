@@ -4,7 +4,7 @@ require __DIR__ . '/hub_client_config.php';
 require __DIR__ . '/protection_client_config.php';
 
 $logisticsClientConfig['optimizer'] = [
-    'api' => '/src/LogisticsApi.php',
+    'api' => '/api/internal/LogisticsApi.php',
     'csrf_token' => CSRF::generateToken(),
     'locale' => $currencyLocale,
     'currency' => $currencyLabel,
@@ -38,7 +38,7 @@ $logisticsClientConfig['optimizer'] = [
 ];
 
 $logisticsClientConfig['pipeline'] = [
-    'api' => '/src/PipelineApi.php',
+    'api' => '/api/internal/PipelineApi.php',
     'csrf_token' => CSRF::generateToken(),
     'lang' => [
         'loading' => t('logistics.loading'),

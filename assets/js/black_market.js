@@ -4,7 +4,7 @@
 (function () {
     'use strict';
 
-    const API_URL = '/src/BlackMarketApi.php';
+    const API_URL = '/api/internal/BlackMarketApi.php';
     let _csrfToken = '';
     let _refreshTimer = null;
 

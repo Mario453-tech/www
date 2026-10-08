@@ -52,7 +52,7 @@ async function dismissAllNotifs() {
     _pendingFetches++;
     let data = {};
     try {
-        const res = await fetch('/src/TechNotifApi.php', { method: 'POST', body: fd });
+        const res = await fetch('/api/internal/TechNotifApi.php', { method: 'POST', body: fd });
         data = await res.json().catch(() => ({}));
     } finally {
         _pendingFetches--;

@@ -10,7 +10,7 @@ const path = require('path');
                 const page = await browser.newPage({ viewport: { width, height: 900 } });
                 const errors = [];
                 page.on('pageerror', error => errors.push(error.message));
-                await page.route('**/src/AdminNewsApi.php', route => route.fulfill({
+                await page.route('**/api/internal/AdminNewsApi.php', route => route.fulfill({
                     contentType: 'application/json',
                     body: JSON.stringify({ news: [{ title: 'Nowe lokalizacje', content_html: 'Aktualność testowa',
                         date_fmt: '08.10.2026', is_pinned: false }] })

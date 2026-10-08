@@ -56,7 +56,7 @@ $logisticsClientConfig['staffing'] = [
 ];
 
 $logisticsClientConfig['hub'] = [
-    'api' => '/src/HubApi.php',
+    'api' => '/api/internal/HubApi.php',
     'csrf_token' => CSRF::generateToken(),
     'locale' => $currencyLocale,
     'currency' => $currencyLabel,

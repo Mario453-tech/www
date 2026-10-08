@@ -33,7 +33,6 @@ $navSections = [
     ],
     t('admin.nav.section_market') => [
         'market.php'       => ['', t('admin.nav.market')],
-        'market_debug.php' => ['', t('admin.nav.market_debug')],
         'balance.php'      => ['', t('admin.nav.balance')],
         'incidents.php'    => ['', t('admin.nav.incidents')],
         'black_market.php' => ['', t('black_market.admin_heading')],

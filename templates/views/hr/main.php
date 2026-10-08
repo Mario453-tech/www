@@ -1091,7 +1091,7 @@ $hrTabControls = [
 
 <script>
 const CSRF_TOKEN = <?= json_encode($csrfToken) ?>;
-const HR_API = '/src/HRApi.php';
+const HR_API = '/api/internal/HRApi.php';
 window.HR_LOCALE = <?= json_encode($locale) ?>;
 window.HR_ACTIVE_TAB = <?= json_encode($activeHrTab) ?>;
 window.HR_EVENT_IDS = <?= json_encode(array_values(array_map(

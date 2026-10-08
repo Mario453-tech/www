@@ -45,7 +45,7 @@
     var configNode = document.getElementById('chatConfig');
     if (configNode || window.CHAT_CONFIG) {
         var cfg = configNode ? JSON.parse(configNode.dataset.config) : window.CHAT_CONFIG;
-        var API = cfg.api || '/src/ChatApi.php';
+        var API = cfg.api || '/api/internal/ChatApi.php';
         var myId = parseInt(cfg.playerId || 0, 10);
         var strings = cfg.strings || {};
 
@@ -724,7 +724,7 @@
     var widgetBox = document.getElementById('chatMessages');
     if (!widgetForm || !widgetBox) return;
 
-    var widgetApi = '/src/ChatApi.php';
+    var widgetApi = '/api/internal/ChatApi.php';
     var wLastId = 0;
     var wMyId = 0;
     var wRoomId = 0;

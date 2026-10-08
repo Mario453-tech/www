@@ -32,7 +32,6 @@ return [
     'admin.nav.logs' => 'Logi',
     'admin.nav.main_site' => 'Strona główna',
     'admin.nav.market' => 'Rynek ropy',
-    'admin.nav.market_debug' => 'Debug rynku',
     'admin.nav.mobile_close' => 'Zamknij menu administratora',
     'admin.nav.mobile_open' => 'Otwórz menu administratora',
     'admin.nav.news' => 'Aktualności',

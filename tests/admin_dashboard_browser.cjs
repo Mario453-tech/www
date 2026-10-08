@@ -95,17 +95,17 @@ const php = process.env.PHP_BINARY || 'php';
                 }
                 if (surface === 'tech') {
                     for (const [status, body] of [[500, '{"success":true}'], [200, '{"success":false}'], [200, 'not JSON']]) {
-                        await page.route('https://fixture.test/src/TechNotifApi.php', route => route.fulfill({status, body, contentType: 'application/json'}));
+                        await page.route('https://fixture.test/api/internal/TechNotifApi.php', route => route.fulfill({status, body, contentType: 'application/json'}));
                         await page.locator('[data-tech-id="1"]').click();
                         await page.waitForFunction(() => !document.querySelector('.tech-notif-error').hidden);
                         assert.equal(await page.locator('.tech-notif-item').count(), 2);
-                        await page.unroute('https://fixture.test/src/TechNotifApi.php');
+                        await page.unroute('https://fixture.test/api/internal/TechNotifApi.php');
                     }
-                    await page.route('https://fixture.test/src/TechNotifApi.php', route => route.fulfill({status: 200, body: '{"success":true}', contentType: 'application/json'}));
+                    await page.route('https://fixture.test/api/internal/TechNotifApi.php', route => route.fulfill({status: 200, body: '{"success":true}', contentType: 'application/json'}));
                     await page.locator('[data-tech-id="1"]').click();
                     await page.waitForFunction(() => document.querySelectorAll('.tech-notif-item').length === 1);
                     assert.equal(await page.locator('.tech-notif-count').textContent(), '1');
-                    await page.unroute('https://fixture.test/src/TechNotifApi.php');
+                    await page.unroute('https://fixture.test/api/internal/TechNotifApi.php');
                 }
                 console.log(`PASS ${surface}/${locale}: seven widths and interactions`);
                 await page.unroute('https://fixture.test/');

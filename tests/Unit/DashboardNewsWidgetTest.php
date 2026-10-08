@@ -16,7 +16,7 @@ final class DashboardNewsWidgetTest extends TestCase
         self::assertStringContainsString('/assets/js/dashboard_news.js', $index);
         self::assertStringContainsString('data-empty=', $view);
         self::assertStringContainsString('data-error=', $view);
-        self::assertStringContainsString("fetch('/src/AdminNewsApi.php'", $script);
+        self::assertStringContainsString("fetch('/api/internal/AdminNewsApi.php'", $script);
         self::assertStringContainsString('SHOW COLUMNS FROM admin_news', $api);
         self::assertStringNotContainsString('addColumnIfMissing', $api);
     }

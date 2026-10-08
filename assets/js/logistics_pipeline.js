@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const api = window.PIPELINE_API || '/src/PipelineApi.php';
+    const api = window.PIPELINE_API || '/api/internal/PipelineApi.php';
     const lang = window.PIPELINE_LANG || {};
     let buyWellId = 0;
     let buyType = 'standard';

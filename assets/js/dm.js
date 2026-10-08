@@ -2,7 +2,7 @@
     'use strict';
 
     var cfg = window.DM_CONFIG || {};
-    var DM_API = cfg.api || '/src/ChatApi.php';
+    var DM_API = cfg.api || '/api/internal/ChatApi.php';
     var MY_ID = parseInt(cfg.myId || 0, 10);
     var WITH_ID = cfg.withId ? parseInt(cfg.withId, 10) : null;
     var L = cfg.strings || {};

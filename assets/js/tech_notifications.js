@@ -11,7 +11,7 @@
         const error = panel.querySelector('.tech-notif-error');
         error.hidden = true;
         try {
-            const response = await fetch('/src/TechNotifApi.php', {
+            const response = await fetch('/api/internal/TechNotifApi.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/x-www-form-urlencoded'},
                 body: new URLSearchParams({action: button.dataset.techAction,

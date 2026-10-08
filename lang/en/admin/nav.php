@@ -32,7 +32,6 @@ return [
     'admin.nav.logs' => 'Logs',
     'admin.nav.main_site' => 'Main site',
     'admin.nav.market' => 'Oil market',
-    'admin.nav.market_debug' => 'Market debug',
     'admin.nav.mobile_close' => 'Close admin menu',
     'admin.nav.mobile_open' => 'Open admin menu',
     'admin.nav.news' => 'News',

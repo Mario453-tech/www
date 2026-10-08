@@ -126,7 +126,7 @@ window.TECH_LANG = <?= json_encode([
 </script>
 <script src="/assets/js/technical.js"></script>
 <script>
-const WELL_STAFF_API = '/src/WellStaffApi.php';
+const WELL_STAFF_API = '/api/internal/WellStaffApi.php';
 const WS_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 window.WS_LANG = <?= json_encode([
     'role_operator'       => t('well_staff_js.role_operator'),

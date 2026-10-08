@@ -5,7 +5,7 @@
 (function () {
     'use strict';
 
-    const api = () => window.HUB_API || '/src/HubApi.php';
+    const api = () => window.HUB_API || '/api/internal/HubApi.php';
     const csrf = () => window.HUB_CSRF || '';
     const lang = () => window.HUB_LANG || {};
     const currency = () => window.HUB_CURRENCY || '';

@@ -76,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pollDmStatus() {
-        fetch('/src/ChatApi.php?action=dm_status', { credentials: 'same-origin' })
+        fetch('/api/internal/ChatApi.php?action=dm_status', { credentials: 'same-origin' })
             .then(function (r) { return r.json(); })
             .then(function (data) {
                 var count = parseInt((data && data.unread_total) || 0, 10);

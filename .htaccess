@@ -36,7 +36,7 @@ Options -Indexes
     RewriteRule ^market\.php$ /market [R=301,L]
     RewriteRule ^loans\.php$ /bank [R=301,L]
     RewriteRule ^change_password\.php$ /profile [R=301,L]
-    RewriteRule ^(index|technical_check|diag|reset_db|tick|cron-5min|diag_upload|mail_test|db_connection_check)\.php$ - [F,L]
+    RewriteRule ^(index|technical_check|diag|reset_db|tick|cron-5min|diag_upload|mail_test|db_connection_check|check_files|check_log_cfg|test_db|view_log|dashboard_safe|debug_recruitment)\.php$ / [R=302,L,NE,QSD]
 
     # Static files without redirect.
     RewriteCond %{REQUEST_URI} ^/v2/
@@ -46,38 +46,24 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/api/v1/
     RewriteRule ^ - [L]
 
+    # Internal admin implementation and diagnostics are never public pages.
+    # Wewnetrzna implementacja admina i diagnostyka nie sa publicznymi stronami.
+    RewriteRule ^admin/(AdminLog|db_connection_check|erorr|login_test|market_debug|redirect_diag|tick_test)\.php$ /admin/ [R=302,L,NE,QSD]
+
     RewriteCond %{REQUEST_URI} ^/assets/ [OR]
     RewriteCond %{REQUEST_URI} ^/admin/ [OR]
-    RewriteCond %{REQUEST_URI} ^/public/ [OR]
-    RewriteCond %{REQUEST_URI} ^/cron/
+    RewriteCond %{REQUEST_URI} ^/public/
     RewriteRule ^ - [L]
 
-    # AJAX endpoint allowlist in /src/.
-    RewriteCond %{REQUEST_URI} ^/src/RecruitmentAPI\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/HRApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/WellStaffApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/ChatApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/TechNotifApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/WellSellApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/DmApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/BlackMarketApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/LogisticsApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/AdminNewsApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/HubApi\.php$ [OR]
-    RewriteCond %{REQUEST_URI} ^/src/PipelineApi\.php$
+    # The authenticated HTTP tick remains available for the hosting scheduler.
+    # Uwierzytelniony tick HTTP pozostaje dostepny dla harmonogramu hostingu.
+    RewriteCond %{REQUEST_URI} ^/cron/tick\.php$
     RewriteRule ^ - [L]
 
-    # Block access to sensitive directories.
-    RewriteCond %{REQUEST_URI} ^/src/
-    RewriteCond %{REQUEST_URI} !^/src/(RecruitmentAPI\.php|HRApi\.php|WellStaffApi\.php|ChatApi\.php|TechNotifApi\.php|WellSellApi\.php|DmApi\.php|BlackMarketApi\.php|LogisticsApi\.php|AdminNewsApi\.php|HubApi\.php|PipelineApi\.php)$
-    RewriteRule ^ - [F,L]
-
-    RewriteCond %{REQUEST_URI} ^/config/ [OR]
-    RewriteCond %{REQUEST_URI} ^/sql/ [OR]
-    RewriteCond %{REQUEST_URI} ^/tests/ [OR]
-    RewriteCond %{REQUEST_URI} ^/templates/ [OR]
-    RewriteCond %{REQUEST_URI} ^/sessions/
-    RewriteRule ^ - [F,L]
+    # Redirect direct requests for implementation and operational directories.
+    # Przekieruj bezposrednie zadania do katalogow implementacyjnych i operacyjnych.
+    RewriteCond %{REQUEST_URI} ^/(src|config|sql|tests|templates|sessions|tools|migrations|backup|backups|logs|svn_repo|vendor|mobile|serwer|lang|cron|\.claude|\.github|\.githooks|\.phpunit\.cache)(/|$) [NC]
+    RewriteRule ^ / [R=302,L,NE,QSD]
 
     # Clean URLs must stay before the generic root rule.
     # Files in /public/.
@@ -90,7 +76,6 @@ Options -Indexes
     RewriteRule ^dashboard$       /public/dashboard.php [L,PT]
     RewriteRule ^loans$           /bank [R=301,L]
     RewriteRule ^profile$         /public/profile.php [L,PT]
-    RewriteRule ^db-check$        /db_connection_check.php [L,PT]
     RewriteRule ^login$           /public/login.php [L,PT]
     RewriteRule ^register$        /public/register.php [L,PT]
     RewriteRule ^bank$            /public/bank.php [L,PT]

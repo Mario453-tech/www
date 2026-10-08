@@ -442,7 +442,7 @@ async function submitRecruitment(roleId, roleName) {
     fd.append('initiated_by', 'director');
 
     try {
-        const res    = await fetch('/src/HRApi.php', { method:'POST', body:fd });
+        const res    = await fetch('/api/internal/HRApi.php', { method:'POST', body:fd });
         const result = await res.json();
         closeModal();
         if (result.success) {
@@ -459,7 +459,7 @@ async function submitRecruitment(roleId, roleName) {
 
 async function showCandidatesModal(roleId, roleName) {
  // Pobierz kandydatw z HRApi
-    const res     = await fetch(`/src/HRApi.php?action=get_candidates&role_id=${roleId}`);
+    const res     = await fetch(`/api/internal/HRApi.php?action=get_candidates&role_id=${roleId}`);
     const data    = await res.json();
     const cands   = data.candidates || [];
 
@@ -544,7 +544,7 @@ async function hireBoardroomCandidate() {
         fd.append('candidate_id', id);
         fd.append('contract_type', '1y');
 
-        const res = await fetch('/src/HRApi.php', { method:'POST', body:fd });
+        const res = await fetch('/api/internal/HRApi.php', { method:'POST', body:fd });
         const result = await res.json();
 
         closeModal();
@@ -603,7 +603,7 @@ async function fireEmployee(memberId, name) {
                 fd.append('member_id', memberId);
                 fd.append('reason', reason || brl('prompt_fire_default'));
 
-                const res = await fetch('/src/HRApi.php', { method:'POST', body:fd });
+                const res = await fetch('/api/internal/HRApi.php', { method:'POST', body:fd });
                 const result = await res.json();
 
                 if (result.success) {

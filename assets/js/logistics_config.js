@@ -19,14 +19,14 @@
     window.LOGISTICS_CLIENT_CONFIG = config;
 
     const optimizer = config.optimizer || {};
-    window.LOGISTICS_API = optimizer.api || '/src/LogisticsApi.php';
+    window.LOGISTICS_API = optimizer.api || '/api/internal/LogisticsApi.php';
     window.LOGISTICS_CSRF = optimizer.csrf_token || '';
     window.LOGISTICS_LANG = optimizer.lang || {};
     window.LOGISTICS_LOCALE = optimizer.locale || 'pl-PL';
     window.LOGISTICS_CURRENCY = optimizer.currency || 'PLN';
 
     const hub = config.hub || {};
-    window.HUB_API = hub.api || '/src/HubApi.php';
+    window.HUB_API = hub.api || '/api/internal/HubApi.php';
     window.HUB_CSRF = hub.csrf_token || '';
     window.HUB_LANG = hub.lang || {};
     window.HUB_LOCALE = hub.locale || window.LOGISTICS_LOCALE;
@@ -34,7 +34,7 @@
     window.HUB_STAFFING_CONFIG = config.staffing || null;
 
     const pipeline = config.pipeline || {};
-    window.PIPELINE_API = pipeline.api || '/src/PipelineApi.php';
+    window.PIPELINE_API = pipeline.api || '/api/internal/PipelineApi.php';
     window.PIPELINE_CSRF = pipeline.csrf_token || '';
     window.PIPELINE_LANG = pipeline.lang || {};
     window.PIPELINE_STAFFING_CONFIG = config.pipeline_staffing || null;

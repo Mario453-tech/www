@@ -408,5 +408,5 @@ foreach ($groups as $regionName => $group):
     'leg2_confirm_pipeline_switch' => t('well_grid.leg2_confirm_pipeline_switch'),
     'leg2_confirm_road'            => t('well_grid.leg2_confirm_road'),
 ], JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>"
-     data-pipeline-api="/src/PipelineApi.php"></div>
+     data-pipeline-api="/api/internal/PipelineApi.php"></div>
 <script src="<?= asset('/assets/js/well_grid.js') ?>"></script>

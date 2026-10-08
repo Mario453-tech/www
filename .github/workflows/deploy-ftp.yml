@@ -283,6 +283,35 @@ jobs:
           open ftps://$FTP_HOST:990
           user "$FTP_USER" "$FTP_PASS"
           $MIRROR_CMD
+          cd "$FTP_DIR"
+          rm -f admin/db_connection_check.php
+          rm -f admin/erorr.php
+          rm -f admin/login_test.php
+          rm -f admin/market_debug.php
+          rm -f admin/redirect_diag.php
+          rm -f admin/tick_test.php
+          rm -f public/selfcheck.php
+          rm -f serwer/test_sockets.php
+          rm -f serwer/testmysql.php
+          rm -f tools/check_dupes.php
+          rm -f tools/check_log_cfg.php
+          rm -f tools/db_connection_check.php
+          rm -f tools/diag_bytes.php
+          rm -f tools/diag_incidents.php
+          rm -f tools/diag_upload.php
+          rm -f tools/fix_emoji_test.php
+          rm -f db_connection_check.php
+          rm -f diag.php
+          rm -f diag_upload.php
+          rm -f technical_check.php
+          rm -f check_files.php
+          rm -f check_log_cfg.php
+          rm -f test_db.php
+          rm -f view_log.php
+          rm -f dashboard_safe.php
+          rm -f debug_recruitment.php
+          rm -f mail_test.php
+          rm -f reset_db.php
           bye
           LFTP
 
