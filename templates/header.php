@@ -122,7 +122,9 @@ if (!($authPage ?? false)) {
     <script src="<?= asset('/assets/js/modal.js') ?>"></script>
     <script src="<?= asset('/assets/js/language_switcher.js') ?>"></script>
     <script src="<?= asset('/assets/js/header.js') ?>" defer></script>
+    <?php if (!($authPage ?? false)): ?><script src="<?= asset('/assets/js/game_nav.js') ?>" defer></script><?php endif ?>
     <link rel="stylesheet" href="<?= asset('/assets/css/mobile.css') ?>">
+    <?php if (!($authPage ?? false)): ?><link rel="stylesheet" href="<?= asset('/assets/css/game_nav.css') ?>"><?php endif ?>
 </head>
 <body<?= ($authPage ?? false) ? ' class="auth-page"' : '' ?>>
 <?php if ($authPage ?? false): ?>
@@ -213,28 +215,7 @@ if (!($authPage ?? false)) {
 
  // Current path (for active nav item) / Biezaca sciezka (do oznaczenia aktywnego linka) 
             $__curPath = parse_url($_SERVER['REQUEST_URI'] ?? ($_SERVER['PHP_SELF'] ?? '/'), PHP_URL_PATH) ?: '/';
-
-            if (!function_exists('__navBtn')) {
-                function __navBtn(string $href, string $label, string $currentPath, string $extra = ''): string
-                {
-                    $targetPath  = parse_url($href, PHP_URL_PATH) ?: '/';
-                    $targetNorm  = $targetPath === '/' ? '/' : rtrim($targetPath, '/');
-                    $currentNorm = $currentPath === '/' ? '/' : rtrim($currentPath, '/');
-                    $isHome      = ($targetNorm === '/');
-                    $active      = '';
-                    if ($isHome) {
-                        $active = ($currentNorm === '/' || $currentNorm === '/index.php') ? ' nav-active' : '';
-                    } elseif ($currentNorm === $targetNorm || str_starts_with($currentNorm, $targetNorm . '/')) {
-                        $active = ' nav-active';
-                    }
-                    $btnClass = 'btn-secondary';
-                    if ($extra !== '') {
-                        $btnClass = str_starts_with($extra, 'btn-') ? $extra : ('btn-' . $extra);
-                    }
-                    $cls = 'btn btn-sm ' . $btnClass . $active;
-                    return '<a href="' . $href . '" class="' . $cls . '">' . $label . '</a>';
-                }
-            }
+            $__groupedNav = GameNavigation::build($__filteredNav, $__curPath);
             ?>
 
             <!--  ROW 1: Logo + company pill + logout + burger  -->
@@ -294,24 +275,32 @@ if (!($authPage ?? false)) {
             </div><!-- /.header-row1 -->
 
             <!--  ROW 2: Nav bar  -->
-            <?php if (isset($_SESSION['user_id']) && !empty($__filteredNav)): ?>
-            <nav class="user-nav user-nav--bar" id="user-nav" aria-label="<?= t('header.nav_aria') ?>">
-                <?php
-                $__prevOrder = null;
-                foreach ($__filteredNav as $__ni):
- // Separator between sort_order groups (gap >= 10) / Separator miedzy grupami sort_order (odstep >= 10)
-                    if ($__prevOrder !== null && ((int)$__ni['sort_order'] - $__prevOrder) >= 10):
-                ?>
-                <span class="nav-sep" role="separator" aria-hidden="true"></span>
-                <?php
-                    endif;
-                    $__prevOrder = (int)$__ni['sort_order'];
-                    $__niHref    = str_starts_with($__ni['url_key'], '/') ? $__ni['url_key'] : url($__ni['url_key']);
-                    $__niLabel   = !empty($__ni['lang_key']) ? t($__ni['lang_key']) : ($__ni['label'] ?? '');
-                    $__niCss     = $__ni['css_class'] ?: '';
-                    echo __navBtn($__niHref, $__niLabel, $__curPath, $__niCss);
-                endforeach;
-                ?>
+            <?php if (isset($_SESSION['user_id'])): ?>
+            <nav class="user-nav user-nav--bar game-nav" id="user-nav" aria-label="<?= t('header.nav_aria') ?>">
+                <div class="game-nav__primary">
+                    <a class="game-nav__item<?= in_array($__curPath, ['/', '/index.php'], true) ? ' nav-active' : '' ?>" href="<?= url('home') ?>"<?= in_array($__curPath, ['/', '/index.php'], true) ? ' aria-current="page"' : '' ?>>
+                        <img src="<?= asset('/assets/img/icons/nav/dashboard.svg') ?>" alt=""><span><?= t('nav.home') ?></span>
+                    </a>
+                    <?php foreach ($__groupedNav as $__groupId => $__group): if (!$__group['items']) continue; ?>
+                    <button class="game-nav__item game-nav__toggle<?= $__group['active'] ? ' nav-active' : '' ?>" type="button"
+                            data-nav-group="<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>"
+                            aria-expanded="<?= $__group['active'] ? 'true' : 'false' ?>"
+                            aria-controls="nav-context-<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>">
+                        <img src="<?= asset('/assets/img/icons/nav/' . ['operations' => 'map', 'business' => 'market', 'company' => 'team'][$__groupId] . '.svg') ?>" alt="">
+                        <span><?= htmlspecialchars($__group['label'], ENT_QUOTES, 'UTF-8') ?></span>
+                    </button>
+                    <?php endforeach; ?>
+                    <span class="game-nav__spacer"></span>
+                    <a class="game-nav__item" href="<?= url('help') ?>"><img src="<?= asset('/assets/img/icons/nav/help.svg') ?>" alt=""><span><?= t('nav.help') ?></span></a>
+                    <a class="game-nav__item<?= $__curPath === '/chat' ? ' nav-active' : '' ?>" href="<?= url('chat') ?>"><span><?= t('nav.chat') ?></span></a>
+                </div>
+                <?php foreach ($__groupedNav as $__groupId => $__group): if (!$__group['items']) continue; ?>
+                <div class="game-nav__context" id="nav-context-<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>" data-nav-panel="<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>"<?= $__group['active'] ? '' : ' hidden' ?>>
+                    <?php foreach ($__group['items'] as $__link): ?>
+                    <a href="<?= htmlspecialchars($__link['href'], ENT_QUOTES, 'UTF-8') ?>" class="game-nav__subitem<?= $__link['active'] ? ' nav-active' : '' ?>"<?= $__link['active'] ? ' aria-current="page"' : '' ?>><?= htmlspecialchars($__link['label'], ENT_QUOTES, 'UTF-8') ?></a>
+                    <?php endforeach; ?>
+                </div>
+                <?php endforeach; ?>
             </nav>
             <?php endif ?>
 

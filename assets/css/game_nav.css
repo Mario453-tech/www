@@ -1,0 +1,68 @@
+.game-nav {
+    display: block;
+    padding: 0;
+    overflow: visible;
+}
+
+.game-nav__primary,
+.game-nav__context {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.game-nav__primary {
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.game-nav__spacer { flex: 1 0 12px; }
+
+.game-nav__item,
+.game-nav__subitem {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    min-height: 48px;
+    padding: 8px 16px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: #92919d;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.game-nav__item img { width: 20px; height: 20px; object-fit: contain; }
+.game-nav__item:hover,
+.game-nav__subitem:hover { color: #f2f1f5; background: #22222b; }
+.game-nav__item.nav-active,
+.game-nav__subitem.nav-active { color: #d6b34b; background: rgba(214, 179, 75, .1); border-color: rgba(214, 179, 75, .45); }
+.game-nav__toggle[aria-expanded="true"] { color: #d6b34b; }
+.game-nav__item:focus-visible,
+.game-nav__subitem:focus-visible { outline: 2px solid #d6b34b; outline-offset: 2px; }
+.game-nav__context { gap: 4px; padding: 7px 0; border-top: 1px solid #30303b; overflow-x: auto; }
+.game-nav__context[hidden] { display: none; }
+.game-nav__subitem { min-height: 44px; padding: 8px 14px; font-size: 12px; }
+
+@media (max-width: 600px) {
+    .user-nav--bar.game-nav { width: min(300px, calc(100vw - 36px)) !important; right: -310px !important; }
+    body.nav-open .user-nav--bar.game-nav { right: 0 !important; }
+    .game-nav__primary,
+    .game-nav__context { flex-direction: column; align-items: stretch; overflow: visible; }
+    .game-nav__spacer { display: none; }
+    .game-nav__item,
+    .game-nav__subitem { justify-content: flex-start; white-space: normal; width: 100%; }
+    .game-nav__context { margin-left: 16px; border-left: 1px solid #30303b; border-top: 0; padding: 0 0 0 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .game-nav, .game-nav * { scroll-behavior: auto; transition: none !important; }
+}

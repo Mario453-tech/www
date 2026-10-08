@@ -8,7 +8,10 @@ declare(strict_types=1);
 
 return [
     // Naglowek / Header nav
-    'nav.home'      => 'Dashboard',
+    'nav.home'      => 'Pulpit',
+    'nav.group.operations' => 'Operacje',
+    'nav.group.business' => 'Biznes',
+    'nav.group.company' => 'Firma',
     'nav.map'       => 'Mapa',
     'nav.market'    => 'Rynek',
     'nav.bank'      => 'Bank',

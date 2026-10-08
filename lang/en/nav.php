@@ -8,6 +8,9 @@ declare(strict_types=1);
 
 return [
     'nav.home' => 'Dashboard',
+    'nav.group.operations' => 'Operations',
+    'nav.group.business' => 'Business',
+    'nav.group.company' => 'Company',
     'nav.map' => 'Map',
     'nav.market' => 'Market',
     'nav.bank' => 'Bank',

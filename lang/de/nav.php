@@ -7,7 +7,10 @@ declare(strict_types=1);
  */
 
 return [
-    'nav.home' => 'Übersicht',
+    'nav.home' => 'Dashboard',
+    'nav.group.operations' => 'Betrieb',
+    'nav.group.business' => 'Geschäft',
+    'nav.group.company' => 'Unternehmen',
     'nav.map' => 'Karte',
     'nav.market' => 'Markt',
     'nav.bank' => 'Bank',
