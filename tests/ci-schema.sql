@@ -2189,6 +2189,17 @@ CREATE TABLE `wells` (
 
 -- --------------------------------------------------------
 
+-- Well name sequence per player and region.
+-- Numeracja odwiertow osobno dla gracza i regionu.
+CREATE TABLE `well_name_counters` (
+  `player_id` int NOT NULL,
+  `region_id` int NOT NULL,
+  `last_number` int UNSIGNED NOT NULL,
+  PRIMARY KEY (`player_id`, `region_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- --------------------------------------------------------
+
 --
 -- Struktura tabeli dla tabeli `wells_for_sale`
 --

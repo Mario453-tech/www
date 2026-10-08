@@ -17,7 +17,8 @@ final class TechnicalDisasterStatusTest extends SqliteIntegrationTestCase
             id INTEGER PRIMARY KEY,
             player_id INTEGER NOT NULL,
             location_name TEXT NOT NULL,
-            status TEXT NOT NULL
+            status TEXT NOT NULL,
+            well_name TEXT GENERATED ALWAYS AS (location_name) VIRTUAL
         )');
         $this->db->exec('CREATE TABLE technical_tasks (
             id INTEGER PRIMARY KEY,

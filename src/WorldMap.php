@@ -3,6 +3,7 @@
 require_once __DIR__ . '/PlayerPaymentService.php';
 require_once __DIR__ . '/WorldLocationCatalogSeeder.php';
 require_once __DIR__ . '/WorldMapSchema.php';
+require_once __DIR__ . '/WellNaming.php';
 
 /**
  * WorldMap - world map service.
@@ -321,7 +322,7 @@ class WorldMap
                     (float)($transportProfile['capacity'] ?? 0.0),
                     (float)($transportProfile['opex'] ?? 0.0),
                     $reservoirRemaining, $reservoirMax,
-                    $loc['name'],
+                    WellNaming::allocate($this->db, $playerId, (int)$loc['region_id'], (string)$loc['region_code']),
                     $loc['name'],
                     $loc['well_type'] === 'offshore' ? 3500 : 2200,
                 ]);

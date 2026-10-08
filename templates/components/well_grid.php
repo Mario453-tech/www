@@ -118,9 +118,9 @@ foreach ($groups as $regionName => $group):
                             <span class="wbadge wb-type"><?= strtoupper(t('technical.well_type_' . ($w['well_type'] ?? 'onshore'))) ?></span>
                             <span class="wbadge wb-lvl"><?= t('wg.eq_level_badge', ['level' => (int)$w['level']]) ?></span>
                         </div>
-                        <div class="wg-well-name"><?= htmlspecialchars($w['location_name'] ?? t('wg.default_well_name')) ?></div>
+                        <div class="wg-well-name"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('wg.default_well_name')), ENT_QUOTES, 'UTF-8') ?></div>
                         <?php if (!empty($w['region_name'])): ?>
-                        <div class="wg-well-loc"><?= htmlspecialchars($w['region_name']) ?></div>
+                        <div class="wg-well-loc"><?= htmlspecialchars((string)($w['location_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($w['region_name'], ENT_QUOTES, 'UTF-8') ?></div>
                         <?php endif ?>
                     </div>
                     <div class="wg-status-pill <?= $__pillMod ?>">

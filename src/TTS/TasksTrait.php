@@ -36,7 +36,7 @@ trait TTSTasksTrait
         $stmt = $this->db->prepare("
             SELECT tt.*,
                    ts.first_name, ts.last_name, ts.spec_code, ts.spec_name, ts.skill_level,
-                   w.location_name AS well_name,
+                   COALESCE(NULLIF(w.well_name, ''), w.location_name) AS well_name,
                    h.name AS hub_name,
                    wp.name AS pipeline_name,
                    GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), tt.end_time)) AS seconds_remaining
@@ -999,7 +999,7 @@ trait TTSTasksTrait
                 SELECT q.*,
                        ts.first_name, ts.last_name, ts.spec_code,
                        COALESCE(hs.name, ts.spec_code) AS spec_name,
-                       w.location_name AS well_name,
+                       COALESCE(NULLIF(w.well_name, ''), w.location_name) AS well_name,
                        h.name AS hub_name
                 FROM technical_task_queue q
                 JOIN technical_staff ts ON ts.id = q.staff_id

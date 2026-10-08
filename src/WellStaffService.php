@@ -284,7 +284,7 @@ class WellStaffService
         foreach ($rows as $r) {
             $result[] = [
                 'well_id'       => (int)$r['id'],
-                'well_name'     => $r['location_name'],
+                'well_name'     => !empty($r['well_name']) ? $r['well_name'] : $r['location_name'],
                 'status'        => $r['status'],
                 'has_operator'  => !empty($r['operator_id']),
                 'has_technician'=> !empty($r['technician_id']),

@@ -22,7 +22,7 @@
         ?>
         <div class="data-list-row cols-wells">
             <span class="dlc sm">#<?= $w['id'] ?></span>
-            <span class="dlc"><?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name')) ?></span>
+            <span class="dlc"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?></span>
             <span class="dlc"><span class="badge <?= $sCls ?>"><?= $sLbl ?></span></span>
             <span class="dlc c-gold fw7"><?= number_format($w['base_production_per_hour'], 1) ?> bbl/h</span>
             <span class="dlc <?= $condCol ?> fw7"><?= round($cond, 1) ?>%</span>

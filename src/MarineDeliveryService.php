@@ -240,7 +240,7 @@ class MarineDeliveryService
         try {
             $limit = max(1, min(500, $limit));
             $stmt = $this->db->prepare(
-                "SELECT md.*, p.name AS port_name, w.name AS well_name
+                "SELECT md.*, p.name AS port_name, COALESCE(NULLIF(w.well_name, ''), w.name) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
@@ -281,7 +281,7 @@ class MarineDeliveryService
             $stmt = $this->db->prepare(
                 "SELECT md.*,
                         p.name AS port_name,
-                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
+                        COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
@@ -312,7 +312,7 @@ class MarineDeliveryService
         try {
             $stmt = $this->db->prepare(
                 "SELECT w.id AS well_id,
-                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
+                        COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
                         w.status,
                         w.marine_buffer_bbl,
                         ? AS min_load_bbl
@@ -403,7 +403,7 @@ class MarineDeliveryService
             $stmt = $db->prepare(
                 "SELECT md.*,
                         p.name AS port_name,
-                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
+                        COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id
@@ -433,7 +433,7 @@ class MarineDeliveryService
         try {
             $stmt = $db->prepare(
                 "SELECT w.id AS well_id,
-                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
+                        COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name, CONCAT('Odwiert #', w.id)) AS well_name,
                         w.status,
                         w.marine_buffer_bbl,
                         ? AS min_load_bbl
@@ -456,7 +456,7 @@ class MarineDeliveryService
             $stmt = $db->prepare(
                 "SELECT md.*,
                         p.name AS port_name,
-                        COALESCE(w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
+                        COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name, CONCAT('Odwiert #', md.well_id)) AS well_name
                    FROM marine_deliveries md
                    LEFT JOIN ports p ON p.id = md.port_id
                    LEFT JOIN wells w ON w.id = md.well_id

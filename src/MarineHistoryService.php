@@ -17,7 +17,7 @@ final class MarineHistoryService
         $total = (int)$stmt->fetchColumn();
         $pages = max(1, (int)ceil($total / 5));
         $page = min(max(1, $page), $pages);
-        $stmt = $this->db->prepare("SELECT md.*, p.name AS port_name, COALESCE(w.name, w.location_name) AS well_name
+        $stmt = $this->db->prepare("SELECT md.*, p.name AS port_name, COALESCE(NULLIF(w.well_name, ''), w.name, w.location_name) AS well_name
             FROM marine_deliveries md LEFT JOIN ports p ON p.id = md.port_id
             LEFT JOIN wells w ON w.id = md.well_id AND w.player_id = md.player_id
             WHERE md.player_id = ? AND md.status IN ('delivered','lost')

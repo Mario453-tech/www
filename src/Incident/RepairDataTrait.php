@@ -233,7 +233,7 @@ trait IncidentRepairDataTrait
     {
         try {
             $stmt = $this->db->prepare("
-                SELECT wi.*, w.location_name AS well_name
+                SELECT wi.*, COALESCE(NULLIF(w.well_name, ''), w.location_name) AS well_name
                 FROM well_incidents wi
                 LEFT JOIN wells w ON w.id = wi.well_id
                 WHERE wi.player_id = ?

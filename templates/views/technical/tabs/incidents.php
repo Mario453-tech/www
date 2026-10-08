@@ -33,7 +33,7 @@
             <div class="inc-meta">
                 <span class="inc-meta-source"><?= incidentIconSvg($cause === 'operator' ? 'person' : 'gear', 'incident-svg--meta') ?><?= t('technical.inc_cause_' . $cause, [], ucfirst($cause)) ?></span>
                 <span class="sep">·</span>
-                <span><?= t('technical.well_num', ['id' => $inc['well_id']]) ?><?= $inc['well_name'] ? ' — '.htmlspecialchars($inc['well_name']) : '' ?></span>
+                <span><?= !empty($inc['well_name']) ? htmlspecialchars((string)$inc['well_name'], ENT_QUOTES, 'UTF-8') : t('technical.well_num', ['id' => $inc['well_id']]) ?></span>
                 <span class="sep">·</span>
                 <span class="<?= $inc['prod_drop'] >= 40 ? 'c-bad' : ($inc['prod_drop'] >= 10 ? 'c-warn' : 'c-muted2') ?>">
                     <?= $inc['prod_drop'] ?>% <?= t('technical.inc_prod') ?>

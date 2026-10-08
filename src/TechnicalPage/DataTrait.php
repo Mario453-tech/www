@@ -306,7 +306,7 @@ trait TechnicalPageDataTrait
             $reconcileBlowoutStmt->execute([$this->playerId]);
 
             $stmt = $db->prepare("
-                SELECT d.*, w.location_name AS well_name
+                SELECT d.*, COALESCE(NULLIF(w.well_name, ''), w.location_name) AS well_name
                 FROM industrial_disasters d
                 LEFT JOIN wells w ON w.id = d.well_id AND w.player_id = d.player_id
                 WHERE d.player_id = ? AND d.status IN ('active','being_repaired')

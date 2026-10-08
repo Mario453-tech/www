@@ -334,7 +334,7 @@ class LogisticsService
     public function getCurrentSummary(): array
     {
         $stmt = $this->db->prepare("
-            SELECT id, COALESCE(NULLIF(name, ''), location_name, CONCAT('Odwiert #', id)) AS well_name,
+            SELECT id, COALESCE(NULLIF(well_name, ''), NULLIF(name, ''), location_name, CONCAT('Odwiert #', id)) AS well_name,
                    well_type, base_production_per_hour,
                    transport_type, transport_capacity_pct, transport_opex_pct, status
             FROM wells

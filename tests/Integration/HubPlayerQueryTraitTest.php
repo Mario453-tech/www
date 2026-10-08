@@ -22,7 +22,8 @@ final class HubPlayerQueryTraitTest extends SqliteIntegrationTestCase
             region_id INTEGER,
             zone_key TEXT,
             status TEXT NOT NULL,
-            base_production_per_hour REAL
+            base_production_per_hour REAL,
+            well_name TEXT GENERATED ALWAYS AS (name) VIRTUAL
         )');
  // Table includes cooldown_until needed by P1.3 subquery
         $this->db->exec('CREATE TABLE logistics_hub_assignments (

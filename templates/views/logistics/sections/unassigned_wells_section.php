@@ -23,7 +23,7 @@
                 $uwCooldownLabel  = $uwCooldownH > 0 ? "{$uwCooldownH}h {$uwCooldownM}min" : "{$uwCooldownM}min";
             ?>
             <div class="logistics-table-row">
-                <span>#<?= (int)$uw['id'] ?> <?= htmlspecialchars($uw['name'] ?? $uw['location_name'] ?? '') ?></span>
+                <span><?= htmlspecialchars(!empty($uw['well_name']) ? $uw['well_name'] : ($uw['name'] ?? $uw['location_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
                 <span><?= htmlspecialchars($uw['region_name'] ?? (($locale === 'en' ? 'Region #' : 'Region #') . $uw['region_id'])) ?>
                     <?= ($uw['zone_key'] ?? '') !== '' ? '/ ' . htmlspecialchars($uw['zone_key']) : '' ?>
                 </span>

@@ -36,7 +36,7 @@ $disasterCount    = count(array_filter($wells, fn($w) => in_array($w['status'], 
         ?>
         <div class="data-list-row cols-prod">
             <span class="dlc sm">#<?= $w['id'] ?></span>
-            <span class="dlc"><?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name')) ?></span>
+            <span class="dlc"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?></span>
             <span class="dlc c-gold fw7"><?= number_format($effProd, 1) ?> bbl/h</span>
             <span class="dlc"><?= number_format($p, 3) ?></span>
             <span class="dlc <?= $cond >= 70 ? 'c-good' : ($cond >= 40 ? 'c-warn' : 'c-bad') ?> fw6"><?= round($cond, 1) ?>%</span>

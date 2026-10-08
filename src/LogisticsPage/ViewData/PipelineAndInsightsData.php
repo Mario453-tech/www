@@ -235,7 +235,7 @@ if ($protSvc !== null && $pipelines !== []) {
 $wellsWithoutPipeline = [];
 try {
     $woPipelineStmt = $db->prepare("
-        SELECT w.id, w.name AS well_name, w.status AS well_status,
+        SELECT w.id, COALESCE(NULLIF(w.well_name,''), w.name) AS well_name, w.status AS well_status,
                w.location_name, w.transport_type, w.region_id,
                h.id AS hub_id, h.name AS hub_name
           FROM wells w

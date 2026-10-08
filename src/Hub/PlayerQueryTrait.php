@@ -188,7 +188,7 @@ trait HubPlayerQueryTrait
     public function getUnassignedWells(int $playerId): array
     {
         $stmt = $this->db->prepare(
-            "SELECT w.id, w.name, w.location_name, w.region_id, w.zone_key, w.status,
+            "SELECT w.id, w.name, w.well_name, w.location_name, w.region_id, w.zone_key, w.status,
                     w.base_production_per_hour,
                     wr.name AS region_name,
                     (SELECT a.cooldown_until

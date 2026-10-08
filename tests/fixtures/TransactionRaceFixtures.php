@@ -63,7 +63,7 @@ final class TransactionRaceFixtures
         foreach ($this->inserted['players'] as $id) {
             foreach (['market_sale_history', 'market_offers', 'storage', 'bank_negotiations',
                 'bailiff_proceedings', 'loans', 'drilling_permit_applications', 'hub_permit_applications',
-                'director_notifications', 'company_credibility_log', 'wells'] as $table) {
+                'director_notifications', 'company_credibility_log', 'wells', 'well_name_counters'] as $table) {
                 $this->db->prepare("DELETE FROM {$table} WHERE player_id = ?")->execute([$id]);
             }
             $this->db->prepare('DELETE FROM bank_transactions WHERE from_player_id = ? OR to_player_id = ?')->execute([$id, $id]);

@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/WellNaming.php';
 
 class WellShop
 {
@@ -79,6 +80,12 @@ class WellShop
             $fts = new FinancialTransactionService();
             $this->db->beginTransaction();
             try {
+                $playerLock = $this->db->prepare('SELECT id FROM players WHERE id = ? FOR UPDATE');
+                $playerLock->execute([$playerId]);
+                if (!$playerLock->fetchColumn()) {
+                    $this->db->rollBack();
+                    return ['success' => false, 'message' => t('well_shop.err_no_funds')];
+                }
                 // Re-check the limit inside the transaction with a row-level lock to prevent
                 // race conditions where two concurrent requests both see COUNT < 5.
                 // Note: COUNT(*) ... FOR UPDATE is invalid in MySQL; use SELECT id FOR UPDATE instead.
@@ -95,15 +102,24 @@ class WellShop
                     return ['success' => false, 'message' => t('well_shop.err_no_funds')];
                 }
                 $transportProfile = TransportConfigService::getTypeConfig($this->db, 'nieustawiony');
+                $regionId = (int)($well['region_id'] ?? 0);
+                $regionCode = null;
+                if ($regionId > 0) {
+                    $regionStmt = $this->db->prepare('SELECT code FROM world_regions WHERE id = ?');
+                    $regionStmt->execute([$regionId]);
+                    $regionCode = $regionStmt->fetchColumn() ?: null;
+                }
 
                 $insertWell = $this->db->prepare("
                     INSERT INTO wells (
                         player_id, level, status, base_production_per_hour, upkeep_cost_per_hour,
+                        region_id, well_name, location_name,
                         transport_type, transport_capacity_pct, transport_opex_pct,
                         last_production_at, created_at
                     )
                     VALUES (
                         :player_id, 1, 'active', :production, :upkeep,
+                        :region_id, :well_name, :location_name,
                         :transport_type, :transport_capacity_pct, :transport_opex_pct,
                         NOW(), NOW()
                     )
@@ -113,6 +129,9 @@ class WellShop
                     ':player_id' => $playerId,
                     ':production' => $well['base_production'],
                     ':upkeep' => $well['upkeep_cost'],
+                    ':region_id' => $regionId > 0 ? $regionId : null,
+                    ':well_name' => WellNaming::allocate($this->db, $playerId, $regionId, $regionCode),
+                    ':location_name' => $well['location_name'] ?? 'Pole naftowe',
                     ':transport_type' => 'nieustawiony',
                     ':transport_capacity_pct' => (float)($transportProfile['capacity'] ?? 0.0),
                     ':transport_opex_pct' => (float)($transportProfile['opex'] ?? 0.0),

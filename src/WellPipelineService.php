@@ -499,7 +499,7 @@ class WellPipelineService
                     COALESCE(w.region_id, h.region_id) AS region_id,
                     CASE
                         WHEN wp.well_id = 0 THEN NULL
-                        ELSE COALESCE(NULLIF(w.name, ''), NULLIF(w.well_name, ''), CONCAT('Odwiert #', w.id))
+                        ELSE COALESCE(NULLIF(w.well_name, ''), NULLIF(w.name, ''), CONCAT('Odwiert #', w.id))
                     END AS well_name,
                     w.location_name,
                     w.transport_type,
@@ -891,7 +891,7 @@ class WellPipelineService
         $stmt = $this->db->prepare(
             "SELECT wp.*,
                     w.region_id AS region_id,
-                    COALESCE(NULLIF(w.name,''), NULLIF(w.well_name,''), CONCAT('Odwiert #', w.id)) AS well_name,
+                    COALESCE(NULLIF(w.well_name,''), NULLIF(w.name,''), CONCAT('Odwiert #', w.id)) AS well_name,
                     h.name AS hub_name,
                     GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), wp.build_finish_at)) AS seconds_remaining
                FROM well_pipelines wp

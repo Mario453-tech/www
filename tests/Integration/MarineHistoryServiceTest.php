@@ -9,7 +9,8 @@ final class MarineHistoryServiceTest extends SqliteIntegrationTestCase
         $db = $this->createSqlitePdo();
         $db->exec('CREATE TABLE marine_deliveries (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT, port_id INTEGER, well_id INTEGER, delivered_at TEXT, arrived_at TEXT, eta_at TEXT, created_at TEXT)');
         $db->exec('CREATE TABLE ports (id INTEGER PRIMARY KEY, name TEXT)');
-        $db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, name TEXT, location_name TEXT)');
+        $db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, name TEXT, location_name TEXT,
+            well_name TEXT GENERATED ALWAYS AS (name) VIRTUAL)');
         $insert = $db->prepare('INSERT INTO marine_deliveries VALUES (?, ?, ?, NULL, NULL, ?, NULL, NULL, ?)');
         for ($id = 1; $id <= 12; $id++) $insert->execute([$id, 1, 'delivered', '2026-09-30 12:00:00', '2026-09-25 12:00:00']);
         $insert->execute([20, 2, 'lost', '2026-09-30 12:00:00', '2026-09-25 12:00:00']);

@@ -237,16 +237,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
 
  // Klonuj odwierty
-                        $wellsStmt = $db->prepare("SELECT * FROM wells WHERE player_id = ?");
+                        $wellsStmt = $db->prepare("SELECT w.*, wr.code AS region_code FROM wells w
+                            LEFT JOIN world_regions wr ON wr.id = w.region_id WHERE w.player_id = ? ORDER BY w.id");
                         $wellsStmt->execute([$sourceId]);
                         foreach ($wellsStmt->fetchAll() as $w) {
                             $db->prepare("
-                                INSERT INTO wells (player_id, well_type, location_name, depth_m,
+                                INSERT INTO wells (player_id, well_type, region_id, well_name, location_name, depth_m,
                                     base_production_per_hour, upkeep_cost_per_hour, technical_condition,
                                     pressure, reservoir_remaining, reservoir_max, status)
-                                VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                             ")->execute([
-                                $newId, $w['well_type'], $w['location_name'], $w['depth_m'],
+                                $newId, $w['well_type'], $w['region_id'],
+                                WellNaming::allocate($db, $newId, (int)($w['region_id'] ?? 0), $w['region_code']),
+                                $w['location_name'], $w['depth_m'],
                                 $w['base_production_per_hour'], $w['upkeep_cost_per_hour'], $w['technical_condition'],
                                 $w['pressure'], $w['reservoir_remaining'], $w['reservoir_max'], $w['status']
                             ]);
@@ -285,6 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  // Kolejnosc ma znaczenie — najpierw dzieci (FK), potem players.
  // Order matters — children first (FK), then players.
             $allTables = [
+                'well_name_counters',
                 'well_staff_assignments', 'well_incidents', 'well_events', 'failure_log',
                 'industrial_disasters', 'well_pipeline_events', 'well_pipeline_tick_stats',
                 'well_pipelines', 'well_road_trips', 'marine_deliveries', 'logistics_hub_events',

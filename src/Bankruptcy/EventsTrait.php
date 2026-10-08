@@ -1,4 +1,5 @@
 <?php
+require_once dirname(__DIR__) . '/WellNaming.php';
 
 /**
  * Handles critical bankruptcy events, liquidation resets and helpers.
@@ -136,6 +137,7 @@ trait BankruptcyEventsTrait
 
             $this->db->beginTransaction();
             try {
+                $this->db->prepare('SELECT id FROM players WHERE id = ? FOR UPDATE')->execute([$this->playerId]);
                 $this->db->prepare("UPDATE loans SET status='defaulted', remaining_amount=0, paid_off_at=IFNULL(paid_off_at, NOW()) WHERE player_id=? AND status IN ('active','late')")
                     ->execute([$this->playerId]);
 
@@ -146,8 +148,8 @@ trait BankruptcyEventsTrait
                     $this->db->prepare("UPDATE wells SET status='active', level=1, base_production_per_hour=25.00, upkeep_cost_per_hour=650.00, technical_condition=85, transport_type='nieustawiony', transport_capacity_pct=0, transport_opex_pct=0 WHERE id=? AND player_id=?")
                         ->execute([$wellId, $this->playerId]);
                 } else {
-                    $this->db->prepare("INSERT INTO wells (player_id, level, status, base_production_per_hour, upkeep_cost_per_hour, technical_condition, well_type, name, location, upgrades, last_production_at, created_at, reservoir_remaining, reservoir_max, pressure, risk_level, location_name, depth_m, production_boost_pct, transport_type, transport_capacity_pct, transport_opex_pct) VALUES (?,1,'active',25.00,650.00,85,'onshore','Odwiert Restart','Pole awaryjne',NULL,NOW(),NOW(),300000.00,300000.00,1.00,20,'Pole ratunkowe',1800,0.00,'nieustawiony',0,0)")
-                        ->execute([$this->playerId]);
+                    $this->db->prepare("INSERT INTO wells (player_id, level, status, base_production_per_hour, upkeep_cost_per_hour, technical_condition, well_type, name, location, upgrades, last_production_at, created_at, reservoir_remaining, reservoir_max, pressure, risk_level, well_name, location_name, depth_m, production_boost_pct, transport_type, transport_capacity_pct, transport_opex_pct) VALUES (?,1,'active',25.00,650.00,85,'onshore','Odwiert Restart','Pole awaryjne',NULL,NOW(),NOW(),300000.00,300000.00,1.00,20,?,'Pole ratunkowe',1800,0.00,'nieustawiony',0,0)")
+                        ->execute([$this->playerId, WellNaming::allocate($this->db, $this->playerId, 0, null)]);
                     $wellId = (int)$this->db->lastInsertId();
                 }
 

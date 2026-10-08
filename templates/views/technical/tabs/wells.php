@@ -73,7 +73,7 @@ $specLabels = [
         <div class="well-card-hdr">
             <div class="well-card-title">
                 <span class="well-num"><?= t('technical.well_num', ['id' => $wId]) ?> &middot; <?= t('technical.well_type_' . ($w['well_type'] ?? 'onshore')) ?></span>
-                <span class="well-name"><?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name')) ?></span>
+                <span class="well-name"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <div class="well-card-badges">
                 <span class="badge <?= $stInfo['cls'] ?>"><?= $stInfo['icon'] ?> <?= $stInfo['lbl'] ?></span>

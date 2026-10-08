@@ -267,6 +267,28 @@ final class MySqlTransactionRacesTest extends TestCase
         $this->assertSame(19999000.0, $this->funds() + $this->funds($this->other));
     }
 
+    public function testMapAssignsSeparateSequencesPerPlayerAndRegion(): void
+    {
+        $this->permit($this->player);
+        $this->permit($this->other);
+        $thirdLocation = $this->location + 2;
+        $this->fixtures->insert('world_locations', ['id' => $thirdLocation, 'region_id' => $this->region,
+            'name' => 'Third race location', 'country_code' => 'PL', 'latitude' => 1, 'longitude' => 1]);
+
+        $map = new WorldMap($this->db);
+        $first = $map->buyWellAtLocation($this->player, $this->location);
+        $second = $map->buyWellAtLocation($this->player, $this->location + 1);
+        $other = $map->buyWellAtLocation($this->other, $thirdLocation);
+        $this->assertTrue($first['success'], json_encode($first));
+        $this->assertTrue($second['success'], json_encode($second));
+        $this->assertTrue($other['success'], json_encode($other));
+        $stmt = $this->db->prepare('SELECT well_name FROM wells WHERE id = ?');
+        foreach ([[$first['well_id'], 'W-1'], [$second['well_id'], 'W-2'], [$other['well_id'], 'W-1']] as [$id, $expected]) {
+            $stmt->execute([$id]);
+            $this->assertSame($expected, $stmt->fetchColumn());
+        }
+    }
+
     public function testConcurrentLocationsRespectPlayerWellLimit(): void
     {
         $this->permit($this->player);

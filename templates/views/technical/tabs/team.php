@@ -182,7 +182,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                     <option value=""><?= t('technical.no_well_option') ?></option>
                                     <?php foreach ($wells as $w): ?>
                                     <?php $wSt = $w['status'] ?? 'active'; ?>
-                                    <option value="<?= (int)$w['id'] ?>">#<?= (int)$w['id'] ?> <?= htmlspecialchars($w['location_name'] ?? t('technical.well_default_name'), ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($statusLabels[$wSt]['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($statusLabels[$wSt]['lbl'] ?? $wSt, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <option value="<?= (int)$w['id'] ?>"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($statusLabels[$wSt]['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($statusLabels[$wSt]['lbl'] ?? $wSt, ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
