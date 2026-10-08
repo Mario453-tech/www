@@ -44,7 +44,7 @@
                 if (!response.ok) throw new Error('News request failed');
                 return response.json();
             })
-            .then(function (data) { render(Array.isArray(data.news) ? data.news : []); })
+            .then(function (data) { render(Array.isArray(data.news) ? data.news.slice(0, 3) : []); })
             .catch(function () {
                 newsList.innerHTML = '<p class="news-loading">' + escapeHtml(newsList.dataset.error) + '</p>';
             });
