@@ -31,4 +31,15 @@ final class ChatRequestPolicyTest extends TestCase
         self::assertFalse(ChatRequestPolicy::allows('chat.rooms.manage', false));
         self::assertFalse(ChatRequestPolicy::allows('unknown', true));
     }
+
+    public function testMissingSchemaReturnsUnavailableWithoutExposingDatabaseDetails(): void
+    {
+        $exception = new PDOException('Private database table does not exist');
+        $exception->errorInfo = ['42S02', 1146, 'Private database table'];
+        self::assertSame(['key' => 'chat.err_unavailable', 'status' => 503], ChatRequestPolicy::error($exception));
+        $exception->errorInfo = ['42S02', 9999, 'Other driver error'];
+        self::assertSame(500, ChatRequestPolicy::error($exception)['status']);
+        $exception->errorInfo = ['42000', 1142, 'Access denied'];
+        self::assertSame(500, ChatRequestPolicy::error($exception)['status']);
+    }
 }

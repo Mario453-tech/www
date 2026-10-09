@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-09 - Niedostepny schemat czatu
+
+- Log produkcyjny nadal potwierdza brak `chat_request_limits`. Sam upload PHP nie tworzy tabeli: administrator musi wykonac `Czat -> Uzupelnij strukture czatu` (`/admin/chat.php#chat-migration`). Operacja jest jawna, chroniona CSRF i powtarzalna; nie usuwa wiadomosci.
+- API przy MySQL 1146 zwraca lokalizowany JSON 503 z `Retry-After: 60`, bez ujawniania nazwy bazy i bez omijania limitera. Log zawiera SQLSTATE, kod sterownika i miejsce bledu, bez tresci wiadomosci ani tokenow. Inne bledy nadal zwracaja 500. Problemy DNS `ERR_NAME_NOT_RESOLVED` sa niezalezne od schematu.
+- Regresja polityki HTTP obejmuje brak tabeli, inne bledy sterownika oraz odmowe uprawnien. Wycofanie kodu przez revert; tabela utworzona migracja moze pozostac.
+
 ### 2026-10-09 - Licznik i izolacja modulow ticka
 
 - Usunieto reset `tick_run_sequence` do zera przed kazdym pelnym tickiem. Licznik jest inicjalizowany tylko przy braku klucza i nastepnie atomowo inkrementowany; reczne uruchomienie modulu nadal tylko odczytuje numer. Zapobiega to ciaglemu pomijaniu planowanych modulow po ich pierwszym uruchomieniu.

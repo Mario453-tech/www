@@ -68,4 +68,5 @@ return [
     'chat.default_player_name' => 'Player',
     'chat.input_aria' => 'Type a message',
     'chat.placeholder_widget' => 'Type a message...',
+    'chat.err_unavailable' => 'Chat is temporarily unavailable. Please try again later.',
 ];

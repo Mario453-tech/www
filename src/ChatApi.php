@@ -11,10 +11,17 @@ header('Content-Type: application/json; charset=utf-8');
 
 set_exception_handler(static function (Throwable $e): void {
     $error = ChatRequestPolicy::error($e);
-    if ($error['status'] === 500) {
-        GameLog::error('ChatApi', 'Chat request failed', [
+    if ($error['status'] >= 500) {
+        GameLog::error('ChatApi', $error['status'] === 503
+            ? 'Chat schema migration required' : 'Chat request failed', [
             'exception_class' => get_class($e), 'code' => (string) $e->getCode(),
+            'sqlstate' => $e instanceof PDOException ? ($e->errorInfo[0] ?? null) : null,
+            'driver_code' => $e instanceof PDOException ? ($e->errorInfo[1] ?? null) : null,
+            'exception_file' => basename($e->getFile()) . ':' . $e->getLine(),
         ]);
+    }
+    if ($error['status'] === 503) {
+        header('Retry-After: 60');
     }
     if ($error['status'] === 429) {
         header('Retry-After: ' . ($error['key'] === 'chat.err_thread_limit' ? 3600 : 10));

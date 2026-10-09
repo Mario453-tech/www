@@ -27,6 +27,12 @@ final class ChatRequestPolicy
     /** @return array{key:string,status:int} */
     public static function error(Throwable $e): array
     {
+        // Missing tables require an explicit migration, never a request-side bootstrap.
+        // Brak tabel wymaga jawnej migracji, nigdy bootstrapu podczas zadania.
+        if ($e instanceof PDOException && ($e->errorInfo[0] ?? null) === '42S02'
+            && (int) ($e->errorInfo[1] ?? 0) === 1146) {
+            return ['key' => 'chat.err_unavailable', 'status' => 503];
+        }
         $key = $e->getMessage();
         $allowed = ['chat.err_empty_message', 'chat.err_message_too_long', 'chat.err_room_not_found',
             'chat.err_room_archived', 'chat.err_room_read_only', 'chat.err_cannot_message_self',

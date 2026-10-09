@@ -68,4 +68,5 @@ return [
     'chat.default_player_name' => 'Gracz',
     'chat.input_aria' => 'Wpisz wiadomość',
     'chat.placeholder_widget' => 'Napisz wiadomość...',
+    'chat.err_unavailable' => 'Czat jest chwilowo niedostępny. Spróbuj ponownie później.',
 ];
