@@ -1,5 +1,11 @@
 ## Changelog
 
+### 2026-10-10 - Odblokowanie publikacji pulpitu
+
+- CI blokowal upload z powodu brakujacego klucza DE `chat.err_unavailable`; uzupelniono go oraz zgodnosc placeholderow uproszczonego czatu, bez oslabiania testow.
+- Blad pobrania obrazu MySQL z Docker Hub wystepowal przed uruchomieniem testow. Zachowano MySQL 8.0 i uzyto oficjalnego mirrora Docker w ECR Public (manifest 8.0 potwierdzony HTTP 200). Dokumentacja: https://www.docker.com/blog/news-from-aws-reinvent-docker-official-images-on-amazon-elastic-container-registry-public/
+- Upload przyrostowy porownuje HEAD z ostatnim udanym wdrozeniem tego workflow/brancha, nie z poprzednim pushem. Po czerwonej bramce nie gubi ikon, widokow i pozostalych zaleglych plikow. Brak potwierdzonej bazy powoduje pelny mirror. Nie zmieniono bramek ani bazy produkcyjnej; rollback przez revert.
+
 ### 2026-10-09 - Ikony menu i uproszczenie czatu
 
 - Menu uzywa dostarczonych ikon z briefu w `assets/img/icons/game-nav/`; poprzednie pliki bez przestrzeni nazw SVG nie renderowaly sie jako obrazy. Dodano takze ikone czatu i test poprawnosci XML/przestrzeni nazw.

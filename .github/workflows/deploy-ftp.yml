@@ -72,7 +72,7 @@ jobs:
 
     services:
       mysql:
-        image: mysql:8.0
+        image: public.ecr.aws/docker/library/mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: ci_root
           MYSQL_DATABASE:      ci_test
@@ -202,6 +202,7 @@ jobs:
           FTP_PASS: ${{ secrets.FTP_PASSWORD }}
           FTP_DIR:  ${{ secrets.FTP_REMOTE_DIR }}
           BEFORE_SHA: ${{ github.event.before }}
+          GH_TOKEN: ${{ github.token }}
           AFTER_SHA:  ${{ github.event.after }}
           # Reczny pelny mirror: input z workflow_dispatch (domyslnie true przy
           # recznym uruchomieniu; pusty dla pushy). Manual full mirror flag.
@@ -222,6 +223,17 @@ jobs:
           }
 
           MODE=partial
+          # Include files missed by failed releases; the previous push is not the deployment baseline.
+          # Uwzglednij pliki pominiete przez bledne wydania; poprzedni push nie jest baza wdrozenia.
+          LAST_DEPLOY_SHA=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/deploy-ftp.yml/runs?branch=${GITHUB_REF_NAME}&status=success&per_page=100" \
+            --jq "[.workflow_runs[] | select(.id < ${GITHUB_RUN_ID})] | first | .head_sha // empty" 2>/dev/null) || LAST_DEPLOY_SHA=''
+          if [ -n "$LAST_DEPLOY_SHA" ] && git cat-file -e "${LAST_DEPLOY_SHA}^{commit}" 2>/dev/null; then
+            BEFORE_SHA="$LAST_DEPLOY_SHA"
+            echo "Baza uploadu: ostatnie udane wdrozenie $BEFORE_SHA"
+          else
+            echo "Brak potwierdzonego udanego wdrozenia -> pelny mirror."
+            MODE=full
+          fi
           # 1) Jawny wybor uzytkownika: reczne uruchomienie z full_deploy=true -> pelny mirror.
           #    Explicit user choice: manual run with full_deploy=true -> full mirror.
           if [ "${FULL_DEPLOY:-}" = "true" ]; then
