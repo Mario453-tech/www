@@ -279,20 +279,20 @@ if (!($authPage ?? false)) {
             <nav class="user-nav user-nav--bar game-nav" id="user-nav" aria-label="<?= t('header.nav_aria') ?>">
                 <div class="game-nav__primary">
                     <a class="game-nav__item<?= in_array($__curPath, ['/', '/index.php'], true) ? ' nav-active' : '' ?>" href="<?= url('home') ?>"<?= in_array($__curPath, ['/', '/index.php'], true) ? ' aria-current="page"' : '' ?>>
-                        <img src="<?= asset('/assets/img/icons/nav/dashboard.svg') ?>" alt=""><span><?= t('nav.home') ?></span>
+                        <img src="<?= asset('/assets/img/icons/game-nav/home.svg') ?>" alt=""><span><?= t('nav.home') ?></span>
                     </a>
                     <?php foreach ($__groupedNav as $__groupId => $__group): if (!$__group['items']) continue; ?>
                     <button class="game-nav__item game-nav__toggle<?= $__group['active'] ? ' nav-active' : '' ?>" type="button"
                             data-nav-group="<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>"
                             aria-expanded="<?= $__group['active'] ? 'true' : 'false' ?>"
                             aria-controls="nav-context-<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>">
-                        <img src="<?= asset('/assets/img/icons/nav/' . ['operations' => 'map', 'business' => 'market', 'company' => 'team'][$__groupId] . '.svg') ?>" alt="">
+                        <img src="<?= asset('/assets/img/icons/game-nav/' . ['operations' => 'mapa', 'business' => 'rynek', 'company' => 'dyrektor'][$__groupId] . '.svg') ?>" alt="">
                         <span><?= htmlspecialchars($__group['label'], ENT_QUOTES, 'UTF-8') ?></span>
                     </button>
                     <?php endforeach; ?>
                     <span class="game-nav__spacer"></span>
-                    <a class="game-nav__item" href="<?= url('help') ?>"><img src="<?= asset('/assets/img/icons/nav/help.svg') ?>" alt=""><span><?= t('nav.help') ?></span></a>
-                    <a class="game-nav__item<?= $__curPath === '/chat' ? ' nav-active' : '' ?>" href="<?= url('chat') ?>"><span><?= t('nav.chat') ?></span></a>
+                    <a class="game-nav__item" href="<?= url('help') ?>"><img src="<?= asset('/assets/img/icons/game-nav/pomoc.svg') ?>" alt=""><span><?= t('nav.help') ?></span></a>
+                    <a class="game-nav__item<?= $__curPath === '/chat' ? ' nav-active' : '' ?>" href="<?= url('chat') ?>"><img src="<?= asset('/assets/img/icons/game-nav/czat.svg') ?>" alt=""><span><?= t('nav.chat') ?></span></a>
                 </div>
                 <?php foreach ($__groupedNav as $__groupId => $__group): if (!$__group['items']) continue; ?>
                 <div class="game-nav__context" id="nav-context-<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>" data-nav-panel="<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>"<?= $__group['active'] ? '' : ' hidden' ?>>

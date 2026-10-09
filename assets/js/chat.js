@@ -629,6 +629,14 @@
         // Rejestracja nasluchiwaczy zdarzen
         if (dom.form) {
             dom.form.addEventListener('submit', handleFormSubmit);
+            dom.input.addEventListener('keydown', function (event) {
+                // Preserve newlines and IME composition; Enter submits the native form.
+                // Zachowaj nowe linie i kompozycje IME; Enter wysyla natywny formularz.
+                if (event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+                    event.preventDefault();
+                    if (!dom.form.hidden && !dom.sendBtn.disabled) dom.form.requestSubmit();
+                }
+            });
         }
         document.getElementById('chatOlder').addEventListener('click', loadOlder);
         document.getElementById('chatMoreThreads').addEventListener('click', function () {

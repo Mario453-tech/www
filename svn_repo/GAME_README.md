@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-10-09 - Ikony menu i uproszczenie czatu
+
+- Menu uzywa dostarczonych ikon z briefu w `assets/img/icons/game-nav/`; poprzednie pliki bez przestrzeni nazw SVG nie renderowaly sie jako obrazy. Dodano takze ikone czatu i test poprawnosci XML/przestrzeni nazw.
+- Usunieto box administracyjny i opis pokojow jezykowych. Pole pokazuje `Napisz wiadomosc...`; Enter wysyla przez istniejacy formularz, Shift+Enter dodaje nowa linie, kompozycja IME oraz blokada podczas wysylania pozostaja bezpieczne.
+- Bezposrednia nawigacja GET do `/api/internal/` przekierowuje na `/` bez query stringa. Fetch/AJAX nadal trafia do autoryzowanych endpointow; nie jest to dodatkowa autoryzacja ani blokada dostepu klienta gry. Brak migracji. Wycofanie przez revert.
+- Walidacja: targeted PHPUnit ikon/tekstu/czatu/regul dostepu, test Node Enter/Shift+Enter/IME oraz izolowany test przegladarkowy ikon i klawiatury przy 320/360/390/768/1024/1440 px. Istniejacy test pulpitu PL/EN przeszedl dla tych samych szerokosci. Nie testowano zalogowanej produkcji; lint PHP/JS, encoding i diff check wykonano lokalnie.
+
 ### 2026-10-09 - Niedostepny schemat czatu
 
 - Log produkcyjny nadal potwierdza brak `chat_request_limits`. Sam upload PHP nie tworzy tabeli: administrator musi wykonac `Czat -> Uzupelnij strukture czatu` (`/admin/chat.php#chat-migration`). Operacja jest jawna, chroniona CSRF i powtarzalna; nie usuwa wiadomosci.

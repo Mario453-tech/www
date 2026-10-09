@@ -5,6 +5,16 @@ use PHPUnit\Framework\TestCase;
 
 final class WebDirectoryAccessTest extends TestCase
 {
+    public function testInternalApiRedirectsBrowserNavigationButNotAjax(): void
+    {
+        $rules = (string) file_get_contents(dirname(__DIR__, 2) . '/.htaccess');
+        self::assertStringContainsString('RewriteCond %{REQUEST_METHOD} ^GET$', $rules);
+        self::assertStringContainsString('RewriteCond %{HTTP:Sec-Fetch-Mode} ^navigate$ [OR]', $rules);
+        self::assertStringContainsString('RewriteCond %{HTTP:Sec-Fetch-Dest} ^document$ [OR]', $rules);
+        self::assertStringContainsString('RewriteCond %{HTTP_ACCEPT} text/html [NC]', $rules);
+        self::assertStringContainsString('RewriteRule ^api/internal/ / [R=302,L,NE,QSD]', $rules);
+    }
+
     public function testImplementationDirectoriesRedirectAndSourceHasDefenseInDepth(): void
     {
         $root = dirname(__DIR__, 2);

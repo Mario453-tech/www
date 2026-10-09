@@ -55,6 +55,14 @@ Options -Indexes
     RewriteCond %{REQUEST_URI} ^/public/
     RewriteRule ^ - [L]
 
+    # Browser navigation is not an API call; AJAX still uses authenticated endpoints.
+    # Nawigacja przegladarki nie jest API; AJAX nadal uzywa chronionych endpointow.
+    RewriteCond %{REQUEST_METHOD} ^GET$
+    RewriteCond %{HTTP:Sec-Fetch-Mode} ^navigate$ [OR]
+    RewriteCond %{HTTP:Sec-Fetch-Dest} ^document$ [OR]
+    RewriteCond %{HTTP_ACCEPT} text/html [NC]
+    RewriteRule ^api/internal/ / [R=302,L,NE,QSD]
+
     # The authenticated HTTP tick remains available for the hosting scheduler.
     # Uwierzytelniony tick HTTP pozostaje dostepny dla harmonogramu hostingu.
     RewriteCond %{REQUEST_URI} ^/cron/tick\.php$

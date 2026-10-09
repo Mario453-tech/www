@@ -21,7 +21,6 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
         <div class="chat-header-info">
             <span class="chat-kicker"><?= t('chat.kicker') ?></span>
             <h1 class="chat-title"><?= t('chat.title') ?></h1>
-            <p class="chat-subtitle"><?= t('chat.subtitle') ?></p>
         </div>
         <div class="chat-header-status">
             <span class="chat-presence-online" id="chatGlobalOnline">
@@ -117,12 +116,7 @@ $totalOnline    = (int) ($presenceData['total_online'] ?? 0);
                     <?php endif; ?>
                 </div>
 
-                <!-- Admin info box at bottom of left column -->
                 <button type="button" id="chatMoreThreads" class="chat-history-button" <?= count($directThreads) < 50 ? 'hidden' : '' ?>><?= t('chat.more_threads') ?></button>
-                <div class="chat-admin-box">
-                    <span class="chat-admin-box__label"><?= t('chat.admin_box_title') ?></span>
-                    <p class="chat-admin-box__desc"><?= t('chat.admin_box_desc') ?></p>
-                </div>
             </div>
         </aside>
 
