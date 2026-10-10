@@ -14,7 +14,7 @@ return [
     'nav.map' => 'Map',
     'nav.market' => 'Market',
     'nav.bank' => 'Bank',
-    'nav.hr' => 'Board / HR',
+    'nav.hr' => 'Personnel',
     'nav.technical' => 'Technical',
     'nav.help' => 'Help',
     'nav.logout' => 'Logout',

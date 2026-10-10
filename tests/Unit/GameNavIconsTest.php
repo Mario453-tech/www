@@ -9,8 +9,12 @@ final class GameNavIconsTest extends TestCase
     {
         $root = dirname(__DIR__, 2);
         $header = (string) file_get_contents($root . '/templates/header.php');
+        self::assertStringContainsString("'/components/game_navigation.php'", $header);
+        $header .= (string) file_get_contents($root . '/templates/components/game_navigation.php');
         self::assertStringNotContainsString('/assets/img/icons/nav/', $header);
-        foreach (['home', 'mapa', 'rynek', 'dyrektor', 'pomoc', 'czat'] as $name) {
+        self::assertStringContainsString("\$__link['icon']", $header);
+        self::assertStringContainsString('game-nav__group-label', $header);
+        foreach (['home', 'mapa', 'rynek', 'dyrektor', 'pomoc', 'czat', 'technika', 'logistyka', 'bank', 'finanse', 'kontrakty', 'kadry', 'dzial-prawny', 'dashboard'] as $name) {
             $xml = new DOMDocument();
             self::assertTrue($xml->load($root . '/assets/img/icons/game-nav/' . $name . '.svg'));
             self::assertSame('http://www.w3.org/2000/svg', $xml->documentElement->namespaceURI);

@@ -51,6 +51,13 @@
 .oe-activity-panel--chat .chat-container--dashboard { display: flex; flex-direction: column; width: 100%; max-width: none; min-height: 0; }
 .oe-activity-panel--chat .chat-container--dashboard .chat-shell { flex: 1 1 auto; min-height: 0; height: auto; border: 0; border-top: 0; border-radius: 0; grid-template-columns: minmax(220px, 235px) minmax(0, 1fr) minmax(190px, 210px); }
 .oe-activity-row { display: flex; align-items: center; gap: 18px; min-height: 82px; padding: 12px 4px; border-bottom: 1px solid #30303b; }
+.oe-activity-row::before { content: ''; flex: 0 0 6px; height: 44px; border-radius: 3px; background: #4fd18d; }
+.oe-activity-row--critical::before { background: #ff5967; }
+.oe-activity-row--warning::before { background: #d6b34b; }
+.oe-activity-row > a { display: inline-flex; align-items: center; justify-content: center; min-width: 80px; min-height: 44px; }
+.oe-activity-row > time { min-width: 100px; text-align: right; }
+.oe-activity-row .oe-mark-read { flex: 0 0 44px; width: 44px; display: inline-grid; place-items: center; padding: 0; }
+.oe-read-check { width: 12px; height: 7px; border-bottom: 2px solid currentColor; border-left: 2px solid currentColor; transform: rotate(-45deg); }
 .oe-activity-row > div { flex: 1; min-width: 0; }
 .oe-activity-row h3 { margin: 0 0 5px; font-size: 14px; }
 .oe-activity-row p { margin: 0; color: #92919d; font-size: 12px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
@@ -73,8 +80,12 @@
     .oe-activity-panel--chat { padding: 0; height: 580px; }
     .oe-metrics--three, .oe-metrics--four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .oe-news-grid { grid-template-columns: 1fr; }
-    .oe-activity-row { flex-wrap: wrap; }
-    .oe-activity-row > div { flex-basis: 100%; }
+    .oe-activity-row { display: grid; grid-template-columns: 6px minmax(0, 1fr) auto; gap: 10px; }
+    .oe-activity-row::before { grid-column: 1; grid-row: 1 / span 3; }
+    .oe-activity-row > div { grid-column: 2 / -1; }
+    .oe-activity-row > time { grid-column: 2; text-align: left; min-width: 0; }
+    .oe-activity-row > a { grid-column: 2; justify-content: flex-start; min-width: 0; }
+    .oe-activity-row > button { grid-column: 3; }
 }
 
 @media (max-width: 390px) {

@@ -1,5 +1,12 @@
 ## Changelog
 
+### 2026-10-10 - Pelne ikony grup i podmenu wedlug briefu
+
+- Uzyto kompletu dostarczonych `icons/nav/`, takze przy Mapie, Technice, Logistyce, Rynku, Banku, Finansach, Kontraktach, Dyrektorze, Kadrach i Dziale prawnym. Biznes ma ikone wykresu, nie rynku. Glowny pasek pokazuje ikone nad etykieta, aktywnosc i rozwiniecie sa oznaczane ramka, podmenu ma etykiete grupy. Zachowano filtrowanie uprawnien, trasy i pozostale funkcje.
+- Nawigacje wydzielono do wspolnego komponentu uzywanego przez prawdziwy naglowek i fixture testow. Centrum aktywnosci ma kolorowe znaczniki waznosci z rzeczywistych priorytetow oraz stanu odwiertu, daty i odnosniki pozostaja oparte na danych gracza. Nie dodano przykladow ze screenow do bazy.
+- Tytul pulpitu ma kolejnosc zgodna ze screenem: Centrum dowodzenia / Strona glowna. Brak migracji; rollback przez revert.
+- Walidacja: 935 testow Unit+Integration bez bledow (2 warianty MySQL wymagajace DSN pominiete), PHPStan serwisu nawigacji, lint PHP/JS, encoding, diff check. Playwright sprawdza faktyczny komponent menu, wszystkie grupy, ikony podmenu, Enter/Escape, stany wierszy i brak overflow przy 320/360/390/768/1024/1440 px; osobny test pulpitu obejmuje PL/EN. Nie sprawdzono zalogowanej produkcji.
+
 ### 2026-10-10 - Odblokowanie publikacji pulpitu
 
 - CI blokowal upload z powodu brakujacego klucza DE `chat.err_unavailable`; uzupelniono go oraz zgodnosc placeholderow uproszczonego czatu, bez oslabiania testow.

@@ -9,8 +9,14 @@ final class GameNavigation
         'company' => ['dashboard', 'boardroom', 'hr', 'legal', 'sabotage'],
     ];
 
+    private const ICONS = [
+        'map' => 'mapa', 'technical' => 'technika', 'logistics' => 'logistyka',
+        'market' => 'rynek', 'bank' => 'bank', 'finance' => 'finanse', 'contracts' => 'kontrakty',
+        'dashboard' => 'dyrektor', 'boardroom' => 'dyrektor', 'hr' => 'kadry', 'legal' => 'dzial-prawny',
+    ];
+
     /** @param list<array<string, mixed>> $items
-     *  @return array<string, array{label:string, active:bool, items:list<array{href:string,label:string,active:bool}>}>
+     *  @return array<string, array{label:string, active:bool, items:list<array{href:string,label:string,active:bool,icon:string}>}>
      */
     public static function build(array $items, string $currentPath): array
     {
@@ -42,7 +48,8 @@ final class GameNavigation
             $langKey = (string)($item['lang_key'] ?? '');
             $label = $langKey !== '' ? tPlain($langKey) : (string)($item['label'] ?? $key);
 
-            $groups[$groupId]['items'][] = ['href' => $href, 'label' => $label, 'active' => $active];
+            $groups[$groupId]['items'][] = ['href' => $href, 'label' => $label, 'active' => $active,
+                'icon' => self::ICONS[$key] ?? 'dashboard'];
             $groups[$groupId]['active'] = $groups[$groupId]['active'] || $active;
         }
 

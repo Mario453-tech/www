@@ -13,6 +13,7 @@
 
 .game-nav__primary {
     gap: 6px;
+    padding: 6px 0;
     overflow-x: auto;
     scrollbar-width: thin;
 }
@@ -40,17 +41,24 @@
     white-space: nowrap;
 }
 
-.game-nav__item img { width: 20px; height: 20px; object-fit: contain; }
+.game-nav__item { position: relative; flex-direction: column; gap: 5px; min-width: 112px; min-height: 58px; font-size: 10px; text-transform: uppercase; }
+.game-nav__item img { width: 20px; height: 20px; object-fit: contain; filter: grayscale(1); opacity: .55; }
+.game-nav__item.nav-active img,
+.game-nav__item:hover img,
+.game-nav__toggle[aria-expanded="true"] img { filter: none; opacity: 1; }
+.game-nav__toggle::after { content: ''; position: absolute; right: 12px; bottom: 11px; width: 4px; height: 4px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg); }
+.game-nav__subitem img { flex: 0 0 17px; width: 17px; height: 17px; object-fit: contain; }
+.game-nav__group-label { color: #92919d; font-size: 10px; font-weight: 700; text-transform: uppercase; margin-right: 8px; }
 .game-nav__item:hover,
 .game-nav__subitem:hover { color: #f2f1f5; background: #22222b; }
 .game-nav__item.nav-active,
 .game-nav__subitem.nav-active { color: #d6b34b; background: rgba(214, 179, 75, .1); border-color: rgba(214, 179, 75, .45); }
-.game-nav__toggle[aria-expanded="true"] { color: #d6b34b; }
+.game-nav__toggle[aria-expanded="true"] { color: #d6b34b; border-color: rgba(214, 179, 75, .45); }
 .game-nav__item:focus-visible,
 .game-nav__subitem:focus-visible { outline: 2px solid #d6b34b; outline-offset: 2px; }
-.game-nav__context { gap: 4px; padding: 7px 0; border-top: 1px solid #30303b; overflow-x: auto; }
+.game-nav__context { gap: 8px; padding: 8px 0 12px; border-top: 1px solid #30303b; overflow-x: auto; }
 .game-nav__context[hidden] { display: none; }
-.game-nav__subitem { min-height: 44px; padding: 8px 14px; font-size: 12px; }
+.game-nav__subitem { min-height: 44px; padding: 8px 14px; font-size: 11px; border-color: #30303b; background: #13141a; }
 
 @media (max-width: 600px) {
     .user-nav--bar.game-nav { width: min(300px, calc(100vw - 36px)) !important; right: -310px !important; }
@@ -60,6 +68,8 @@
     .game-nav__spacer { display: none; }
     .game-nav__item,
     .game-nav__subitem { justify-content: flex-start; white-space: normal; width: 100%; }
+    .game-nav__item { flex-direction: row; min-width: 0; font-size: 12px; }
+    .game-nav__group-label { padding: 8px 0; }
     .game-nav__context { margin-left: 16px; border-left: 1px solid #30303b; border-top: 0; padding: 0 0 0 8px; }
 }
 

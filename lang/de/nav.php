@@ -14,7 +14,7 @@ return [
     'nav.map' => 'Karte',
     'nav.market' => 'Markt',
     'nav.bank' => 'Bank',
-    'nav.hr' => 'Geschäftsleitung',
+    'nav.hr' => 'Personal',
     'nav.technical' => 'Technik',
     'nav.help' => 'Hilfe',
     'nav.logout' => 'Abmelden',

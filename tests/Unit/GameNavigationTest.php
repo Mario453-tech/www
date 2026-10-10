@@ -21,8 +21,10 @@ final class GameNavigationTest extends TestCase
         self::assertSame(['Mapa', 'Technika'], array_column($groups['operations']['items'], 'label'));
         self::assertTrue($groups['operations']['active']);
         self::assertSame(['Rynek'], array_column($groups['business']['items'], 'label'));
-        self::assertSame(['Zarząd'], array_column($groups['company']['items'], 'label'));
+        self::assertSame(['Kadry'], array_column($groups['company']['items'], 'label'));
         self::assertFalse($groups['company']['active']);
         self::assertCount(4, array_merge(...array_column($groups, 'items')));
+        self::assertSame(['mapa', 'technika'], array_column($groups['operations']['items'], 'icon'));
+        self::assertSame(['kadry'], array_column($groups['company']['items'], 'icon'));
     }
 }

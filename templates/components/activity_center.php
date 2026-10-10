@@ -30,11 +30,11 @@ $activityAlerts = array_slice($alertWells ?? [], 0, 5);
             <span class="notifications-count visually-hidden"><?= count($notifications) ?></span>
             <?php if (count($notifications) > 1): ?><button type="button" class="btn-mark-all-read oe-mark-all" data-notifications-mark-all><?= t('director.btn_mark_all_read') ?></button><?php endif; ?>
             <?php foreach (array_slice($notifications, 0, 5) as $notification): ?>
-            <article class="oe-activity-row notification-item" data-notification-id="<?= (int)$notification['id'] ?>">
+            <article class="oe-activity-row oe-activity-row--<?= match ($notification['priority'] ?? '') { 'critical' => 'critical', 'high' => 'warning', default => 'info' } ?> notification-item" data-notification-id="<?= (int)$notification['id'] ?>">
                 <div><h3><?= htmlspecialchars((string)$notification['title'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string)$notification['message'], ENT_QUOTES, 'UTF-8') ?></p></div>
                 <time datetime="<?= htmlspecialchars((string)$notification['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m H:i', strtotime((string)$notification['created_at'])) ?></time>
                 <?php if (!empty($notification['action_url'])): ?><a href="<?= htmlspecialchars((string)$notification['action_url'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars((string)(!empty($notification['action_label']) ? $notification['action_label'] : tPlain('home_dashboard.view_details')), ENT_QUOTES, 'UTF-8') ?></a><?php endif; ?>
-                <button type="button" class="oe-mark-read" data-notification-mark-read="<?= (int)$notification['id'] ?>"><?= t('director.btn_mark_read') ?></button>
+                <button type="button" class="oe-mark-read" data-notification-mark-read="<?= (int)$notification['id'] ?>" aria-label="<?= t('director.btn_mark_read') ?>" title="<?= t('director.btn_mark_read') ?>"><span class="oe-read-check" aria-hidden="true"></span></button>
             </article>
             <?php endforeach; ?>
         </div>
@@ -44,10 +44,10 @@ $activityAlerts = array_slice($alertWells ?? [], 0, 5);
     <div class="oe-activity-panel" id="oe-activity-panel-alerts" role="tabpanel" aria-labelledby="oe-activity-tab-alerts" hidden>
         <?php if (!$activityAlerts && empty($techNotifications)): ?><p class="oe-state"><?= t('home_dashboard.no_alerts') ?></p><?php endif; ?>
         <?php foreach ($activityAlerts as $alertWell): ?>
-        <article class="oe-activity-row"><div><h3><?= htmlspecialchars((string)(!empty($alertWell['well_name']) ? $alertWell['well_name'] : ($alertWell['location_name'] ?? ('#' . $alertWell['id']))), ENT_QUOTES, 'UTF-8') ?></h3><p><?= t('home_dashboard.condition') ?>: <?= round((float)($alertWell['_cond'] ?? 0)) ?>%</p></div><a href="<?= url('home') ?>#wg-card-<?= (int)$alertWell['id'] ?>"><?= t('home_dashboard.view_details') ?></a></article>
+        <article class="oe-activity-row oe-activity-row--<?= (float)($alertWell['_cond'] ?? 0) <= 20 ? 'critical' : 'warning' ?>"><div><h3><?= htmlspecialchars((string)(!empty($alertWell['well_name']) ? $alertWell['well_name'] : ($alertWell['location_name'] ?? ('#' . $alertWell['id']))), ENT_QUOTES, 'UTF-8') ?> — <?= t('home_dashboard.condition') ?> <?= round((float)($alertWell['_cond'] ?? 0)) ?>%</h3><p><?= t((float)($alertWell['_cond'] ?? 0) <= 20 ? 'home_dashboard.critical' : 'home_dashboard.attention') ?></p></div><a href="<?= url('home') ?>#wg-card-<?= (int)$alertWell['id'] ?>"><?= t('home_dashboard.view_details') ?></a></article>
         <?php endforeach; ?>
         <?php foreach (array_slice($techNotifications ?? [], 0, max(0, 5 - count($activityAlerts))) as $technicalNotice): ?>
-        <article class="oe-activity-row"><div><h3><?= t('nav.technical') ?></h3><p><?= htmlspecialchars((string)$technicalNotice['message'], ENT_QUOTES, 'UTF-8') ?></p></div><time datetime="<?= htmlspecialchars((string)$technicalNotice['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m H:i', strtotime((string)$technicalNotice['created_at'])) ?></time><a href="<?= url('technical') ?>"><?= t('home_dashboard.view_details') ?></a></article>
+        <article class="oe-activity-row oe-activity-row--warning"><div><h3><?= t('nav.technical') ?></h3><p><?= htmlspecialchars((string)$technicalNotice['message'], ENT_QUOTES, 'UTF-8') ?></p></div><time datetime="<?= htmlspecialchars((string)$technicalNotice['created_at'], ENT_QUOTES, 'UTF-8') ?>"><?= date('d.m H:i', strtotime((string)$technicalNotice['created_at'])) ?></time><a href="<?= url('technical') ?>"><?= t('home_dashboard.view_details') ?></a></article>
         <?php endforeach; ?>
     </div>
 

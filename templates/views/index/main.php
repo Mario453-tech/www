@@ -15,7 +15,7 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
 
 <div class="dashboard fade-in">
 
-    <div class="oe-page-title"><span class="oe-kicker"><?= t('home_dashboard.title') ?></span><h1><?= t('home_dashboard.subtitle') ?></h1></div>
+    <div class="oe-page-title"><span class="oe-kicker"><?= t('home_dashboard.subtitle') ?></span><h1><?= t('home_dashboard.title') ?></h1></div>
 
     <?php require __DIR__ . '/../../components/status_grid.php'; ?>
 
