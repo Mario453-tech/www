@@ -32,7 +32,8 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
             <div class="alert-strip__chips">
                 <?php foreach (array_slice($alertWells, 0, 2) as $__aw): ?>
                 <a class="alert-strip__chip <?= (float)($__aw['_cond'] ?? 100) < 30 ? 'alert-strip__chip--crit' : 'alert-strip__chip--warn' ?>"
-                   href="#wg-card-<?= (int)$__aw['id'] ?>">
+                   href="#wg-card-<?= (int)$__aw['id'] ?>"
+                   data-well-jump="<?= (int)$__aw['id'] ?>">
                     <?= htmlspecialchars(!empty($__aw['well_name']) ? $__aw['well_name'] : ($__aw['location_name'] ?? ($wellFallbackPrefix . $__aw['id'])), ENT_QUOTES, 'UTF-8') ?>
                      <?= round((float)($__aw['_cond'] ?? 0), 0) ?>%
                 </a>
@@ -40,7 +41,8 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
             </div>
         </div>
         <a class="alert-strip__cta"
-           href="#wells-heading">
+           href="#wg-card-<?= (int)$__firstAlert['id'] ?>"
+           data-well-jump="<?= (int)$__firstAlert['id'] ?>">
             <?= htmlspecialchars($alertGoLabel, ENT_QUOTES, 'UTF-8') ?>
         </a>
     </div>
@@ -117,10 +119,7 @@ $tipCashWord = $locale === 'en' ? 'cash' : 'gotowki';
     <?php require __DIR__ . '/../../components/company_statistics.php'; ?>
     <?php require __DIR__ . '/../../components/activity_center.php'; ?>
 
-    <section class="card" aria-labelledby="wells-heading">
-        <h2 id="wells-heading"><?= t('index.wells_heading') ?></h2>
-        <?php require __DIR__ . '/../../components/well_grid.php'; ?>
-    </section>
+    <?php require __DIR__ . '/../wells/main.php'; ?>
 
     <section class="card" aria-labelledby="actions-heading">
         <h2 id="actions-heading"><?= t('index.actions_heading') ?></h2>

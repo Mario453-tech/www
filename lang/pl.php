@@ -66,5 +66,6 @@ if (file_exists(__DIR__ . '/pl/privacy.php')) {
 if (file_exists(__DIR__ . '/pl/chat.php')) {
     $lang += require __DIR__ . '/pl/chat.php';
 }
+$lang += require __DIR__ . '/pl/well_workspace.php';
 
 return $lang;

@@ -38,6 +38,7 @@ $lang = array_replace($lang, require __DIR__ . '/de/recovery.php');
 $lang = array_replace($lang, require __DIR__ . '/de/sabotage.php');
 $lang = array_replace($lang, require __DIR__ . '/de/technical.php');
 $lang = array_replace($lang, require __DIR__ . '/de/training.php');
+$lang = array_replace($lang, require __DIR__ . '/de/well_workspace.php');
 
 if (file_exists(__DIR__ . '/de/privacy.php')) {
     $lang = array_replace($lang, require __DIR__ . '/de/privacy.php');

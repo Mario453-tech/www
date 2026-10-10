@@ -18,7 +18,7 @@ trait WellActionsTrait
         $currentLevel = (int)($well['equipment_upgrade_level'] ?? 0);
 
         if ($action === 'set_tier') {
-            $tierCosts = ['black_market' => 500_000, 'standard' => 2_000_000, 'premium' => 8_000_000];
+            $tierCosts = self::equipmentPrices()['tiers'];
             if (!isset($tierCosts[$tier])) return ['success' => false, 'message' => t('well.err_invalid_tier')];
             if ($tier === $currentTier)    return ['success' => false, 'message' => t('well.err_tier_already_installed')];
 
@@ -111,7 +111,7 @@ trait WellActionsTrait
                     return ['success' => false, 'message' => t('well.err_max_upgrade')];
                 }
 
-                $upgradeCosts = [1 => 1_000_000, 2 => 2_500_000, 3 => 5_000_000];
+                $upgradeCosts = self::equipmentPrices()['levels'];
                 $nextLevel    = $currentLevel + 1;
                 $cost         = $upgradeCosts[$nextLevel];
 

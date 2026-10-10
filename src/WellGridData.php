@@ -28,6 +28,7 @@ class WellGridData
             'blowout'        => [t('technical.ws_blowout'),         'wbadge--danger',  ''],
             'contaminated'   => [t('technical.ws_contaminated'),    'wbadge--danger',  ''],
             'seized'         => [t('technical.ws_seized'),          'wbadge--danger',  ''],
+            'layer_switch'   => [t('technical.ws_layer_switch'),    'wbadge--warn',    ''],
             'equipment_swap' => [t('well.status.equipment_swap'),   'wbadge--warn',    ''],
             'servicing'      => [t('well.status.servicing'),        'wbadge--warn',    ''],
         ];
@@ -286,8 +287,8 @@ class WellGridData
             'premium'      => [t('wg.eq_tier_prem_label'),  'cv-good'],
             default        => [t('wg.eq_tier_std_label'),   'cv-warn'],
         };
-        $tierCosts   = ['black_market' => 500_000, 'standard' => 2_000_000, 'premium' => 8_000_000];
-        $upgCosts    = [1 => 30_000_000, 2 => 60_000_000, 3 => 100_000_000];
+        $tierCosts   = WellService::equipmentPrices()['tiers'];
+        $upgCosts    = WellService::equipmentPrices()['levels'];
         $nextUpgCost = $eqLevel < 3 ? ($upgCosts[$eqLevel + 1] ?? null) : null;
 
  // Geological layer 

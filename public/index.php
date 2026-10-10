@@ -340,7 +340,9 @@ $actions = [
 ];
 
 
+$wellWorkspace = WellWorkspaceData::prepare(WellGridData::prepare($wells, $playerData, $storage), new WellService());
 $viewData = compact(
+    'wellWorkspace',
     'playerData', 'wells', 'marketData', 'activeTrend',
     'trendClass', 'trendMessage', 'remainingTime',
     'statusItems', 'myOffers', 'activeLoans', 'loanAppStatus', 'hasLateLoan',
@@ -354,13 +356,13 @@ $viewData = compact(
 
 $pageTitle  = t('index.title');
 $extraCss   = [
-    '/assets/css/well-grid.css',
+    '/assets/css/well-workspace.css',
     '/assets/css/home.css',
     '/assets/css/chat.css',
     '/assets/css/director.css',
     '/assets/css/home_dashboard.css',
 ];
-$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js', '/assets/js/dashboard_news.js', '/assets/js/home_dashboard.js', '/assets/js/director_notifications.js'];
+$extraJs    = ['/assets/js/emoji.js', '/assets/js/chat.js', '/assets/js/dashboard_news.js', '/assets/js/home_dashboard.js', '/assets/js/director_notifications.js', '/assets/js/well-workspace.js'];
 require_once __DIR__ . '/../templates/header.php';
 require __DIR__ . '/../templates/views/index/main.php';
 

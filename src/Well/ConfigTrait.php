@@ -1,6 +1,14 @@
 <?php
 trait WellConfigTrait
 {
+    // Shared action prices, also used by the UI / Wspolne ceny akcji i interfejsu.
+    public static function equipmentPrices(): array
+    {
+        return [
+            'tiers' => ['black_market' => 500_000, 'standard' => 2_000_000, 'premium' => 8_000_000],
+            'levels' => [1 => 1_000_000, 2 => 2_500_000, 3 => 5_000_000],
+        ];
+    }
  /** @var array<string, float> */
     private array $config = [];
 

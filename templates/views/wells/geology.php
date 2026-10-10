@@ -1,0 +1,13 @@
+<div class="ww-two-col"><article class="ww-box"><h4><?= wwIcon('geology') ?><?= t('ww.geology') ?></h4>
+<?php if ($w['_glCur']): ?><h4><?= wwEscape($w['_glCur']['name']) ?></h4><div class="ww-strata" aria-hidden="true"><?= wwIcon('odwierty') ?></div><p><?= t('ww.geology_note') ?></p><?php else: ?><p><?= t('ww.unavailable') ?></p><?php endif ?>
+</article><article class="ww-box"><h4><?= wwIcon('resources') ?><?= t('ww.resources') ?></h4><dl class="ww-facts"><div><dt><?= t('ww.remaining') ?></dt><dd><?= wwNumber($w['reservoir_remaining'] ?? 0) ?> <?= t('common.bbl') ?> · <?= wwNumber($w['_wResPct']) ?>%</dd></div><div><dt><?= t('wg.stat_base') ?></dt><dd><?= wwNumber($w['base_production_per_hour']) ?> <?= t('common.bbl_h') ?></dd></div><div><dt><?= t('wg.stat_pressure') ?></dt><dd><?= wwNumber($w['_wEffPct']) ?>%</dd></div>
+<?php if ($w['_glCur']): foreach (['richness_mult' => 'richness', 'risk_mult' => 'risk', 'wear_mult' => 'wear', 'spiral_mult' => 'spiral'] as $field => $key): ?><div><dt><?= t('wg.layer_stat_' . $key) ?></dt><dd>×<?= wwNumber($w['_glCur'][$field]) ?></dd></div><?php endforeach; endif ?>
+</dl><p class="ww-muted"><?= t('ww.geology_limits') ?></p></article></div>
+<?php if ($w['_glSwitchHoursLeft'] > 0): ?><p><?= t('wg.layer_switching', ['hours' => $w['_glSwitchHoursLeft']]) ?></p><?php endif ?>
+<?php if ($glAll): ?><h4><?= t('wg.layer_change') ?></h4><div class="ww-options">
+<?php foreach ($glAll as $layer): $layerId = (int)$layer['id']; $current = $layerId === $w['_glCurId']; ?>
+<article class="ww-box <?= $current ? 'ww-current' : '' ?>"><h4><?= wwEscape($layer['name']) ?></h4><p><?= t('wg.layer_reservoir', ['amount' => wwNumber($layer['reservoir_bbl'])]) ?></p><dl class="ww-effects"><?php foreach (['richness_mult' => 'richness', 'risk_mult' => 'risk', 'wear_mult' => 'wear', 'spiral_mult' => 'spiral'] as $field => $key): ?><div><dt><?= t('wg.layer_stat_' . $key) ?></dt><dd>×<?= wwNumber($layer[$field]) ?></dd></div><?php endforeach ?></dl>
+<?php if ($current): ?><span class="ww-badge"><?= t('wg.layer_active') ?></span><?php else: ?><p class="ww-price"><?= wwMoney($layer['switch_cost']) ?></p><p><?= t('wg.layer_downtime_hours', ['hours' => $layer['switch_hours']]) ?></p>
+<?php wwAction(t('wg.layer_btn_switch'), '/public/layer_well.php', ['well_id' => $wid, 'action' => 'switch', 'layer_id' => $layerId], tPlain('ww.layer_summary', ['name' => $layer['name'], 'cost' => wwMoney($layer['switch_cost']), 'hours' => $layer['switch_hours']]), ($w['_blocked'] || $w['_glSwitchHoursLeft'] > 0) ? t('ww.blocked') : ($playerCash < $layer['switch_cost'] ? t('ww.no_funds') : '')); ?>
+<?php endif ?></article>
+<?php endforeach ?></div><?php endif ?>

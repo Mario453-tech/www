@@ -12,6 +12,14 @@ function techl(key) {
     return _TECHL[key] || key;
 }
 
+function techlFormat(key, values) {
+    var text = techl(key);
+    Object.keys(values || {}).forEach(function (name) {
+        text = text.split(':' + name).join(String(values[name]));
+    });
+    return text;
+}
+
 function updateCountdowns() {
     document.querySelectorAll('.countdown[data-end]').forEach((el) => {
         const end = parseInt(el.dataset.end, 10) * 1000;
@@ -304,6 +312,7 @@ setInterval(() => {
     var params = new URLSearchParams(location.search);
     var repairWell = params.get('repair_well');
     var repairHub = params.get('repair_hub');
+    var requestedTask = params.get('task_type');
     if (!repairWell && !repairHub) {
         return;
     }
@@ -312,16 +321,28 @@ setInterval(() => {
     // Usun jednorazowy cel naprawy przed pozniejszym przeladowaniem strony zadania.
     params.delete('repair_well');
     params.delete('repair_hub');
+    params.delete('task_type');
     var cleanQuery = params.toString();
     var cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
     window.history.replaceState(null, '', cleanUrl);
 
     function run() {
-        var cards = document.querySelectorAll('.staff-card[data-spec="maintenance_engineer"]');
+        var allowedTasks = ['well_repair', 'well_maintenance', 'blowout_control', 'reservoir_rehabilitation', 'hub_repair'];
+        var taskType = allowedTasks.includes(requestedTask) ? requestedTask : (repairHub ? 'hub_repair' : 'well_repair');
+        var specialistByTask = {
+            'well_repair': 'maintenance_engineer',
+            'well_maintenance': 'maintenance_engineer',
+            'hub_repair': 'maintenance_engineer',
+            'blowout_control': 'drilling_engineer',
+            'reservoir_rehabilitation': 'reservoir_engineer'
+        };
+        var specialist = specialistByTask[taskType];
+        var specialistLabel = techl('spec_' + specialist);
+        var cards = document.querySelectorAll('.staff-card[data-spec="' + specialist + '"]');
 
         if (!cards.length) {
             if (typeof window.alertWarning === 'function') {
-                window.alertWarning(techl('repair_no_mnt'), techl('repair_no_mnt_title'));
+                window.alertWarning(techlFormat('deep_link_specialist_missing', {specialist: specialistLabel}), techl('deep_link_specialist_title'));
             }
             return;
         }
@@ -339,7 +360,7 @@ setInterval(() => {
             cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             cards[0].classList.add('staff-card--repair-target');
             if (typeof window.alertWarning === 'function') {
-                window.alertWarning(techl('repair_mnt_busy'), techl('repair_no_mnt_title'));
+                window.alertWarning(techlFormat('deep_link_specialist_busy', {specialist: specialistLabel}), techl('deep_link_specialist_title'));
             }
             return;
         }
@@ -356,10 +377,10 @@ setInterval(() => {
 
         if (taskSel) {
             var hasRepair = Array.prototype.some.call(taskSel.options, function (o) {
-                return o.value === (repairHub ? 'hub_repair' : 'well_repair');
+                return o.value === taskType;
             });
             if (hasRepair) {
-                taskSel.value = repairHub ? 'hub_repair' : 'well_repair';
+                taskSel.value = taskType;
             }
             if (typeof toggleWellSelect === 'function' && staffId) {
                 toggleWellSelect(taskSel, staffId);

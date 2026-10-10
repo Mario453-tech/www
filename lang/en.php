@@ -48,5 +48,6 @@ if (file_exists(__DIR__ . '/en/nav.php')) {
 if (file_exists(__DIR__ . '/en/chat.php')) {
     $lang = array_replace($lang, require __DIR__ . '/en/chat.php');
 }
+$lang = array_replace($lang, require __DIR__ . '/en/well_workspace.php');
 
 return $lang;
