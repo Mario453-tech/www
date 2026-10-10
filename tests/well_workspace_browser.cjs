@@ -12,16 +12,19 @@ const root = path.resolve(__dirname, '..');
   page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://well.test/assets/**', route => {
    const file=path.join(root,new URL(route.request().url()).pathname);
-   route.fulfill({body:fs.existsSync(file)?fs.readFileSync(file):'',contentType:file.endsWith('.js')?'text/javascript':'text/css'});
+   const contentType=file.endsWith('.js')?'text/javascript':file.endsWith('.svg')?'image/svg+xml':'text/css';
+   route.fulfill({body:fs.existsSync(file)?fs.readFileSync(file):'',contentType});
   });
   let historyRequests=[];
   await page.route('https://well.test/public/well_history.php?**', async route => {
-   const filter=new URL(route.request().url()).searchParams.get('filter')||'all';
-   historyRequests.push(filter);
+   const params=new URL(route.request().url()).searchParams;
+   const filter=params.get('filter')||'all';
+   const requestedPage=Number(params.get('page')||1);
+   historyRequests.push(`${filter}:${requestedPage}`);
    if(filter==='all') await new Promise(resolve=>setTimeout(resolve,120));
    await route.fulfill({
     contentType:'application/json',
-    body:JSON.stringify({events:[{id:1,date:'2026-10-10 01:00:00',category:filter==='production'?'Production':'Service',title:'Review',description:'History entry',icon:'flow'}],has_more:false,page:1,filter})
+    body:JSON.stringify({events:[{id:requestedPage,date:'2026-10-10 01:00:00',category:filter==='production'?'Production':'Service',title:'Review',description:'History entry',icon:'flow'}],has_more:requestedPage<3,page:requestedPage,total_pages:3,total_events:45,page_size:20,filter})
    });
   });
   for(const locale of ['pl','en','de']) {
@@ -30,6 +33,10 @@ const root = path.resolve(__dirname, '..');
    await page.route('https://well.test/',r=>r.fulfill({body:html,contentType:'text/html'}));
    await page.goto('https://well.test/');
    assert.ok(await page.locator('[data-well-select]').count()>0,'real local wells must render');
+   const visibleSelectorStatus=page.locator('[data-well-select] .ww-selector-status span').first();
+   assert.equal(await visibleSelectorStatus.isVisible(),true,'well selector status text must stay visible alongside color and icon');
+   assert.equal(await visibleSelectorStatus.evaluate(el=>el.classList.contains('sr-only')),false,'well selector status text must not be visually hidden');
+   assert.notEqual((await visibleSelectorStatus.innerText()).trim(),'','well selector status text must not be empty');
    const first=page.locator('[data-well]:visible');
    await first.locator('[data-well-tab="equipment"]').click();
    assert.equal(await first.locator('[data-well-panel="equipment"]').isVisible(),true,'equipment tab must work');
@@ -43,8 +50,15 @@ const root = path.resolve(__dirname, '..');
    await first.locator('.ww-history-list li', {hasText:'Production'}).waitFor();
    assert.equal(await first.locator('.ww-history-list li').count(),1,'history endpoint must render events');
    assert.match(await first.locator('.ww-history-list li').innerText(),/Production/,'latest filter must win during an in-flight request');
-   assert.deepEqual(historyRequests.slice(0,2),['all','production'],'filter change must queue a fresh history request');
+   assert.deepEqual(historyRequests.slice(0,2),['all:1','production:1'],'filter change must queue a fresh history request');
    assert.equal(await first.locator('.ww-history-event-icon').count(),1,'each history event needs a type icon');
+   const historyMask=await first.locator('.ww-history-event-icon').first().evaluate(el=>getComputedStyle(el,'::before').maskImage||getComputedStyle(el,'::before').webkitMaskImage);
+   assert.notEqual(historyMask,'none','history event icon mask must resolve');
+   assert.equal(await first.locator('[data-history-pages] .ww-page-number').count(),3,'numbered pagination must be visible');
+   await first.locator('[data-history-page-target="2"]').click();
+   await first.locator('[data-history-page-target="2"][aria-current="page"]').waitFor();
+   assert.equal(historyRequests.at(-1),'production:2','numbered pagination must request the chosen page');
+   assert.match(await first.locator('[data-history-retention]').innerText(),/2|48/,'history retention must be explained');
    await first.locator('[data-well-tab="overview"]').focus();
    await page.keyboard.press('ArrowRight');
    assert.equal(await first.locator('[data-well-panel="equipment"]').isVisible(),true,'keyboard tab navigation must work');

@@ -20,9 +20,16 @@ final class WellWorkspaceTest extends BaseTestCase
         self::assertStringContainsString("t('ww.well')", file_get_contents(dirname(__DIR__, 2) . '/templates/views/wells/overview.php'));
         $css = file_get_contents(dirname(__DIR__, 2) . '/assets/css/well-workspace.css');
         self::assertStringContainsString('.ww-history-list', $css);
+        self::assertStringContainsString('.ww-overview-grid', $css);
+        self::assertStringContainsString('.ww-section-heading', $css);
+        self::assertStringContainsString('.ww-page-number', $css);
         self::assertStringContainsString('.ww-message--error', $css);
         self::assertDoesNotMatchRegularExpression('/(?:onclick|style)=/', $source);
         self::assertStringNotContainsString('Szybki podgląd', $source);
+        self::assertStringContainsString('ww-selector-status', $source);
+        $historySource = file_get_contents(dirname(__DIR__, 2) . '/templates/views/wells/history.php');
+        self::assertStringContainsString('role="status"', $historySource);
+        self::assertStringContainsString('aria-live="polite"', $historySource);
     }
 
     public function testDisplayedEquipmentCostsComeFromTheActionCatalog(): void
@@ -135,5 +142,7 @@ final class WellWorkspaceTest extends BaseTestCase
         self::assertStringContainsString('loadHistory(well, pendingRequest.page, pendingRequest.filter)', $source);
         self::assertStringContainsString('retry.disabled = state.loading', $source);
         self::assertStringNotContainsString('pendingPage', $source);
+        self::assertStringContainsString('data-history-pages', $source);
+        self::assertStringContainsString('total_pages', $source);
     }
 }

@@ -109,7 +109,7 @@
     }
 
     function historyState(well) {
-        if (!well._historyState) well._historyState = {page: 1, filter: 'all', loading: false, hasMore: false, pendingRequest: null};
+        if (!well._historyState) well._historyState = {page: 1, filter: 'all', loading: false, hasMore: false, totalPages: 1, totalEvents: 0, pendingRequest: null};
         return well._historyState;
     }
 
@@ -121,6 +121,27 @@
         if (newer) newer.disabled = state.loading || state.page <= 1;
         if (older) older.disabled = state.loading || !state.hasMore;
         if (retry) retry.disabled = state.loading;
+        well.querySelectorAll('[data-history-page-target]').forEach(function (button) {
+            button.disabled = state.loading || Number(button.dataset.historyPageTarget) === state.page;
+        });
+    }
+
+    function renderHistoryPages(well, state) {
+        var pages = well.querySelector('[data-history-pages]');
+        if (!pages) return;
+        pages.replaceChildren();
+        var start = Math.max(1, Math.min(state.page - 2, state.totalPages - 4));
+        var end = Math.min(state.totalPages, start + 4);
+        for (var page = start; page <= end; page += 1) {
+            var button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'ww-page-number';
+            button.dataset.historyPageTarget = String(page);
+            button.textContent = String(page);
+            button.setAttribute('aria-label', (workspace.dataset.pageLabel || '') + ' ' + page);
+            if (page === state.page) button.setAttribute('aria-current', 'page');
+            pages.appendChild(button);
+        }
     }
 
     function renderHistory(well, result) {
@@ -147,11 +168,14 @@
                 var title = document.createElement('strong');
                 var meta = document.createElement('small');
                 var description = document.createElement('p');
+                var time = document.createElement('time');
                 title.textContent = event.title || '';
-                meta.textContent = [event.category, event.date].filter(Boolean).join(' · ');
+                meta.textContent = event.category || '';
                 description.textContent = event.description || '';
+                time.textContent = event.date || '';
+                if (event.date) time.dateTime = String(event.date).replace(' ', 'T');
                 body.append(title, meta, description);
-                item.append(icon, body);
+                item.append(icon, body, time);
                 list.appendChild(item);
             });
             container.appendChild(list);
@@ -159,8 +183,13 @@
         var state = historyState(well);
         state.page = Number(result.page || state.page);
         state.filter = result.filter || state.filter;
-        state.hasMore = Boolean(result.has_more);
-        if (pageLabel) pageLabel.textContent = String(state.page);
+        state.totalPages = Math.max(1, Number(result.total_pages || 1));
+        state.totalEvents = Math.max(0, Number(result.total_events || 0));
+        state.hasMore = state.page < state.totalPages;
+        if (pageLabel) pageLabel.textContent = (workspace.dataset.pageLabel || '') + ' ' + state.page + ' / ' + state.totalPages;
+        var countLabel = well.querySelector('[data-history-count]');
+        if (countLabel) countLabel.textContent = String(state.totalEvents);
+        renderHistoryPages(well, state);
         updateHistoryControls(well);
     }
 
@@ -249,11 +278,14 @@
             openTab(shortcut.closest('[data-well]'), shortcut.dataset.wellOpen, true);
             return;
         }
-        var historyButton = event.target.closest('[data-history-direction], [data-history-retry]');
+        var historyButton = event.target.closest('[data-history-direction], [data-history-retry], [data-history-page-target]');
         if (historyButton) {
             var historyWell = historyButton.closest('[data-well]');
             var state = historyState(historyWell);
-            loadHistory(historyWell, historyButton.hasAttribute('data-history-retry') ? state.page : state.page + Number(historyButton.dataset.historyDirection));
+            var targetPage = historyButton.hasAttribute('data-history-page-target')
+                ? Number(historyButton.dataset.historyPageTarget)
+                : (historyButton.hasAttribute('data-history-retry') ? state.page : state.page + Number(historyButton.dataset.historyDirection));
+            loadHistory(historyWell, targetPage);
             return;
         }
         var pipeline = event.target.closest('[data-well-pipeline]');

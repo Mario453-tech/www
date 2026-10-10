@@ -9,6 +9,7 @@ require_once __DIR__ . '/TickRunResult.php';
 require_once __DIR__ . '/TickStatsRepository.php';
 require_once __DIR__ . '/../LogisticsIncidentRetentionService.php';
 require_once __DIR__ . '/../ChatRetentionService.php';
+require_once __DIR__ . '/../WellEventRetentionService.php';
 
 final class TickCoordinator
 {
@@ -320,6 +321,15 @@ final class TickCoordinator
     private function cleanup(): void
     {
         $this->cleanupTickHistoryIfDue();
+        try {
+            $cutoff = (string)$this->db->query('SELECT DATE_SUB(NOW(), INTERVAL 48 HOUR)')->fetchColumn();
+            $deleted = (new WellEventRetentionService($this->db))->pruneBefore($cutoff);
+            if ($deleted > 0 && class_exists('GameLog', false)) {
+                GameLog::info('tick', 'Well event history retention completed', ['events_deleted' => $deleted]);
+            }
+        } catch (Throwable $e) {
+            if (class_exists('GameLog', false)) GameLog::error('tick', 'Well event history retention failed', $e);
+        }
         try {
             $count = (new ChatRetentionService($this->db))->cleanup();
             if ($count > 0 && class_exists('GameLog', false)) {
