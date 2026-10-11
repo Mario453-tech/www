@@ -232,7 +232,7 @@
         setPending(button, true);
         announce(workspace.dataset.loading || '');
         try {
-            var response = await fetch('/src/WellSellApi.php?well_id=' + encodeURIComponent(well.dataset.well), {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
+            var response = await fetch('/api/internal/WellSellApi.php?well_id=' + encodeURIComponent(well.dataset.well), {credentials: 'same-origin', headers: {'Accept': 'application/json'}});
             var valuation = await response.json();
             if (!response.ok || valuation.error) throw new Error(responseMessage(valuation));
             var formatted = new Intl.NumberFormat(document.documentElement.lang || undefined, {maximumFractionDigits: 2}).format(Number(valuation.sell_value || 0));
@@ -241,7 +241,7 @@
             confirmAction(text, async function () {
                 setPending(button, true);
                 try {
-                    var saleResponse = await fetch('/src/WellSellApi.php', {
+                    var saleResponse = await fetch('/api/internal/WellSellApi.php', {
                         method: 'POST',
                         credentials: 'same-origin',
                         headers: {'Accept': 'application/json', 'Content-Type': 'application/json'},
@@ -292,7 +292,7 @@
         if (pipeline) {
             var pipelineWell = pipeline.closest('[data-well]');
             confirmAction(pipeline.dataset.summary || workspace.dataset.confirm || '', function () {
-                postAction(pipeline, '/src/WellStaffApi.php', {action: 'set_transport', well_id: pipelineWell.dataset.well, transport_type: 'rurociag'});
+                postAction(pipeline, '/api/internal/WellStaffApi.php', {action: 'set_transport', well_id: pipelineWell.dataset.well, transport_type: 'rurociag'});
             });
             return;
         }
