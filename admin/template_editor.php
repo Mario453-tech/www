@@ -56,6 +56,9 @@ try {
 
 require_once __DIR__ . '/init.php';
 AdminAuth::requireLogin();
+require_once __DIR__ . '/../src/PlayerNavIcon.php';
+require_once __DIR__ . '/../src/GameNavigation.php';
+require_once __DIR__ . '/../src/PlayerNavigationSettings.php';
 
 $db  = Database::getInstance()->getConnection();
 $msg = '';
@@ -75,7 +78,7 @@ if (is_array($templateEditorFlash)) {
 try {
     $db->exec("CREATE TABLE IF NOT EXISTS `site_config` (
         `key`        VARCHAR(64) NOT NULL PRIMARY KEY,
-        `value`      TEXT NOT NULL DEFAULT '',
+        `value`      TEXT NOT NULL,
         `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         `updated_by` VARCHAR(64) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
@@ -83,7 +86,10 @@ try {
     $db->exec("CREATE TABLE IF NOT EXISTS `nav_items` (
         `id`         INT AUTO_INCREMENT PRIMARY KEY,
         `label`      VARCHAR(64) NOT NULL,
+        `label_en`   VARCHAR(64) NOT NULL DEFAULT '',
+        `label_de`   VARCHAR(64) NOT NULL DEFAULT '',
         `lang_key`   VARCHAR(64) NOT NULL DEFAULT '',
+        `icon_key`   VARCHAR(64) NOT NULL DEFAULT '',
         `url_key`    VARCHAR(64) NOT NULL,
         `sort_order` SMALLINT NOT NULL DEFAULT 0,
         `active`     TINYINT(1) NOT NULL DEFAULT 1,
@@ -97,6 +103,7 @@ try {
         $db->exec("ALTER TABLE nav_items MODIFY COLUMN `location` ENUM('header','footer','actions') NOT NULL DEFAULT 'header'");
     } catch (Throwable $__e) {}
     try { Database::addColumnIfMissing('nav_items', 'lang_key', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label`"); } catch (Throwable $__e) {}
+    PlayerNavigationSettings::ensureSchema($db);
 
     // Jednorazowe usuniecie kolumny icon (zbyt mala dla SVG, zastapiona SVG z plikow).
     // One-time removal of the icon column (too small for SVG, replaced by file-based SVG).
@@ -122,8 +129,9 @@ try {
     foreach ($defaults as [$k, $v]) { $ins->execute([$k, $v]); }
 
     $navSeeded = (string)($db->query("SELECT `value` FROM site_config WHERE `key`='nav_items_seeded' LIMIT 1")->fetchColumn() ?: '0');
-    $shouldSeedNavItems = ($navSeeded !== '1')
-        && ((int)$db->query("SELECT COUNT(*) FROM nav_items")->fetchColumn() === 0);
+    $shouldSeedNavItems = PlayerNavigationSettings::shouldSeedLocation($db, 'header', $navSeeded === '1');
+    $shouldSeedActions = PlayerNavigationSettings::shouldSeedLocation($db, 'actions', $navSeeded === '1');
+    $shouldSeedFooter = PlayerNavigationSettings::shouldSeedLocation($db, 'footer', $navSeeded === '1');
 
     if ($shouldSeedNavItems) {
         $navDefaults = [
@@ -141,7 +149,7 @@ try {
         foreach ($navDefaults as $row) { $navIns->execute($row); }
     }
 
-    if ($shouldSeedNavItems) {
+    if ($shouldSeedActions) {
         $actionsDefaults = [
             // label,            url_key,  lang_key,                sort, active, css_class,       location
             ['Rynek ropy',    'market', 'nav.action.market',    10, 1, 'btn-success',   'actions'],
@@ -154,7 +162,7 @@ try {
         foreach ($actionsDefaults as $row) { $actIns->execute($row); }
     }
 
-    if ($shouldSeedNavItems) {
+    if ($shouldSeedFooter) {
         $footerDefaults = [
             // label,        url_key,      lang_key,                  sort, active, css_class, location
             ['Regulamin',  '/regulamin', 'nav.footer.regulamin', 10, 1, '', 'footer'],
@@ -164,6 +172,8 @@ try {
         ];
         $footerIns = $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,?,?,?)");
         foreach ($footerDefaults as $row) { $footerIns->execute($row); }
+    }
+    if ($navSeeded !== '1') {
         $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_items_seeded'")->execute();
     }
 
@@ -233,6 +243,7 @@ try {
         $db->prepare("INSERT IGNORE INTO site_config (`key`, `value`) VALUES ('nav_lang_key_seeded', '1')")->execute();
         $db->prepare("UPDATE site_config SET `value`='1' WHERE `key`='nav_lang_key_seeded'")->execute();
     }
+    PlayerNavigationSettings::ensureSpecialItems($db);
 } catch (Throwable $e) {
     GameLog::error('admin/template_editor', 'bootstrap failed', $e);
 }
@@ -291,42 +302,168 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = t('admin.template_editor.msg_config_saved');
             GameLog::info('admin/template_editor', 'site_config saved', ['by' => $who]);
 
+        } elseif ($action === 'save_nav_group' || $action === 'add_nav_group') {
+            try {
+                $label = trim((string)($_POST['group_label'] ?? ''));
+                $labelEn = trim((string)($_POST['group_label_en'] ?? ''));
+                $labelDe = trim((string)($_POST['group_label_de'] ?? ''));
+                $langKey = trim((string)($_POST['group_lang_key'] ?? ''));
+                $iconKey = trim((string)($_POST['group_icon_key'] ?? ''));
+                $sort = max(0, min(32000, (int)($_POST['group_sort_order'] ?? 0)));
+                if (($action === 'add_nav_group' && !PlayerNavigationSettings::validNewLabels($label, $labelEn, $labelDe))
+                    || ($action === 'save_nav_group' && ($label === '' || mb_strlen($label) > 64 || mb_strlen($labelEn) > 64 || mb_strlen($labelDe) > 64))
+                    || mb_strlen($langKey) > 64) throw new InvalidArgumentException('label');
+                if (!empty($_FILES['icon_file']['name'])) {
+                    if ($_FILES['icon_file']['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES['icon_file']['tmp_name'])) throw new InvalidArgumentException('image');
+                    $iconKey = PlayerNavIcon::storeImage($_FILES['icon_file']['tmp_name'], (string)(new finfo(FILEINFO_MIME_TYPE))->file($_FILES['icon_file']['tmp_name']));
+                } elseif ($iconKey !== '' && !PlayerNavIcon::valid($iconKey)) throw new InvalidArgumentException('icon');
+                if ($action === 'add_nav_group') {
+                    $key = 'group-' . bin2hex(random_bytes(8));
+                    $db->prepare('INSERT INTO player_nav_groups (group_key,label,label_en,label_de,lang_key,icon_key,sort_order,active) VALUES (?,?,?,?,?,?,?,1)')
+                        ->execute([$key, $label, $labelEn, $labelDe, $langKey, $iconKey, $sort]);
+                } else {
+                    $key = (string)($_POST['group_key'] ?? '');
+                    $before = $db->prepare('SELECT label,lang_key FROM player_nav_groups WHERE group_key=? LIMIT 1');
+                    $before->execute([$key]);
+                    $old = $before->fetch(PDO::FETCH_ASSOC);
+                    if (!$old) throw new InvalidArgumentException('group');
+                    if (!PlayerNavigationSettings::validEditedLabels($old['label'], $label, $labelEn, $labelDe)) throw new InvalidArgumentException('labels');
+                    $langKey = PlayerNavigationSettings::editedLanguageKey($old['label'], $old['lang_key'], $label, $langKey);
+                    $update = $db->prepare('UPDATE player_nav_groups SET label=?,label_en=?,label_de=?,lang_key=?,icon_key=?,sort_order=?,active=? WHERE group_key=?');
+                    $update->execute([$label, $labelEn, $labelDe, $langKey, $iconKey, $sort, isset($_POST['group_active']) ? 1 : 0, $key]);
+                    if ($update->rowCount() === 0 && !PlayerNavigationSettings::groupExists($db, $key)) throw new InvalidArgumentException('group');
+                }
+                AdminLog::log('player_nav_group', 'Player menu group updated: ' . $key);
+                $_SESSION['template_editor_flash'] = ['type' => 'success', 'message' => t('admin.template_editor.msg_nav_saved')];
+                header('Location: /admin/template_editor.php?tab=nav&group=' . rawurlencode($key));
+                exit;
+            } catch (Throwable $e) {
+                GameLog::error('admin/template_editor', 'Menu group update failed', $e);
+                $_SESSION['template_editor_flash'] = ['type' => 'error', 'message' => t('admin.template_editor.icon_error')];
+                header('Location: /admin/template_editor.php?tab=nav');
+                exit;
+            }
         } elseif ($action === 'save_nav') {
             $id       = (int)($_POST['nav_id'] ?? 0);
             $label    = trim($_POST['label']    ?? '');
+            $labelEn  = trim((string)($_POST['label_en'] ?? ''));
+            $labelDe  = trim((string)($_POST['label_de'] ?? ''));
             $urlKey   = trim($_POST['url_key']  ?? '');
             $langKey  = trim($_POST['lang_key'] ?? '');
             $sort     = (int)($_POST['sort_order'] ?? 0);
             $active   = isset($_POST['active']) ? 1 : 0;
             $cssClass = trim($_POST['css_class'] ?? '');
-            if ($id > 0 && $label && $urlKey) {
-                $db->prepare("UPDATE nav_items SET label=?,url_key=?,lang_key=?,sort_order=?,active=?,css_class=? WHERE id=?")
-                   ->execute([$label, $urlKey, $langKey, $sort, $active, $cssClass, $id]);
-                $msg = t('admin.template_editor.msg_nav_saved');
+            $iconKey = trim((string)($_POST['icon_key'] ?? ''));
+            $groupKey = trim((string)($_POST['group_key'] ?? ''));
+            if ($id > 0 && $label && $urlKey && mb_strlen($label) <= 64 && mb_strlen($labelEn) <= 64 && mb_strlen($labelDe) <= 64) {
+                try {
+                    $exists = $db->prepare('SELECT location,url_key,icon_key,group_key,label,lang_key FROM nav_items WHERE id=? LIMIT 1');
+                    $exists->execute([$id]);
+                    $existing = $exists->fetch(PDO::FETCH_ASSOC);
+                    if (!$existing) throw new InvalidArgumentException('item');
+                    $isPlayerItem = $existing['location'] === 'header';
+                    if ($isPlayerItem && !PlayerNavigationSettings::validEditedLabels($existing['label'], $label, $labelEn, $labelDe)) throw new InvalidArgumentException('labels');
+                    if ($isPlayerItem && in_array(ltrim($existing['url_key'], '/'), ['home', 'help', 'chat', 'logout'], true) && $urlKey !== $existing['url_key']) throw new InvalidArgumentException('reserved');
+                    if ($isPlayerItem && !PlayerNavigationSettings::validDestination($urlKey) && !in_array($urlKey, ['home', 'chat', 'help', 'logout'], true)) throw new InvalidArgumentException('destination');
+                    if ($isPlayerItem && in_array(ltrim($urlKey, '/'), ['home', 'help', 'chat', 'logout'], true) && $urlKey !== $existing['url_key']) throw new InvalidArgumentException('reserved');
+                    if ($isPlayerItem && $urlKey !== $existing['url_key']) {
+                        $duplicate = $db->prepare("SELECT 1 FROM nav_items WHERE location='header' AND id<>? AND url_key IN (?,?) LIMIT 1");
+                        $duplicate->execute([$id, ltrim($urlKey, '/'), '/' . ltrim($urlKey, '/')]);
+                        if ($duplicate->fetchColumn()) throw new InvalidArgumentException('duplicate');
+                    }
+                    if ($isPlayerItem && $groupKey !== '' && !PlayerNavigationSettings::groupExists($db, $groupKey)) throw new InvalidArgumentException('group');
+                    if (!$isPlayerItem) {
+                        $iconKey = (string)$existing['icon_key'];
+                        $groupKey = (string)$existing['group_key'];
+                    }
+                    $langKey = PlayerNavigationSettings::editedLanguageKey($existing['label'], $existing['lang_key'], $label, $langKey);
+                    if ($isPlayerItem && !empty($_FILES['icon_file']['name'])) {
+                        if ($_FILES['icon_file']['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES['icon_file']['tmp_name'])) throw new InvalidArgumentException('image');
+                        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($_FILES['icon_file']['tmp_name']);
+                        $iconKey = PlayerNavIcon::storeImage($_FILES['icon_file']['tmp_name'], (string)$mime);
+                    } elseif ($iconKey !== '' && !PlayerNavIcon::valid($iconKey)) {
+                        throw new InvalidArgumentException('icon');
+                    }
+                    $db->prepare("UPDATE nav_items SET label=?,label_en=?,label_de=?,url_key=?,lang_key=?,sort_order=?,active=?,css_class=?,icon_key=?,group_key=? WHERE id=?")
+                        ->execute([$label, $labelEn, $labelDe, $urlKey, $langKey, $sort, $active, $cssClass, $iconKey, $groupKey, $id]);
+                    AdminLog::log('player_nav_update', 'Player navigation item updated #' . $id);
+                    $_SESSION['template_editor_flash'] = ['type' => 'success', 'message' => t('admin.template_editor.msg_nav_saved')];
+                    header('Location: /admin/template_editor.php?tab=' . ($isPlayerItem ? 'nav' : $existing['location']) . '&nav=' . $id);
+                    exit;
+                } catch (Throwable $e) {
+                    GameLog::error('admin/template_editor', 'Navigation update failed', $e);
+                    $_SESSION['template_editor_flash'] = ['type' => 'error', 'message' => t('admin.template_editor.icon_error')];
+                    header('Location: /admin/template_editor.php?tab=' . (($existing['location'] ?? 'header') === 'header' ? 'nav' : $existing['location']) . '&nav=' . $id);
+                    exit;
+                }
             } else {
-                $err = t('admin.template_editor.err_invalid_data');
+                $_SESSION['template_editor_flash'] = ['type' => 'error', 'message' => t('admin.template_editor.err_invalid_data')];
+                header('Location: /admin/template_editor.php?tab=nav&nav=' . $id);
+                exit;
             }
 
         } elseif ($action === 'add_nav') {
             $label   = trim($_POST['new_label']    ?? '');
+            $labelEn = trim((string)($_POST['new_label_en'] ?? ''));
+            $labelDe = trim((string)($_POST['new_label_de'] ?? ''));
             $urlKey  = trim($_POST['new_url_key']  ?? '');
             $langKey = trim($_POST['new_lang_key'] ?? '');
             $loc     = in_array($_POST['new_location'] ?? '', ['header','footer','actions']) ? $_POST['new_location'] : 'header';
+            $iconKey = $loc === 'header' ? trim((string)($_POST['new_icon_key'] ?? '')) : '';
+            $groupKey = $loc === 'header' ? trim((string)($_POST['new_group_key'] ?? '')) : '';
             $sort    = (int)$db->query("SELECT COALESCE(MAX(sort_order),0)+1 FROM nav_items WHERE location=" . $db->quote($loc))->fetchColumn();
-            if ($label && $urlKey) {
-                $db->prepare("INSERT INTO nav_items (label,url_key,lang_key,sort_order,active,css_class,location) VALUES (?,?,?,?,1,'',?)")
-                   ->execute([$label, $urlKey, $langKey, $sort, $loc]);
-                $msg = t('admin.template_editor.msg_nav_added', ['loc' => $loc]);
+            if (($loc === 'header' ? PlayerNavigationSettings::validNewLabels($label, $labelEn, $labelDe)
+                : ($label !== '' && mb_strlen($label) <= 64 && mb_strlen($labelEn) <= 64 && mb_strlen($labelDe) <= 64)) && $urlKey) {
+                try {
+                    if ($loc === 'header' && (!PlayerNavigationSettings::validDestination($urlKey) || in_array(ltrim($urlKey, '/'), ['home', 'chat', 'help', 'logout'], true))) throw new InvalidArgumentException('destination');
+                    if ($groupKey !== '' && !PlayerNavigationSettings::groupExists($db, $groupKey)) throw new InvalidArgumentException('group');
+                    if ($loc === 'header' && $groupKey === '') throw new InvalidArgumentException('group');
+                    if ($loc === 'header') {
+                        $duplicate = $db->prepare("SELECT 1 FROM nav_items WHERE location='header' AND url_key IN (?,?) LIMIT 1");
+                        $duplicate->execute([ltrim($urlKey, '/'), '/' . ltrim($urlKey, '/')]);
+                        if ($duplicate->fetchColumn()) throw new InvalidArgumentException('duplicate');
+                    }
+                    if ($loc === 'header' && !empty($_FILES['icon_file']['name'])) {
+                        if ($_FILES['icon_file']['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES['icon_file']['tmp_name'])) throw new InvalidArgumentException('image');
+                        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($_FILES['icon_file']['tmp_name']);
+                        $iconKey = PlayerNavIcon::storeImage($_FILES['icon_file']['tmp_name'], (string)$mime);
+                    } elseif ($iconKey !== '' && !PlayerNavIcon::valid($iconKey)) {
+                        throw new InvalidArgumentException('icon');
+                    }
+                    $db->prepare("INSERT INTO nav_items (label,label_en,label_de,url_key,lang_key,sort_order,active,css_class,location,icon_key,group_key) VALUES (?,?,?,?,?,?,1,'',?,?,?)")
+                        ->execute([$label, $labelEn, $labelDe, $urlKey, $langKey, $sort, $loc, $iconKey, $groupKey]);
+                    AdminLog::log('player_nav_add', 'Navigation item added: ' . $loc);
+                    if ($loc === 'header') {
+                        $_SESSION['template_editor_flash'] = ['type' => 'success', 'message' => t('admin.template_editor.msg_nav_added', ['loc' => $loc])];
+                        header('Location: /admin/template_editor.php?tab=nav&nav=' . $db->lastInsertId());
+                        exit;
+                    }
+                    $_SESSION['template_editor_flash'] = ['type' => 'success', 'message' => t('admin.template_editor.msg_nav_added', ['loc' => $loc])];
+                    header('Location: /admin/template_editor.php?tab=' . $loc . '&nav=' . $db->lastInsertId());
+                    exit;
+                } catch (Throwable $e) {
+                    GameLog::error('admin/template_editor', 'Navigation insert failed', $e);
+                    $_SESSION['template_editor_flash'] = ['type' => 'error', 'message' => t('admin.template_editor.icon_error')];
+                    header('Location: /admin/template_editor.php?tab=' . ($loc === 'header' ? 'nav' : $loc));
+                    exit;
+                }
             } else {
-                $err = t('admin.template_editor.err_label_url_required');
+                $_SESSION['template_editor_flash'] = ['type' => 'error', 'message' => t('admin.template_editor.err_label_url_required')];
+                header('Location: /admin/template_editor.php?tab=' . ($loc === 'header' ? 'nav' : $loc));
+                exit;
             }
 
         } elseif ($action === 'delete_nav') {
             $id = (int)($_POST['nav_id'] ?? 0);
             if ($id > 0) {
+                $locationStmt = $db->prepare('SELECT location FROM nav_items WHERE id=?');
+                $locationStmt->execute([$id]);
+                $location = $locationStmt->fetchColumn();
                 $db->prepare("DELETE FROM nav_items WHERE id=?")->execute([$id]);
-                $msg = t('admin.template_editor.msg_nav_deleted');
-                GameLog::info('admin/template_editor', 'nav_item deleted', ['id' => $id, 'by' => $who]);
+                AdminLog::log('player_nav_delete', 'Navigation item deleted #' . $id);
+                $_SESSION['template_editor_flash'] = ['type' => 'success', 'message' => t('admin.template_editor.msg_nav_deleted')];
+                header('Location: /admin/template_editor.php?tab=' . ($location === 'header' ? 'nav' : (in_array($location, ['footer', 'actions'], true) ? $location : 'nav')));
+                exit;
             }
 
         } elseif ($action === 'save_boardroom') {
@@ -417,6 +554,20 @@ $cfgRows     = $db->query("SELECT `key`, `value` FROM site_config")->fetchAll(PD
 $navItems    = $db->query("SELECT * FROM nav_items WHERE location='header'  ORDER BY sort_order ASC, id ASC")->fetchAll();
 $footerItems = $db->query("SELECT * FROM nav_items WHERE location='footer'  ORDER BY sort_order ASC, id ASC")->fetchAll();
 $actionItems = $db->query("SELECT * FROM nav_items WHERE location='actions' ORDER BY sort_order ASC, id ASC")->fetchAll();
+$navGroups = PlayerNavigationSettings::groups($db);
+$playerMenuPreview = GameNavigation::build(array_values(array_filter($navItems, static fn(array $item): bool => (bool)$item['active'])), '/', $navGroups);
+$playerMenuSpecial = [
+    'home' => GameNavigation::special($navItems, 'home', true),
+    'help' => GameNavigation::special($navItems, 'help', true),
+    'chat' => GameNavigation::special($navItems, 'chat', true),
+];
+$navIconChoices = PlayerNavIcon::choices();
+$navDestinations = PlayerNavigationSettings::destinations();
+$editGroupKey = (string)($_GET['group'] ?? '');
+$editGroup = null;
+foreach ($navGroups as $group) {
+    if ($group['group_key'] === $editGroupKey) { $editGroup = $group; break; }
+}
 
 $editNavId = (int)($_GET['nav'] ?? 0);
 $editNav   = null;
@@ -505,6 +656,13 @@ $viewData = [
     'err'            => $err,
     'cfgRows'        => $cfgRows,
     'navItems'       => $navItems,
+    'playerMenuPreview' => $playerMenuPreview,
+    'playerMenuSpecial' => $playerMenuSpecial,
+    'navIconChoices' => $navIconChoices,
+    'navDestinations' => $navDestinations,
+    'navGroups' => $navGroups,
+    'editGroup' => $editGroup,
+    'editGroupKey' => $editGroupKey,
     'footerItems'    => $footerItems,
     'actionItems'    => $actionItems,
     'editNav'        => $editNav,
@@ -516,6 +674,7 @@ $viewData = [
     'brSceneRoles'   => $brSceneRoles,
 ];
 $adminExtraCss = ['/assets/css/template_editor.css'];
+$extraJs = ['/assets/js/template_editor_nav.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/template_editor/main.php';
 require_once __DIR__ . '/partials/footer.php';

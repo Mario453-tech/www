@@ -46,7 +46,24 @@
                      padding: 10px 14px; background: rgba(255,255,255,.02);
                      border-radius: 6px; }
 
+.te-player-preview { padding: 16px; margin-bottom: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
+.te-player-preview h2 { margin: 0 0 8px; font-size: 1rem; }
+.te-player-main { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 12px 0; }
+.te-player-group { border: 1px solid var(--border); border-radius: 6px; padding: 8px; min-width: 150px; }
+.te-player-group strong { display: block; font-size: .8rem; margin-bottom: 8px; }
+.te-player-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.te-player-main-item, .te-player-links a { display: inline-flex; align-items: center; gap: 7px; padding: 7px 10px; min-height: 44px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); text-decoration: none; font-size: .8rem; }
+.te-player-main-item img { width: 20px; height: 20px; object-fit: contain; }
+.te-player-links img, .te-nav-icon { width: 17px; height: 17px; object-fit: contain; flex-shrink: 0; }
+.te-add-form select, .te-meta select { width: 100%; }
+.te-icon-edit { grid-column: span 2; }
+.te-icon-edit label + select, .te-icon-edit label + input { margin-bottom: 8px; }
+.te-icon-preview { display: inline-block; width: 20px; height: 20px; object-fit: contain; vertical-align: middle; margin: 4px 8px 4px 0; }
+.te-icon-preview--subitem { width: 17px; height: 17px; }
+.te-group-editor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.te-group-editor > button { justify-self: start; }
 @media (max-width: 700px) {
     .te-layout { grid-template-columns: 1fr; }
     .te-meta   { grid-template-columns: 1fr 1fr; }
+    .te-group-editor { grid-template-columns: 1fr; }
 }

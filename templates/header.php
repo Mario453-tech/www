@@ -17,7 +17,7 @@ try {
         $__siteTagline = $__cfgRow['site_tagline'];
     }
     $__navItems = $__cfgDb
-        ->query("SELECT * FROM nav_items WHERE active=1 AND location='header' ORDER BY sort_order ASC, id ASC")
+        ->query("SELECT * FROM nav_items WHERE location='header' ORDER BY sort_order ASC, id ASC")
         ->fetchAll();
 
  // Update last_active_at for logged-in player (online or offline detection in tick) / Aktualizuj last_active_at dla zalogowanego gracza (detekcja online lub offline w ticku)
@@ -206,6 +206,7 @@ if (!($authPage ?? false)) {
             $__logoutItem    = null;
             $__filteredNav   = [];
             foreach ($__navItems as $__ni) {
+                if (!(int)$__ni['active']) continue;
                 if (($__ni['url_key'] ?? '') === 'logout') {
                     $__logoutItem = $__ni;
                 } else {
@@ -215,7 +216,18 @@ if (!($authPage ?? false)) {
 
  // Current path (for active nav item) / Biezaca sciezka (do oznaczenia aktywnego linka) 
             $__curPath = parse_url($_SERVER['REQUEST_URI'] ?? ($_SERVER['PHP_SELF'] ?? '/'), PHP_URL_PATH) ?: '/';
-            $__groupedNav = GameNavigation::build($__filteredNav, $__curPath);
+            require_once __DIR__ . '/../src/PlayerNavigationSettings.php';
+            try {
+                $__playerNavGroups = PlayerNavigationSettings::groups($__cfgDb);
+                $__specialSeeded = $__cfgDb->query("SELECT setting_value FROM player_nav_settings WHERE setting_key='special_seeded'")->fetchColumn() === '1';
+            } catch (Throwable $__groupEx) {
+                $__playerNavGroups = null; // Existing installations keep the legacy groups until the editor is opened.
+                $__specialSeeded = false;
+            }
+            $__groupedNav = GameNavigation::build($__filteredNav, $__curPath, $__playerNavGroups);
+            $__homeNav = GameNavigation::special($__navItems, 'home', $__specialSeeded);
+            $__helpNav = GameNavigation::special($__navItems, 'help', $__specialSeeded);
+            $__chatNav = GameNavigation::special($__navItems, 'chat', $__specialSeeded);
             ?>
 
             <!--  ROW 1: Logo + company pill + logout + burger  -->
@@ -263,7 +275,7 @@ if (!($authPage ?? false)) {
                 <?php if ($__logoutItem): ?>
                 <a href="<?= str_starts_with($__logoutItem['url_key'] ?? '', '/') ? $__logoutItem['url_key'] : url($__logoutItem['url_key'] ?? 'logout') ?>"
                    class="btn btn-sm btn-danger hdr-logout">
-                    <?= htmlspecialchars(!empty($__logoutItem['lang_key']) ? t($__logoutItem['lang_key']) : ($__logoutItem['label'] ?? t('header.logout_fallback'))) ?>
+                    <?= htmlspecialchars(PlayerNavigationSettings::label($__logoutItem), ENT_QUOTES, 'UTF-8') ?>
                 </a>
                 <?php endif ?>
 

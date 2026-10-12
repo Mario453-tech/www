@@ -9,20 +9,47 @@ final class GameNavigation
         'company' => ['dashboard', 'boardroom', 'hr', 'legal', 'sabotage'],
     ];
 
-    private const ICONS = [
-        'map' => 'mapa', 'technical' => 'technika', 'logistics' => 'logistyka',
-        'market' => 'rynek', 'bank' => 'bank', 'finance' => 'finanse', 'contracts' => 'kontrakty',
-        'dashboard' => 'dyrektor', 'boardroom' => 'dyrektor', 'hr' => 'kadry', 'legal' => 'dzial-prawny',
-    ];
+    /** @param list<array<string,mixed>> $items */
+    public static function special(array $items, string $key, bool $seeded = false): ?array
+    {
+        require_once __DIR__ . '/PlayerNavIcon.php';
+        require_once __DIR__ . '/PlayerNavigationSettings.php';
+        foreach ($items as $item) {
+            if (trim((string)($item['url_key'] ?? ''), '/') !== $key) continue;
+            if (isset($item['active']) && !(int)$item['active']) return null;
+            return [
+                'id' => (int)($item['id'] ?? 0),
+                'label' => PlayerNavigationSettings::label($item),
+                'icon' => PlayerNavIcon::resolve((string)($item['icon_key'] ?? ''), $key),
+            ];
+        }
+        return $seeded ? null : ['id' => 0, 'label' => tPlain('nav.' . $key), 'icon' => PlayerNavIcon::resolve('', $key)];
+    }
 
     /** @param list<array<string, mixed>> $items
-     *  @return array<string, array{label:string, active:bool, items:list<array{href:string,label:string,active:bool,icon:string}>}>
+     *  @param list<array<string,mixed>>|null $configuredGroups
+     *  @return array<string, array{label:string, icon:string, active:bool, items:list<array<string,mixed>>}>
      */
-    public static function build(array $items, string $currentPath): array
+    public static function build(array $items, string $currentPath, ?array $configuredGroups = null): array
     {
+        require_once __DIR__ . '/PlayerNavIcon.php';
+        require_once __DIR__ . '/PlayerNavigationSettings.php';
         $groups = [];
-        foreach (self::GROUPS as $id => $_keys) {
-            $groups[$id] = ['label' => tPlain('nav.group.' . $id), 'active' => false, 'items' => []];
+        if ($configuredGroups === null) {
+            foreach (self::GROUPS as $id => $_keys) {
+                $groups[$id] = ['label' => tPlain('nav.group.' . $id), 'icon' => PlayerNavIcon::resolve('', $id), 'active' => false, 'items' => []];
+            }
+        } else {
+            usort($configuredGroups, static fn(array $a, array $b): int => [(int)$a['sort_order'], (int)($a['id'] ?? 0)] <=> [(int)$b['sort_order'], (int)($b['id'] ?? 0)]);
+            foreach ($configuredGroups as $row) {
+                if (!(int)$row['active']) continue;
+                $id = (string)$row['group_key'];
+                $groups[$id] = [
+                    'label' => PlayerNavigationSettings::label($row),
+                    'icon' => PlayerNavIcon::resolve((string)($row['icon_key'] ?? ''), $id),
+                    'active' => false, 'items' => [],
+                ];
+            }
         }
 
         foreach ($items as $item) {
@@ -31,13 +58,17 @@ final class GameNavigation
                 continue;
             }
 
-            $groupId = 'company';
-            foreach (self::GROUPS as $id => $keys) {
-                if (in_array($key, $keys, true)) {
-                    $groupId = $id;
-                    break;
+            $groupId = (string)($item['group_key'] ?? '');
+            if ($groupId === '') {
+                $groupId = 'company';
+                foreach (self::GROUPS as $id => $keys) {
+                    if (in_array($key, $keys, true)) {
+                        $groupId = $id;
+                        break;
+                    }
                 }
             }
+            if (!isset($groups[$groupId])) continue;
 
             $href = str_starts_with((string)$item['url_key'], '/')
                 ? (string)$item['url_key'] : url((string)$item['url_key']);
@@ -45,11 +76,10 @@ final class GameNavigation
             $path = $path === '/' ? '/' : rtrim($path, '/');
             $current = $currentPath === '/' ? '/' : rtrim($currentPath, '/');
             $active = $current === $path || ($path !== '/' && str_starts_with($current, $path . '/'));
-            $langKey = (string)($item['lang_key'] ?? '');
-            $label = $langKey !== '' ? tPlain($langKey) : (string)($item['label'] ?? $key);
+            $label = PlayerNavigationSettings::label($item);
 
-            $groups[$groupId]['items'][] = ['href' => $href, 'label' => $label, 'active' => $active,
-                'icon' => self::ICONS[$key] ?? 'dashboard'];
+            $groups[$groupId]['items'][] = ['id' => (int)($item['id'] ?? 0), 'href' => $href, 'label' => $label, 'active' => $active,
+                'icon' => PlayerNavIcon::resolve((string)($item['icon_key'] ?? ''), $key)];
             $groups[$groupId]['active'] = $groups[$groupId]['active'] || $active;
         }
 
