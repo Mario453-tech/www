@@ -87,6 +87,7 @@ final class PlayerNavigationSettings
         Database::addColumnIfMissing('nav_items', 'group_key', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `icon_key`");
         Database::addColumnIfMissing('nav_items', 'label_en', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label`");
         Database::addColumnIfMissing('nav_items', 'label_de', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label_en`");
+        Database::addColumnIfMissing('nav_items', 'open_new_tab', "TINYINT(1) NOT NULL DEFAULT 0 AFTER `group_key`");
         Database::addColumnIfMissing('player_nav_groups', 'label_en', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label`");
         Database::addColumnIfMissing('player_nav_groups', 'label_de', "VARCHAR(64) NOT NULL DEFAULT '' AFTER `label_en`");
         // Seed initial groups once; never restore an administrator's deleted group.

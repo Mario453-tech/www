@@ -20,7 +20,7 @@
     <div class="game-nav__context" id="nav-context-<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>" data-nav-panel="<?= htmlspecialchars($__groupId, ENT_QUOTES, 'UTF-8') ?>"<?= $__group['active'] ? '' : ' hidden' ?>>
         <span class="game-nav__group-label"><?= htmlspecialchars($__group['label'], ENT_QUOTES, 'UTF-8') ?></span>
         <?php foreach ($__group['items'] as $__link): ?>
-        <a href="<?= htmlspecialchars($__link['href'], ENT_QUOTES, 'UTF-8') ?>" class="game-nav__subitem<?= $__link['active'] ? ' nav-active' : '' ?>"<?= $__link['active'] ? ' aria-current="page"' : '' ?>><img src="<?= asset(PlayerNavIcon::url($__link['icon'])) ?>" alt=""><?= htmlspecialchars($__link['label'], ENT_QUOTES, 'UTF-8') ?></a>
+        <a href="<?= htmlspecialchars($__link['href'], ENT_QUOTES, 'UTF-8') ?>" class="game-nav__subitem<?= $__link['active'] ? ' nav-active' : '' ?>"<?= $__link['active'] ? ' aria-current="page"' : '' ?><?= !empty($__link['new_tab']) ? ' target="_blank" rel="noopener noreferrer"' : '' ?>><img src="<?= asset(PlayerNavIcon::url($__link['icon'])) ?>" alt=""><?= htmlspecialchars($__link['label'], ENT_QUOTES, 'UTF-8') ?></a>
         <?php endforeach; ?>
     </div>
     <?php endforeach; ?>

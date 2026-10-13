@@ -70,15 +70,21 @@ final class GameNavigation
             }
             if (!isset($groups[$groupId])) continue;
 
-            $href = str_starts_with((string)$item['url_key'], '/')
-                ? (string)$item['url_key'] : url((string)$item['url_key']);
+            require_once __DIR__ . '/PlayerMenuEditor.php';
+            try {
+                $href = PlayerMenuEditor::href((string)$item['url_key']);
+            } catch (InvalidArgumentException $e) {
+                continue;
+            }
             $path = parse_url($href, PHP_URL_PATH) ?: '/';
             $path = $path === '/' ? '/' : rtrim($path, '/');
             $current = $currentPath === '/' ? '/' : rtrim($currentPath, '/');
-            $active = $current === $path || ($path !== '/' && str_starts_with($current, $path . '/'));
+            $external = preg_match('~^https?://~i', $href) === 1;
+            $active = !$external && ($current === $path || ($path !== '/' && str_starts_with($current, $path . '/')));
             $label = PlayerNavigationSettings::label($item);
 
             $groups[$groupId]['items'][] = ['id' => (int)($item['id'] ?? 0), 'href' => $href, 'label' => $label, 'active' => $active,
+                'new_tab' => $external && (int)($item['open_new_tab'] ?? 0) === 1,
                 'icon' => PlayerNavIcon::resolve((string)($item['icon_key'] ?? ''), $key)];
             $groups[$groupId]['active'] = $groups[$groupId]['active'] || $active;
         }

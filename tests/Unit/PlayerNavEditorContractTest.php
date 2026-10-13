@@ -15,10 +15,11 @@ final class PlayerNavEditorContractTest extends TestCase
         self::assertStringContainsString("'icon_key'", $controller);
         self::assertStringContainsString('PlayerNavIcon::valid(', $controller);
         self::assertStringContainsString('PlayerNavIcon::storeImage(', $controller);
-        self::assertStringContainsString('name="new_icon_key"', $form);
-        self::assertStringContainsString('name="icon_key"', $form);
-        self::assertStringContainsString('name="icon_file"', $form);
-        self::assertStringContainsString('data-player-menu-preview', $form);
+        self::assertStringContainsString("require __DIR__ . '/player_menu.php'", $form);
+        $editor = (string)file_get_contents($root . '/templates/views/admin/template_editor/player_menu.php');
+        self::assertStringContainsString('id="pm-icon"', $editor);
+        self::assertStringContainsString('id="pm-file"', $editor);
+        self::assertStringContainsString('id="pm-preview-content"', $editor);
         self::assertStringContainsString('GameNavigation::special(', $header);
         self::assertStringContainsString('PlayerNavigationSettings::label($__logoutItem)', $header);
         self::assertStringContainsString('PlayerNavIcon::url(', $nav);
@@ -27,14 +28,15 @@ final class PlayerNavEditorContractTest extends TestCase
     public function testIconSelectionHasActualSizeLivePreviewInBothEditors(): void
     {
         $root = dirname(__DIR__, 2);
-        $form = (string)file_get_contents($root . '/templates/views/admin/template_editor/main.php');
-        $css = (string)file_get_contents($root . '/assets/css/template_editor.css');
+        $form = (string)file_get_contents($root . '/templates/views/admin/template_editor/player_menu.php');
+        $css = (string)file_get_contents($root . '/assets/css/player_menu_editor.css');
         $controller = (string)file_get_contents($root . '/admin/template_editor.php');
-        self::assertGreaterThanOrEqual(4, substr_count($form, 'data-icon-preview'));
-        self::assertStringContainsString('data-icon-select', $form);
-        self::assertStringContainsString('data-icon-url', $form);
-        self::assertStringContainsString('width: 20px; height: 20px', $css);
-        self::assertStringContainsString("'/assets/js/template_editor_nav.js'", $controller);
+        self::assertStringContainsString('id="pm-icon-preview"', $form);
+        self::assertStringContainsString('id="pm-result-icon"', $form);
+        self::assertStringContainsString('id="pm-identity-icon"', $form);
+        self::assertStringContainsString('config.icons[row.icon_key]', (string)file_get_contents($root . '/assets/js/player_menu_editor.js'));
+        self::assertStringContainsString('width: 22px; height: 22px', $css);
+        self::assertStringContainsString("'/assets/js/player_menu_editor.js'", $controller);
     }
 
     public function testGermanNavigationEditorControlsAreTranslatedWithoutPolishFallback(): void

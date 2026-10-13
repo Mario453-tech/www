@@ -59,6 +59,8 @@ AdminAuth::requireLogin();
 require_once __DIR__ . '/../src/PlayerNavIcon.php';
 require_once __DIR__ . '/../src/GameNavigation.php';
 require_once __DIR__ . '/../src/PlayerNavigationSettings.php';
+require_once __DIR__ . '/../src/PlayerMenuEditor.php';
+require_once __DIR__ . '/../src/BoardAccess.php';
 
 $db  = Database::getInstance()->getConnection();
 $msg = '';
@@ -264,7 +266,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $_POST['action'] ?? '';
         $who    = AdminAuth::getAdminUsername();
 
-        if ($action === 'save_public_homepage') {
+        if (in_array($action, ['save_nav_group', 'add_nav_group'], true)
+            || (in_array($action, ['save_nav', 'delete_nav'], true)
+                && (static function () use ($db): bool {
+                    $id = (int)($_POST['nav_id'] ?? 0);
+                    if ($id <= 0) return false;
+                    $query = $db->prepare('SELECT location FROM nav_items WHERE id=? LIMIT 1');
+                    $query->execute([$id]);
+                    return $query->fetchColumn() === 'header';
+                })())
+            || ($action === 'add_nav' && !in_array($_POST['new_location'] ?? 'header', ['footer', 'actions'], true))) {
+            $err = t('admin.template_editor.err_invalid_data');
+        } elseif ($action === 'save_public_homepage') {
             try {
                 $enabled = isset($_POST['public_homepage_enabled']) ? '1' : '0';
                 $upd = $db->prepare(
@@ -673,8 +686,8 @@ $viewData = [
     'brBgMatrix'     => $brBgMatrix,
     'brSceneRoles'   => $brSceneRoles,
 ];
-$adminExtraCss = ['/assets/css/template_editor.css'];
-$extraJs = ['/assets/js/template_editor_nav.js'];
+$adminExtraCss = ['/assets/css/template_editor.css', '/assets/css/player_menu_editor.css'];
+$extraJs = ['/assets/js/template_editor_nav.js', '/assets/js/player_menu_editor.js'];
 require_once __DIR__ . '/partials/header.php';
 require __DIR__ . '/../templates/views/admin/template_editor/main.php';
 require_once __DIR__ . '/partials/footer.php';
