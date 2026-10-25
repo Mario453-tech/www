@@ -53,31 +53,59 @@
 </div>
 <?php endif ?>
 
-<!-- TABS -->
-<nav class="t-tabs module-tabs">
+<!-- Navigation / Nawigacja -->
 <?php
-$tabDefs = [
-    'team'       => [t('technical.tab_team'),        count($staff)],
-    'well_staff' => [t('technical.tab_well_staff'),  $wellsWithoutStaff],
-    'candidates' => [t('technical.tab_candidates'),  $unreviewed],
-    'tasks'      => [t('technical.tab_tasks'),       count($activeTasks)],
-    'wells'      => [t('technical.tab_wells'),       count($wells)],
-    'prod'       => [t('technical.tab_prod'),        null],
-    'infra'      => [t('technical.tab_infra'),       null],
-    'safety'     => [t('technical.tab_safety'),      count($brokenWells)],
-    'incidents'  => [t('technical.tab_incidents'),   count($incidents)],
-    'trainings'  => [t('training.tab_label'),        count($trainingActive)],
-    'report'     => [t('technical.tab_report'),      null],
+$technicalNavGroups = [
+    'team' => [
+        'label' => t('technical.nav_team'),
+        'tabs' => ['team' => [t('technical.tab_team'), count($staff), 'team'],
+            'well_staff' => [t('technical.tab_well_staff'), null, 'staff'],
+            'candidates' => [t('technical.tab_candidates'), $unreviewed, 'candidates'],
+            'trainings' => [t('training.tab_label'), count($trainingActive), 'training']],
+    ],
+    'operations' => [
+        'label' => t('technical.nav_operations'),
+        'tabs' => ['tasks' => [t('technical.tab_tasks'), count($activeTasks), 'tasks'],
+            'wells' => [t('technical.tab_wells'), count($wells), 'wells'],
+            'prod' => [t('technical.tab_prod'), null, 'production'],
+            'infra' => [t('technical.tab_infra'), null, 'infrastructure']],
+    ],
+    'safety' => [
+        'label' => t('technical.nav_safety'),
+        'tabs' => ['safety' => [t('technical.tab_safety_procedures'), null, 'safety'],
+            'incidents' => [t('technical.tab_incidents'), $incTotal, 'incidents']],
+    ],
+    'report' => [
+        'label' => t('technical.nav_report'),
+        'tabs' => ['report' => [t('technical.tab_report_general'), null, 'report']],
+    ],
 ];
-foreach ($tabDefs as $id => [$label, $cnt]):
-    $isActive = $activeTab === $id;
+$technicalActiveGroup = 'team';
+foreach ($technicalNavGroups as $groupId => $group) {
+    if (isset($group['tabs'][$activeTab])) {
+        $technicalActiveGroup = $groupId;
+        break;
+    }
+}
 ?>
-<a href="?tab=<?= $id ?>" class="t-tab module-tab <?= $isActive ? 'active' : '' ?>">
-    <?= $label ?>
-    <?php if ($cnt !== null && $cnt > 0): ?>
-    <span class="tbadge module-tab-badge <?= $id === 'team' ? 'module-tab-badge--ok' : 'module-tab-badge--gold' ?>"><?= $cnt ?></span>
-    <?php endif ?>
-</a>
+<nav class="technical-nav-groups" aria-label="<?= htmlspecialchars(t('technical.nav_categories'), ENT_QUOTES, 'UTF-8') ?>">
+<?php foreach ($technicalNavGroups as $groupId => $group):
+    $groupActive = $technicalActiveGroup === $groupId;
+    $firstTab = array_key_first($group['tabs']); ?>
+    <a href="?tab=<?= $firstTab ?>" class="technical-nav-group<?= $groupActive ? ' active' : '' ?>"<?= $activeTab === $firstTab ? ' aria-current="page"' : '' ?>>
+        <img class="technical-nav-icon" src="/assets/img/icons/technical/nav/<?= $groupId === 'team' ? 'people' : $groupId ?>.svg" alt="" aria-hidden="true">
+        <?= htmlspecialchars($group['label'], ENT_QUOTES, 'UTF-8') ?>
+    </a>
+<?php endforeach ?>
+</nav>
+<nav class="technical-nav-subgroups" aria-label="<?= htmlspecialchars(t('technical.nav_subcategories'), ENT_QUOTES, 'UTF-8') ?>">
+<?php foreach ($technicalNavGroups[$technicalActiveGroup]['tabs'] as $id => [$label, $cnt, $icon]):
+    $isActive = $activeTab === $id; ?>
+    <a href="?tab=<?= $id ?>" class="technical-nav-subgroup<?= $isActive ? ' active' : '' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>>
+        <img class="technical-nav-icon" src="/assets/img/icons/technical/nav/<?= $icon ?>.svg" alt="" aria-hidden="true">
+        <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?>
+        <?php if ($cnt !== null && $cnt > 0): ?><span class="tbadge module-tab-badge"><?= (int)$cnt ?></span><?php endif ?>
+    </a>
 <?php endforeach ?>
 </nav>
 
@@ -103,6 +131,8 @@ if (file_exists($_tabFile)) include $_tabFile;
 <script>
 window.TECH_LANG = <?= json_encode([
     'ready'                => t('tech_js.ready'),
+    'currency'             => t('common.currency'),
+    'notif_dismiss_all'    => t('technical.notif_dismiss_all'),
     'confirm_assign_title'    => t('technical.confirm_assign_title'),
     'confirm_assign_task'     => t('technical.confirm_assign_task'),
     'confirm_assign_ok'       => t('technical.confirm_assign_ok'),
@@ -118,6 +148,7 @@ window.TECH_LANG = <?= json_encode([
     'spec_maintenance_engineer'    => t('technical.spec.maintenance_engineer'),
     'spec_drilling_engineer'       => t('technical.spec.drilling_engineer'),
     'spec_reservoir_engineer'      => t('technical.spec.reservoir_engineer'),
+    'spec_pipeline_engineer'       => t('technical.spec.pipeline_engineer'),
     'review_val_no_score'     => t('technical.review_val_no_score'),
     'review_val_no_rec'       => t('technical.review_val_no_rec'),
     'review_confirm_title'    => t('technical.review_confirm_title'),

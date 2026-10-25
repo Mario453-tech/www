@@ -218,10 +218,15 @@ trait IncidentRepairDataTrait
  * Zwraca ostatnie incydenty dla wszystkich odwiertow gracza.
  * Returns recent incidents across all player wells.
  */
-    public function countPlayerIncidents(int $playerId): int
+    public function countPlayerIncidents(int $playerId, string $status = ''): int
     {
         try {
-            $stmt = $this->db->prepare("SELECT COUNT(*) FROM well_incidents WHERE player_id = ?");
+            $filter = match ($status) {
+                'active' => ' AND repaired_at IS NULL AND auto_repair = 0',
+                'resolved' => ' AND (repaired_at IS NOT NULL OR auto_repair <> 0)',
+                default => '',
+            };
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM well_incidents WHERE player_id = ?{$filter}");
             $stmt->execute([$playerId]);
             return (int)$stmt->fetchColumn();
         } catch (\Throwable $e) {
@@ -229,14 +234,19 @@ trait IncidentRepairDataTrait
         }
     }
 
-    public function getPlayerIncidents(int $playerId, int $limit = 30, int $offset = 0): array
+    public function getPlayerIncidents(int $playerId, int $limit = 30, int $offset = 0, string $status = ''): array
     {
         try {
+            $filter = match ($status) {
+                'active' => ' AND wi.repaired_at IS NULL AND wi.auto_repair = 0',
+                'resolved' => ' AND (wi.repaired_at IS NOT NULL OR wi.auto_repair <> 0)',
+                default => '',
+            };
             $stmt = $this->db->prepare("
                 SELECT wi.*, COALESCE(NULLIF(w.well_name, ''), w.location_name) AS well_name
                 FROM well_incidents wi
                 LEFT JOIN wells w ON w.id = wi.well_id
-                WHERE wi.player_id = ?
+                WHERE wi.player_id = ?{$filter}
                 ORDER BY wi.created_at DESC
                 LIMIT ? OFFSET ?
             ");

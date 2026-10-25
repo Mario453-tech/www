@@ -43,12 +43,36 @@
 
 <div class="g-card">
     <div class="g-card-title"><?= t('technical.spec_needs_title') ?></div>
+    <?php
+    $candidateIcons = [
+        'geologist' => 'geo', 'reservoir_engineer' => 'res', 'petroleum_engineer' => 'pen',
+        'field_supervisor' => 'fsu', 'production_engineer' => 'prd', 'pipeline_engineer' => 'rur',
+        'drilling_engineer' => 'drl', 'safety_officer' => 'bhp', 'safety_engineer' => 'hse',
+        'maintenance_engineer' => 'mnt', 'hub_operator' => 'hub', 'well_operator' => 'wop',
+        'roughneck' => 'rou', 'well_technician' => 'wte',
+    ];
+    $candidateSpecs = [];
+    foreach ($specRecruitmentCards as $card) {
+        $candidateSpecs[$card['spec_code']] = $card['name'];
+    }
+    asort($candidateSpecs);
+    ?>
+    <label class="technical-candidate-filter"><?= t('technical.candidate_filter_spec') ?>
+        <select class="form-input" data-tech-candidate-spec>
+            <option value=""><?= t('technical.filter_all') ?></option>
+            <?php foreach ($candidateSpecs as $code => $name): ?><option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach ?>
+        </select>
+    </label>
+    <div class="empty-state" data-tech-candidate-empty hidden><?= t('technical.candidate_no_results') ?></div>
 
     <div class="specs-need-grid">
     <?php foreach ($specRecruitmentCards as $card): ?>
-    <div class="spec-need-card <?= $card['card_class'] ?>" id="technical-recruitment-<?= htmlspecialchars($card['spec_code'], ENT_QUOTES, 'UTF-8') ?>">
-        <div class="spec-need-icon"><?= htmlspecialchars($card['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
+    <div class="spec-need-card <?= $card['card_class'] ?>" data-candidate-spec="<?= htmlspecialchars($card['spec_code'], ENT_QUOTES, 'UTF-8') ?>" id="technical-recruitment-<?= htmlspecialchars($card['spec_code'], ENT_QUOTES, 'UTF-8') ?>">
+        <div class="spec-need-icon">
+            <?php if (isset($candidateIcons[$card['spec_code']])): ?><img src="/assets/icons/technical/candidates/<?= $candidateIcons[$card['spec_code']] ?>.svg" alt="" aria-hidden="true"><?php else: ?><?= htmlspecialchars((string)($card['icon'] ?? $card['spec_code']), ENT_QUOTES, 'UTF-8') ?><?php endif ?>
+        </div>
         <div class="spec-need-name"><?= htmlspecialchars($card['name'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
+        <div class="spec-need-code"><?= htmlspecialchars(strtoupper((string)($card['icon'] ?? $card['spec_code'])), ENT_QUOTES, 'UTF-8') ?></div>
         <div class="spec-need-count">
             <span class="<?= $card['count_class'] ?>"><?= $card['count_text'] ?></span>
         </div>
@@ -108,6 +132,7 @@
 ?>
 <div class="cand-card <?= $reviewed ? ($recommendedHire ? 'cand-hire' : 'cand-reject') : '' ?>">
     <div class="cand-hdr">
+        <?php if (isset($candidateIcons[$candidate['spec_code'] ?? ''])): ?><img class="technical-candidate-icon" src="/assets/icons/technical/candidates/<?= $candidateIcons[$candidate['spec_code']] ?>.svg" alt="" aria-hidden="true"><?php endif ?>
         <div class="cand-identity">
             <div class="cand-name"><?= htmlspecialchars($candidate['first_name'] . ' ' . $candidate['last_name']) ?></div>
             <div class="cand-spec"><?= htmlspecialchars($specName) ?></div>
@@ -147,7 +172,7 @@
     <?php if (!$manager): ?>
     <div class="sm-label c-muted2 mt-sm"><?= t('technical.no_manager_review') ?></div>
     <?php else: ?>
-    <details <?= !$reviewed ? 'open' : '' ?>>
+    <details name="technical-candidate-review" data-tech-accordion="candidate-review">
         <summary class="task-assign-toggle"><?= $reviewed ? t('technical.change_review') : t('technical.give_review') ?></summary>
         <form method="post" class="cand-review-form" onsubmit="return candReviewConfirm(this)">
             <input type="hidden" name="_token" value="<?= $csrf ?>">

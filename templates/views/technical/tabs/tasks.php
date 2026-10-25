@@ -7,9 +7,8 @@
     $total = max(1, $endTs - $startTs);
     $elapsed = time() - $startTs;
     $progress = min(100, max(0, round($elapsed / $total * 100)));
-    $overdue = time() > $endTs;
 ?>
-<div class="task-item in_progress <?= $overdue ? 'task-overdue' : '' ?>">
+<div class="task-item in_progress <?= time() > $endTs ? 'task-overdue' : '' ?>">
     <div class="task-icon"><?= htmlspecialchars($taskDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></div>
     <div class="task-info">
         <div class="task-title"><?= htmlspecialchars($t['title']) ?></div>
@@ -36,16 +35,12 @@
             <span class="countdown" data-end="<?= $endTs ?>">...</span>
             <div class="task-date"><?= t('technical.task_end') ?>: <?= date('d.m H:i', $endTs) ?></div>
         </div>
-        <?php if (!$overdue): ?>
         <form method="post" class="cancel-form" onsubmit="return confirmSubmit(this, '<?= htmlspecialchars(t('technical.confirm_cancel_task'), ENT_QUOTES, 'UTF-8') ?>')">
             <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="cancel_task">
             <input type="hidden" name="task_id" value="<?= (int)$t['id'] ?>">
-            <button type="submit" class="btn-cancel-task" title="<?= t('technical.cancel_task_title') ?>">&times; <?= t('technical.btn_cancel') ?></button>
+            <button type="submit" class="btn-cancel-task" title="<?= t('technical.cancel_task_title') ?>"><?= t('technical.btn_cancel') ?></button>
         </form>
-        <?php else: ?>
-        <span class="task-done-label">... <?= t('technical.finalizing') ?>...</span>
-        <?php endif ?>
     </div>
 </div>
 <?php endforeach ?>
@@ -86,7 +81,7 @@
                 <input type="hidden" name="_token" value="<?= htmlspecialchars($csrf, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="cancel_queue_item">
                 <input type="hidden" name="queue_id" value="<?= (int)$q['id'] ?>">
-                <button type="submit" class="btn-cancel-queue" title="<?= t('technical.remove_from_queue') ?>">&times;</button>
+                <button type="submit" class="btn-cancel-queue" title="<?= t('technical.remove_from_queue') ?>"><?= t('technical.remove_from_queue') ?></button>
             </form>
         </span>
     </div>
@@ -95,7 +90,7 @@
 <?php endif ?>
 
 <?php
-$otherTasks = array_filter($allTasks, fn($t) => !in_array($t['status'], ['in_progress', 'cancelled']));
+$otherTasks = array_filter($allTasks, fn($t) => !in_array($t['status'], ['in_progress', 'paused_strike', 'cancelled'], true));
 $cancelledTasks = array_filter($allTasks, fn($t) => $t['status'] === 'cancelled');
 if (!empty($otherTasks)):
 ?>

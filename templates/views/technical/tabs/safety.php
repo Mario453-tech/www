@@ -175,10 +175,17 @@ $actionHint = [
     'contaminated' => t('technical.ah_contaminated'),
 ];
 
-$actionAnchor = [
-    'broken'       => 'tech-mnt',
-    'blowout'      => 'tech-drl',
-    'contaminated' => 'tech-mnt',
+$wellActionTabs = [
+    'paused_staff' => 'candidates',
+    'paused_cash' => 'market',
+    'broken' => 'team',
+    'blowout' => 'team',
+    'contaminated' => 'team',
+];
+$wellActionTasks = [
+    'broken' => 'well_repair',
+    'blowout' => 'blowout_control',
+    'contaminated' => 'reservoir_rehabilitation',
 ];
 
 $specLabelsSafety = [
@@ -215,9 +222,18 @@ $specLabelsSafety = [
         <?php endforeach ?>
         </ul>
         <?php if (!empty($actionHint[$stCode])): ?>
-        <a class="hse-fix-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team']), ENT_QUOTES, 'UTF-8') ?>#<?= htmlspecialchars($actionAnchor[$stCode] ?? 'tech-mnt', ENT_QUOTES, 'UTF-8') ?>">
-            <?= htmlspecialchars($actionHint[$stCode], ENT_QUOTES, 'UTF-8') ?>
+        <?php if (isset($wellActionTasks[$stCode])): ?>
+        <?php foreach ($wellsByStatus[$stCode] as $w):
+            $wellRepairType = $wellActionTasks[$stCode]; ?>
+        <a class="hse-fix-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team', 'repair_well' => (int)$w['id'], 'task_type' => $wellRepairType]), ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars($actionHint[$stCode], ENT_QUOTES, 'UTF-8') ?> — <?= htmlspecialchars((string)(!empty($w['well_name']) ? $w['well_name'] : t('technical.well_num', ['id' => $w['id']])), ENT_QUOTES, 'UTF-8') ?>
         </a>
+        <?php endforeach ?>
+        <?php elseif ($wellActionTabs[$stCode] === 'market'): ?>
+        <a class="hse-fix-hint tech-gold-link" href="<?= htmlspecialchars(url('market'), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($actionHint[$stCode], ENT_QUOTES, 'UTF-8') ?></a>
+        <?php else: ?>
+        <a class="hse-fix-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => $wellActionTabs[$stCode]]), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($actionHint[$stCode], ENT_QUOTES, 'UTF-8') ?></a>
+        <?php endif ?>
         <?php endif ?>
     </div>
 </div>
@@ -239,13 +255,11 @@ if (!empty($riskWells)):
         <ul class="hse-risk-list">
         <?php foreach ($riskWells as $w):
             $cond = (float)$w['technical_condition'];
-            $risk = round(max(0, (70 - $cond) * 0.5), 1);
         ?>
             <li>
                 <span class="fw7 c-warn"><?= !empty($w['well_name']) ? htmlspecialchars((string)$w['well_name'], ENT_QUOTES, 'UTF-8') : t('technical.well_num', ['id' => $w['id']]) ?></span>
                 <span class="c-muted fs12">&middot; <?= htmlspecialchars($w['location_name'] ?? '') ?></span>
                 <span class="c-warn fw7">&middot; <?= t('technical.condition_label') ?>: <?= round($cond, 1) ?>%</span>
-                <span class="c-bad fs12">&middot; <?= t('technical.failure_risk_per_h', ['risk' => $risk]) ?></span>
             </li>
         <?php endforeach ?>
         </ul>
@@ -280,15 +294,39 @@ $repairTaskHint = [
     'reservoir_contamination' => t('technical.repair_hint_contamination'),
     'surface_spill'           => t('technical.repair_hint_spill'),
 ];
+$disasterDestination = [
+    'blowout' => 'team',
+    'pipeline_explosion' => 'team',
+    'reservoir_contamination' => 'team',
+    'surface_spill' => null,
+];
 foreach ($activeDisasters as $d):
     $dInfo = $disasterLabels[$d['disaster_type']] ?? ['icon' => '', 'label' => $d['disaster_type'], 'cls' => ''];
     $hint  = $repairTaskHint[$d['disaster_type']] ?? '';
+    $repairTypes = [
+        'blowout' => 'blowout_control',
+        'pipeline_explosion' => 'pipeline_repair',
+        'reservoir_contamination' => 'reservoir_rehabilitation',
+    ];
+    $repairType = $repairTypes[$d['disaster_type']] ?? null;
+    $repairInProgress = false;
+    foreach ($activeTasks as $repairTask) {
+        if ($repairType === null || $repairTask['task_type'] !== $repairType) continue;
+        if ($repairType === 'pipeline_repair') {
+            $repairInProgress = (int)($d['pipeline_id'] ?? 0) > 0
+                && (int)($repairTask['pipeline_id'] ?? 0) === (int)$d['pipeline_id'];
+        } else {
+            $repairInProgress = (int)($d['well_id'] ?? 0) > 0
+                && (int)($repairTask['well_id'] ?? 0) === (int)$d['well_id'];
+        }
+        if ($repairInProgress) break;
+    }
 ?>
 <div class="disaster-panel">
     <div class="disaster-panel-hdr">
         <span class="disaster-icon"><?= htmlspecialchars($dInfo['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
         <span class="disaster-title <?= htmlspecialchars($dInfo['cls'] ?? '', ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($dInfo['label'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="disaster-badge"><?= $d['status'] === 'being_repaired' ? t('technical.disaster_being_repaired') : t('technical.disaster_active') ?></span>
+        <span class="disaster-badge"><?= $repairInProgress ? t('technical.disaster_being_repaired') : t('technical.disaster_active') ?></span>
     </div>
     <p class="disaster-desc"><?= htmlspecialchars($d['description'] ?? '') ?></p>
     <div class="disaster-stats">
@@ -306,10 +344,24 @@ foreach ($activeDisasters as $d):
         <?php endif ?>
         <div class="disaster-stat"><div class="disaster-stat-val"><?= date('d.m H:i', strtotime($d['occurred_at'])) ?></div><div class="disaster-stat-lbl"><?= t('technical.disaster_date') ?></div></div>
     </div>
-    <?php if ($hint): ?>
-    <a class="disaster-action-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team']), ENT_QUOTES, 'UTF-8') ?>#<?= $d['disaster_type'] === 'blowout' ? 'tech-drl' : 'tech-mnt' ?>">
-        <?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?>
-    </a>
+    <?php if ($hint):
+        $destination = $disasterDestination[$d['disaster_type']] ?? null;
+        $disasterParams = ['tab' => $destination];
+        if ($destination === 'team' && (int)($d['well_id'] ?? 0) > 0 && $repairType !== null) {
+            $disasterParams['repair_well'] = (int)$d['well_id'];
+            $disasterParams['task_type'] = $repairType;
+        } elseif ($destination === 'team' && $d['disaster_type'] === 'pipeline_explosion' && (int)($d['pipeline_id'] ?? 0) > 0) {
+            $disasterParams['repair_pipeline'] = (int)$d['pipeline_id'];
+            $disasterParams['task_type'] = 'pipeline_repair';
+        } else {
+            $destination = null;
+        }
+    ?>
+    <?php if ($destination !== null): ?>
+    <a class="disaster-action-hint tech-gold-link" href="<?= htmlspecialchars(url('technical', $disasterParams), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?></a>
+    <?php else: ?>
+    <p class="disaster-action-hint"><?= htmlspecialchars($hint, ENT_QUOTES, 'UTF-8') ?></p>
+    <?php endif ?>
     <?php endif ?>
     <?php if ($d['hse_active']): ?><div class="disaster-hse-note"> <?= t('technical.disaster_hse_note') ?></div><?php endif ?>
 </div>

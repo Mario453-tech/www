@@ -29,6 +29,8 @@ trait TechnicalPageDataTrait
     private function loadIncidentData(): array
     {
         $incPage = max(1, (int) ($_GET['inc_page'] ?? 1));
+        $incStatus = in_array($_GET['inc_status'] ?? '', ['active', 'resolved'], true)
+            ? $_GET['inc_status'] : '';
         $incPerPage = 10;
         $incTotal = 0;
         $incTotalPages = 1;
@@ -36,10 +38,10 @@ trait TechnicalPageDataTrait
 
         try {
             if ($this->incidentSvc) {
-                $incTotal = $this->incidentSvc->countPlayerIncidents($this->playerId);
+                $incTotal = $this->incidentSvc->countPlayerIncidents($this->playerId, $incStatus);
                 $incTotalPages = max(1, (int) ceil($incTotal / $incPerPage));
                 $incPage = min($incPage, $incTotalPages);
-                $incidents = $this->incidentSvc->getPlayerIncidents($this->playerId, $incPerPage, ($incPage - 1) * $incPerPage);
+                $incidents = $this->incidentSvc->getPlayerIncidents($this->playerId, $incPerPage, ($incPage - 1) * $incPerPage, $incStatus);
                 GameLog::dbResult('technical.php', 'getPlayerIncidents', count($incidents));
             }
         } catch (Throwable $e) {
@@ -49,6 +51,7 @@ trait TechnicalPageDataTrait
 
         return [
             'incPage' => $incPage,
+            'incStatus' => $incStatus,
             'incTotalPages' => $incTotalPages,
             'incTotal' => $incTotal,
             'incidents' => $incidents,

@@ -84,7 +84,7 @@ async function dismissAllNotifs() {
         }, rows.length * 30 + 100);
     } else if (btn) {
         btn.disabled = false;
-        btn.textContent = 'X Odznacz wszystkie';
+        btn.textContent = techl('notif_dismiss_all');
     }
 }
 
@@ -235,7 +235,7 @@ function techTaskConfirm(form) {
         return false;
     }
 
-    const costRange = fmt(costMin) + ' – ' + fmt(costMax) + ' zł';
+    const costRange = fmt(costMin) + ' – ' + fmt(costMax) + ' ' + techl('currency');
     const confirmMsg = (window.TECH_LANG && window.TECH_LANG.confirm_assign_task)
         ? window.TECH_LANG.confirm_assign_task
               .replace(':task', label)
@@ -283,8 +283,91 @@ function candReviewConfirm(form) {
 // Auto-odswiezanie — pomijane gdy karta nieaktywna lub trwa zadanie sieciowe.
 // Auto-refresh — skipped when tab is hidden or a fetch is in progress.
 setInterval(() => {
-    if (!document.hidden && _pendingFetches === 0) location.reload();
+    const filtersInUse = Array.from(document.querySelectorAll('[data-tech-team-search], [data-tech-team-spec], [data-tech-team-status], [data-tech-candidate-spec], [data-tech-training-skill], [data-tech-incident-status]'))
+        .some(function (control) { return Boolean(control.value); });
+    if (!document.hidden && _pendingFetches === 0 && !filtersInUse && !document.querySelector('details[open]')) location.reload();
 }, 60000);
+
+// Filter rendered records without changing server-side action contracts.
+// Filtruj wyswietlone rekordy bez zmiany kontraktow akcji serwera.
+(function initTechnicalFilters() {
+    function run() {
+        const search = document.querySelector('[data-tech-team-search]');
+        const teamSpec = document.querySelector('[data-tech-team-spec]');
+        const teamStatus = document.querySelector('[data-tech-team-status]');
+        const candidateSpec = document.querySelector('[data-tech-candidate-spec]');
+        const trainingSkill = document.querySelector('[data-tech-training-skill]');
+
+        function updateTeam() {
+            const query = (search?.value || '').trim().toLocaleLowerCase();
+            let visible = 0;
+            document.querySelectorAll('.staff-card[data-search]').forEach(function (card) {
+                const show = (!query || card.dataset.search.toLocaleLowerCase().includes(query)) &&
+                    (!teamSpec?.value || card.dataset.spec === teamSpec.value) &&
+                    (!teamStatus?.value || card.dataset.status === teamStatus.value);
+                card.hidden = !show;
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            document.querySelectorAll('[data-tech-team-list]').forEach(function (list) {
+                const hasVisible = Array.from(list.querySelectorAll('.staff-card')).some(function (card) { return !card.hidden; });
+                list.hidden = !hasVisible;
+                list.style.display = hasVisible ? '' : 'none';
+                const heading = list.previousElementSibling;
+                if (heading?.classList.contains('staff-section-title')) {
+                    heading.hidden = !hasVisible;
+                    heading.style.display = hasVisible ? '' : 'none';
+                }
+            });
+            const empty = document.querySelector('[data-tech-team-empty]');
+            if (empty) {
+                empty.hidden = visible !== 0;
+                empty.style.display = visible === 0 ? '' : 'none';
+            }
+        }
+        function updateCards(selector, choice, valueKey, emptySelector) {
+            let visible = 0;
+            document.querySelectorAll(selector).forEach(function (card) {
+                const show = !choice.value || card.dataset[valueKey] === choice.value;
+                card.hidden = !show;
+                card.style.display = show ? '' : 'none';
+                if (show) visible++;
+            });
+            const empty = document.querySelector(emptySelector);
+            if (empty) {
+                empty.hidden = visible !== 0;
+                empty.style.display = visible === 0 ? '' : 'none';
+            }
+        }
+        [search, teamSpec, teamStatus].forEach(function (control) {
+            if (control) control.addEventListener(control === search ? 'input' : 'change', updateTeam);
+        });
+        if (candidateSpec) candidateSpec.addEventListener('change', function () {
+            updateCards('.spec-need-card[data-candidate-spec]', candidateSpec, 'candidateSpec', '[data-tech-candidate-empty]');
+        });
+        if (trainingSkill) trainingSkill.addEventListener('change', function () {
+            updateCards('.trn-program-card[data-training-skill]', trainingSkill, 'trainingSkill', '[data-tech-training-empty]');
+        });
+        if (search) updateTeam();
+        if (candidateSpec) updateCards('.spec-need-card[data-candidate-spec]', candidateSpec, 'candidateSpec', '[data-tech-candidate-empty]');
+        if (trainingSkill) updateCards('.trn-program-card[data-training-skill]', trainingSkill, 'trainingSkill', '[data-tech-training-empty]');
+        // Only a top-level card toggles its peers; nested forms remain untouched.
+        // Tylko karta najwyzszego poziomu zamyka swoje odpowiedniki, nie formularze wewnetrzne.
+        document.addEventListener('toggle', function (event) {
+            const details = event.target;
+            if (!details.matches?.('details[data-tech-accordion]') || !details.open) return;
+            const group = details.dataset.techAccordion;
+            document.querySelectorAll('details[data-tech-accordion]').forEach(function (peer) {
+                if (peer !== details && peer.dataset.techAccordion === group &&
+                    peer.closest('.t-wrap') === details.closest('.t-wrap')) {
+                    peer.open = false;
+                }
+            });
+        }, true);
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+    else run();
+})();
 
 // Inicjalizacja widocznosci selectorow dla kazdego formularza przypisania zadania.
 // Initialise selector visibility for each task-assignment form on page load.
@@ -312,8 +395,9 @@ setInterval(() => {
     var params = new URLSearchParams(location.search);
     var repairWell = params.get('repair_well');
     var repairHub = params.get('repair_hub');
+    var repairPipeline = params.get('repair_pipeline');
     var requestedTask = params.get('task_type');
-    if (!repairWell && !repairHub) {
+    if (!repairWell && !repairHub && !repairPipeline) {
         return;
     }
 
@@ -321,18 +405,21 @@ setInterval(() => {
     // Usun jednorazowy cel naprawy przed pozniejszym przeladowaniem strony zadania.
     params.delete('repair_well');
     params.delete('repair_hub');
+    params.delete('repair_pipeline');
     params.delete('task_type');
     var cleanQuery = params.toString();
     var cleanUrl = window.location.pathname + (cleanQuery ? '?' + cleanQuery : '') + window.location.hash;
     window.history.replaceState(null, '', cleanUrl);
 
     function run() {
-        var allowedTasks = ['well_repair', 'well_maintenance', 'blowout_control', 'reservoir_rehabilitation', 'hub_repair'];
-        var taskType = allowedTasks.includes(requestedTask) ? requestedTask : (repairHub ? 'hub_repair' : 'well_repair');
+        var allowedTasks = repairPipeline ? ['pipeline_repair'] : repairHub ? ['hub_repair'] :
+            ['well_repair', 'well_maintenance', 'blowout_control', 'reservoir_rehabilitation'];
+        var taskType = allowedTasks.includes(requestedTask) ? requestedTask : allowedTasks[0];
         var specialistByTask = {
             'well_repair': 'maintenance_engineer',
             'well_maintenance': 'maintenance_engineer',
             'hub_repair': 'maintenance_engineer',
+            'pipeline_repair': 'pipeline_engineer',
             'blowout_control': 'drilling_engineer',
             'reservoir_rehabilitation': 'reservoir_engineer'
         };
@@ -357,6 +444,8 @@ setInterval(() => {
 
         if (!target) {
  // Wszyscy zajęci — przewiń do pierwszego i poinformuj, że są zajęci.
+            var busyDetails = cards[0].querySelector('details.technical-staff-details');
+            if (busyDetails) busyDetails.open = true;
             cards[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
             cards[0].classList.add('staff-card--repair-target');
             if (typeof window.alertWarning === 'function') {
@@ -366,7 +455,9 @@ setInterval(() => {
         }
 
  // Otwórz formularz zlecenia (details) i wstępnie ustaw odwiert + zadanie.
-        var details = target.querySelector('details');
+        var outerDetails = target.querySelector('details.technical-staff-details');
+        if (outerDetails) outerDetails.open = true;
+        var details = target.querySelector('.staff-actions details');
         if (details) {
             details.open = true;
         }
@@ -387,9 +478,9 @@ setInterval(() => {
             }
         }
 
-        var wellSel = target.querySelector(repairHub ? 'select[name="hub_id"]' : 'select[name="well_id"]');
+        var wellSel = target.querySelector(repairPipeline ? 'select[name="pipeline_id"]' : repairHub ? 'select[name="hub_id"]' : 'select[name="well_id"]');
         if (wellSel) {
-            wellSel.value = repairHub || repairWell;
+            wellSel.value = repairPipeline || repairHub || repairWell;
         }
 
         target.classList.add('staff-card--repair-target');

@@ -28,6 +28,9 @@ trait TechnicalPageViewDataTrait
 
         try {
             $this->svc->processTick();
+            $staff = $this->svc->getStaff();
+            $wells = $this->wellSvc->getPlayerWells($this->playerId);
+            $activeTasks = $this->svc->getActiveTasks();
             $allTasks = $this->svc->getTasks();
         } catch (Throwable $e) {
             GameLog::error('technical.php', 'processTick FAIL', $e);
@@ -61,6 +64,11 @@ trait TechnicalPageViewDataTrait
         $db = Database::getInstance()->getConnection();
         $playerCash = $this->loadPlayerCash($db);
         $wells = $this->normalizeWellStatuses($db, $wells, $playerCash);
+        foreach ($wells as &$well) {
+            $well['_technical_production'] = $well['status'] === 'active'
+                ? $this->wellSvc->getEffectiveProduction($well) : 0.0;
+        }
+        unset($well);
 
         $brokenWells = array_filter(
             $wells,
@@ -68,7 +76,7 @@ trait TechnicalPageViewDataTrait
                 || ($well['status'] === 'paused_cash' && $playerCash <= 0)
         );
         $activeWells = array_filter($wells, static fn($well) => $well['status'] === 'active');
-        $totalProd = array_sum(array_map(static fn($well) => (float) $well['base_production_per_hour'], $activeWells));
+        $totalProd = array_sum(array_map(static fn($well) => (float) $well['_technical_production'], $activeWells));
         $avgCond = count($wells) > 0
             ? round(array_sum(array_map(static fn($well) => (float) $well['technical_condition'], $wells)) / count($wells), 1)
             : 0;
@@ -158,6 +166,7 @@ trait TechnicalPageViewDataTrait
             'notifTotal' => $notifTotal,
             'incidents' => $incidentData['incidents'],
             'incPage' => $incidentData['incPage'],
+            'incStatus' => $incidentData['incStatus'],
             'incTotalPages' => $incidentData['incTotalPages'],
             'incTotal' => $incidentData['incTotal'],
             'hubIncidents' => $hubIncidentData['hubIncidents'],

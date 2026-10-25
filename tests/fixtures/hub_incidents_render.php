@@ -16,6 +16,7 @@ $surface = $argv[1] ?? 'overview';
 if ($surface === 'incidents') {
     $incTotal = 4;
     $incPage = 1;
+    $incStatus = '';
     $incTotalPages = 1;
     $incidents = [];
     foreach (range(1, 4) as $id) {

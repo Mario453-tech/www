@@ -903,8 +903,9 @@ trait TTSTasksTrait
                         if ($repairStmt->rowCount() > 0) {
                             $this->db->prepare("
                                 UPDATE industrial_disasters SET status = 'resolved', resolved_at = NOW()
-                                WHERE player_id = ? AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
-                            ")->execute([$pId]);
+                                WHERE player_id = ? AND pipeline_id = ?
+                                  AND disaster_type = 'pipeline_explosion' AND status != 'resolved'
+                            ")->execute([$pId, $pipeId]);
                             $result = ['pipeline_repaired' => true];
                             $msg = t('technical.task_msg.pipeline_repair_done');
                         } else {
@@ -1057,10 +1058,14 @@ trait TTSTasksTrait
                 if ($ownTx) $this->db->rollBack();
                 return ['success' => false, 'message' => t('technical.task_msg.active_task_not_found')];
             }
-            $this->db->prepare("
-                UPDATE technical_staff SET status = 'active'
-                WHERE id = ? AND player_id = ?
-            ")->execute([$task['staff_id'], $this->playerId]);
+            // Preserve the worker's non-available relation state after cancellation.
+            // Zachowaj niedostepnosc pracownika po anulowaniu zadania.
+            if ($this->blockedRelationStatus((int)$task['staff_id'], true) === null) {
+                $this->db->prepare("
+                    UPDATE technical_staff SET status = 'active'
+                    WHERE id = ? AND player_id = ? AND status = 'busy'
+                ")->execute([$task['staff_id'], $this->playerId]);
+            }
 
  // Odmroz odwiert jezeli anulowane zadanie go serwisowalo (i brak innych serwisow).
  // Un-freeze the well if the cancelled task was servicing it (and no other service runs).
@@ -1110,7 +1115,7 @@ trait TTSTasksTrait
             GameLog::info('TTS', 'cancelTask OK', ['task_id' => $taskId, 'player_id' => $this->playerId]);
 
             // The outer task transaction includes promotion. / Transakcja obejmuje awans kolejki.
-            if ($nextTask) {
+            if ($nextTask && $this->blockedRelationStatus((int)$task['staff_id'], true) === null) {
                 $staffRow = $this->getLockedTaskStaff((int)$task['staff_id']);
                 if ($staffRow) {
                     $started = $this->startTask((int)$task['staff_id'], $nextTask['task_type'], $nextTask['well_id'], $nextTask['module_type'], $staffRow, $nextTask['hub_id'] ?? null, $nextTask['pipeline_id'] ?? null);
@@ -1135,13 +1140,11 @@ trait TTSTasksTrait
                 DELETE FROM technical_task_queue WHERE id = ? AND player_id = ?
             ");
             $stmt->execute([$queueId, $this->playerId]);
-            // Jesli rowCount=0, element zostal juz przetworzony przez tick — traktujemy jako sukces (idempotentne).
-            // If rowCount=0, the item was already processed by the tick — treat as success (idempotent).
             if ($stmt->rowCount() === 0) {
-                GameLog::info('TTS', 'cancelQueueItem: already gone', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
-            } else {
-                GameLog::info('TTS', 'cancelQueueItem OK', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
+                GameLog::info('TTS', 'cancelQueueItem: not found for owner', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
+                return ['success' => false, 'message' => t('technical.task_msg.cancel_queue_failed')];
             }
+            GameLog::info('TTS', 'cancelQueueItem OK', ['queue_id' => $queueId, 'player_id' => $this->playerId]);
             return ['success' => true, 'message' => t('technical.task_msg.queue_item_removed')];
         } catch (Throwable $e) {
             GameLog::error('TTS', 'cancelQueueItem FAILED', $e, ['queue_id' => $queueId]);

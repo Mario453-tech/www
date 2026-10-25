@@ -56,7 +56,7 @@ $specLabels = [
     $effPressPct  = round($effPressure * 100, 1);
     $effPressCls  = $effPressPct >= 80 ? 'c-good' : ($effPressPct >= 50 ? 'c-warn' : 'c-bad');
     $depletionCls = $resPct >= 40 ? 'c-good' : ($resPct >= 20 ? 'c-warn' : 'c-bad');
-    $effProd      = round((float)$w['base_production_per_hour'] * $effPressure * (1 + $boostPct / 100), 1);
+    $effProd      = round((float)$w['_technical_production'], 1);
 
     $missingSpecs = [];
     if ($status === 'paused_staff' && !empty($w['paused_staff_reason'])) {
@@ -68,44 +68,45 @@ $specLabels = [
         }
     }
 ?>
-<details class="well-card <?= $isPaused ? 'well-card--paused' : '' ?> <?= $status === 'paused_staff' ? 'well-card--staff' : '' ?>">
+<details name="technical-wells" data-tech-accordion="wells" class="well-card <?= $isPaused ? 'well-card--paused' : '' ?> <?= $status === 'paused_staff' ? 'well-card--staff' : '' ?>">
     <summary class="well-card-summary">
         <div class="well-card-hdr">
             <div class="well-card-title">
-                <span class="well-num"><?= t('technical.well_num', ['id' => $wId]) ?> &middot; <?= t('technical.well_type_' . ($w['well_type'] ?? 'onshore')) ?></span>
+                <span class="well-num"><img class="tech-icon" src="/assets/icons/technical/wells/<?= ($w['well_type'] ?? 'onshore') === 'offshore' ? 'offshore' : 'land' ?>.svg" alt=""> <?= t('technical.well_num', ['id' => $wId]) ?> &middot; <?= t('technical.well_type_' . ($w['well_type'] ?? 'onshore')) ?></span>
                 <span class="well-name"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?></span>
             </div>
             <div class="well-card-badges">
-                <span class="badge <?= $stInfo['cls'] ?>"><?= $stInfo['icon'] ?> <?= $stInfo['lbl'] ?></span>
+                <span class="badge <?= $stInfo['cls'] ?>"><?= $stInfo['lbl'] ?></span>
                 <?php if (!empty($wellTasks)): ?>
-                <span class="badge b-busy"><?= t('technical.short_task') ?> <?= count($wellTasks) ?> <?= t('technical.well_task_badge') ?></span>
+                <span class="badge b-busy"><?= count($wellTasks) ?> <?= t('technical.well_task_badge') ?></span>
                 <?php endif ?>
             </div>
         </div>
 
         <div class="well-stats">
             <div>
-                <div class="w-stat-lbl"><?= t('technical.stat_prod') ?></div>
+                <div class="w-stat-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/production.svg" alt=""> <?= t('technical.stat_prod') ?></div>
                 <div class="w-stat-val <?= $isActive ? 'c-gold' : 'c-muted' ?>">
                     <?= $isActive ? $effProd : '-' ?> <?= $isActive ? 'bbl/h' : '' ?>
                 </div>
             </div>
             <div>
-                <div class="w-stat-lbl"><?= t('technical.stat_eff_pressure') ?></div>
-                <div class="w-stat-val <?= $effPressCls ?>" title="Baza: <?= $pressure ?> - zloze: <?= $resPct ?>%">
+                <div class="w-stat-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/condition.svg" alt=""> <?= t('technical.tech_condition') ?></div>
+                <div class="w-stat-val <?= $condCol ?>"><?= round($cond, 1) ?>%</div>
+            </div>
+            <div>
+                <div class="w-stat-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/pressure.svg" alt=""> <?= t('technical.stat_eff_pressure') ?></div>
+                <div class="w-stat-val <?= $effPressCls ?>" title="<?= htmlspecialchars(t('technical.pressure_tooltip', ['pressure' => $pressure, 'reservoir' => $resPct]), ENT_QUOTES, 'UTF-8') ?>">
                     <?= $effPressPct ?>%
                 </div>
             </div>
             <div>
-                <div class="w-stat-lbl"><?= t('technical.stat_reservoir') ?></div>
+                <div class="w-stat-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/reserve.svg" alt=""> <?= t('technical.stat_reservoir') ?></div>
                 <div class="w-stat-val <?= $depletionCls ?>">
                     <?= number_format($reservoir, 0, '.', ' ') ?> bbl <span class="c-muted">(<?= $resPct ?>%)</span>
                 </div>
             </div>
-            <div>
-                <div class="w-stat-lbl"><?= t('technical.stat_depth') ?></div>
-                <div class="w-stat-val c-muted"><?= number_format($w['depth_m'] ?? 2500, 0, '.', ' ') ?> m</div>
-            </div>
+
         </div>
 
         <div class="well-cond-wrap">
@@ -116,7 +117,19 @@ $specLabels = [
             <div class="cond-bar"><div class="cond-fill <?= $condFill ?>" style="--bar-w:<?= $cond ?>%"></div></div>
         </div>
 
-        <div class="well-expand-hint">&#9662; <?= t('technical.details_hint') ?></div>
+        <?php if (!empty($wellTasks)): ?>
+        <div class="well-tasks-list">
+            <div class="well-tasks-hdr"><img class="tech-icon" src="/assets/icons/technical/wells/task.svg" alt=""> <?= t('technical.active_tasks_label') ?></div>
+            <?php foreach ($wellTasks as $task): ?>
+            <div class="well-task-row">
+                <span class="well-task-name"><?= htmlspecialchars((string)$task['title'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="well-task-who"><?= htmlspecialchars(($task['first_name'] ?? '') . ' ' . ($task['last_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="well-task-time countdown" data-end="<?= (int)strtotime((string)$task['end_time']) ?>"></span>
+            </div>
+            <?php endforeach ?>
+        </div>
+        <?php endif ?>
+        <div class="well-expand-hint"><?= t('technical.well_parameters_transport') ?></div>
     </summary>
 
     <div class="well-detail">
@@ -160,7 +173,7 @@ $specLabels = [
             <div class="well-diag-body">
                 <p class="well-diag-note"><?= t('technical.diag_blowout_note') ?></p>
             </div>
-            <a href="?tab=tasks" class="btn btn-primary btn-sm well-diag-btn"><?= t('technical.diag_go_tasks') ?></a>
+            <a href="<?= htmlspecialchars(url('technical', ['tab' => 'team', 'repair_well' => $wId, 'task_type' => 'blowout_control']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary btn-sm well-diag-btn"><?= t('technical.diag_go_tasks') ?></a>
         </div>
 
         <?php elseif ($status === 'contaminated'): ?>
@@ -169,11 +182,12 @@ $specLabels = [
             <div class="well-diag-body">
                 <p class="well-diag-note"><?= t('technical.diag_contaminated_note') ?></p>
             </div>
-            <a href="?tab=tasks" class="btn btn-primary btn-sm well-diag-btn"><?= t('technical.diag_go_tasks') ?></a>
+            <a href="<?= htmlspecialchars(url('technical', ['tab' => 'team', 'repair_well' => $wId, 'task_type' => 'reservoir_rehabilitation']), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-primary btn-sm well-diag-btn"><?= t('technical.diag_go_tasks') ?></a>
         </div>
 
         <?php else: ?>
         <div class="well-detail-grid">
+            <div class="well-detail-stat"><div class="well-detail-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/depth.svg" alt=""> <?= t('technical.stat_depth') ?></div><div class="well-detail-val"><?= number_format((float)($w['depth_m'] ?? 0), 0, '.', ' ') ?> m</div></div>
             <?php
             $defaultTransport = (($w['well_type'] ?? 'onshore') === 'offshore') ? 'tankowiec' : 'nieustawiony';
             $tType = (string)($w['transport_type'] ?? $defaultTransport);
@@ -186,7 +200,7 @@ $specLabels = [
                 'tankowiec' => t('technical.transport_tankowiec'),
             ];
             ?>
-            <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_transport') ?></div><div class="well-detail-val"><?= htmlspecialchars($tIcons[$tType] ?? '?', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($tLabels[$tType] ?? $tType, ENT_QUOTES, 'UTF-8') ?> <span class="c-muted">(<?= (float)$tCap ?>%)</span></div></div>
+            <div class="well-detail-stat"><div class="well-detail-lbl"><img class="tech-icon" src="/assets/icons/technical/wells/transport.svg" alt=""> <?= t('technical.stat_transport') ?></div><div class="well-detail-val"><?= htmlspecialchars($tLabels[$tType] ?? $tType, ENT_QUOTES, 'UTF-8') ?> <span class="c-muted">(<?= (float)$tCap ?>%)</span></div></div>
             <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_failure_risk') ?></div><div class="well-detail-val <?= $riskCls ?>"><?= number_format($riskScore, 1) ?> / 100</div></div>
             <div class="well-detail-stat"><div class="well-detail-lbl"><?= t('technical.stat_risk_level') ?></div><div class="well-detail-val <?= ($w['risk_level'] ?? 10) > 15 ? 'c-bad' : 'c-good' ?>"><?= $w['risk_level'] ?? 10 ?></div></div>
             <div class="well-detail-stat">
@@ -215,26 +229,7 @@ $specLabels = [
         </div>
         <?php endif ?>
 
-        <?php if (!empty($wellTasks)): ?>
-        <div class="well-tasks-list">
-            <div class="well-tasks-hdr"><?= t('technical.active_tasks_label') ?></div>
-            <?php foreach ($wellTasks as $t):
-                $tEnd = strtotime($t['end_time']);
-                $tLeft = max(0, $tEnd - time());
-                $tH = floor($tLeft / 3600);
-                $tM = floor(($tLeft % 3600) / 60);
-            ?>
-            <div class="well-task-row">
-                <span class="well-task-icon"><?= htmlspecialchars((TechnicalTeamService::getTaskDefinition($t['task_type']) ?? [])['icon'] ?? t('technical.short_task'), ENT_QUOTES, 'UTF-8') ?></span>
-                <span class="well-task-name"><?= htmlspecialchars($t['title']) ?></span>
-                <span class="well-task-who c-muted"><?= htmlspecialchars($t['first_name'] . ' ' . $t['last_name']) ?></span>
-                <span class="well-task-time c-warn">
-                    <?= $tH > 0 ? "{$tH}h " : '' ?><?= $tM ?>m
-                </span>
-            </div>
-            <?php endforeach ?>
-        </div>
-        <?php endif ?>
+
     </div>
 </details>
 <?php endforeach ?>

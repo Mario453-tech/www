@@ -15,6 +15,85 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->createSchema();
     }
 
+    public function testCancelTaskDoesNotMakeStrikingWorkerAvailable(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->db->exec("UPDATE technical_staff SET status='busy' WHERE id=1");
+        $this->db->exec("INSERT INTO employee_state (player_id, source_type, source_id, relation_status) VALUES (1, 'technical_staff', 1, 'on_strike')");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, title, status, start_time, end_time) VALUES (1, 1, 1, 'safety_audit', 'Audit', 'paused_strike', datetime('now'), datetime('now', '+1 hour'))");
+
+        $result = $this->makeService()->cancelTask(1);
+
+        self::assertTrue($result['success']);
+        self::assertSame('cancelled', $this->db->query('SELECT status FROM technical_tasks WHERE id=1')->fetchColumn());
+        self::assertNotSame('active', $this->db->query('SELECT status FROM technical_staff WHERE id=1')->fetchColumn());
+        self::assertFalse($this->makeService()->cancelTask(1)['success']);
+    }
+
+    public function testCancelQueueItemDoesNotReportSuccessForAnotherPlayersItem(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->db->exec("INSERT INTO technical_task_queue (id, player_id, staff_id, task_type) VALUES (17, 2, 2, 'safety_audit')");
+
+        self::assertFalse($this->makeService()->cancelQueueItem(17)['success']);
+        self::assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM technical_task_queue WHERE id=17 AND player_id=2')->fetchColumn());
+    }
+
+    public function testCancelTaskDoesNotPromoteQueueForStrikingWorker(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->db->exec("UPDATE technical_staff SET status='busy' WHERE id=1");
+        $this->db->exec("INSERT INTO employee_state (player_id, source_type, source_id, relation_status) VALUES (1, 'technical_staff', 1, 'on_strike')");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, title, status, start_time, end_time) VALUES (1, 1, 1, 'safety_audit', 'Audit', 'paused_strike', datetime('now'), datetime('now', '+1 hour'))");
+        $this->db->exec("INSERT INTO technical_task_queue (id, player_id, staff_id, task_type, priority) VALUES (1, 1, 1, 'safety_audit', 0)");
+
+        self::assertTrue($this->makeService()->cancelTask(1)['success']);
+        self::assertSame(1, (int)$this->db->query('SELECT COUNT(*) FROM technical_task_queue WHERE player_id=1')->fetchColumn());
+        self::assertSame(0, (int)$this->db->query("SELECT COUNT(*) FROM technical_tasks WHERE player_id=1 AND status='in_progress'")->fetchColumn());
+    }
+
+    public function testCancelTaskDoesNotChangeAnotherPlayersTaskOrWorker(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->db->exec("INSERT INTO technical_staff (id, player_id, first_name, last_name, spec_code, spec_name, skill_level, status) VALUES (2, 2, 'Obcy', 'Gracz', 'maintenance_engineer', 'Inżynier', 7, 'busy')");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, title, status, start_time, end_time) VALUES (2, 2, 2, 'safety_audit', 'Foreign', 'in_progress', datetime('now'), datetime('now', '+1 hour'))");
+
+        self::assertFalse($this->makeService()->cancelTask(2)['success']);
+        self::assertSame('in_progress', $this->db->query('SELECT status FROM technical_tasks WHERE id=2')->fetchColumn());
+        self::assertSame('busy', $this->db->query('SELECT status FROM technical_staff WHERE id=2')->fetchColumn());
+    }
+
+    public function testCancelTaskRestoresOnlyOwnedWellPreviousStatus(): void
+    {
+        $this->seedPlayerAndStaff();
+        $this->db->exec("INSERT INTO wells (id, player_id, status, service_prev_status) VALUES (10, 1, 'servicing', 'broken'), (11, 2, 'servicing', 'broken')");
+        $this->db->exec("UPDATE technical_staff SET status='busy' WHERE id=1");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, title, well_id, status, start_time, end_time) VALUES (3, 1, 1, 'well_repair', 'Repair', 10, 'in_progress', datetime('now'), datetime('now', '+1 hour'))");
+
+        self::assertTrue($this->makeService()->cancelTask(3)['success']);
+        self::assertSame('broken', $this->db->query('SELECT status FROM wells WHERE id=10')->fetchColumn());
+        self::assertSame('servicing', $this->db->query('SELECT status FROM wells WHERE id=11')->fetchColumn());
+    }
+
+    public function testRepairingOnePipelineDoesNotResolveAnotherPipelinesDisaster(): void
+    {
+        $this->seedPlayerAndStaff(8);
+        $this->db->exec('CREATE TABLE well_pipelines (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT, condition_pct REAL, transport_loss REAL, damaged_at TEXT, leak_started_at TEXT, last_inspected_at TEXT, service_prev_status TEXT)');
+        $this->db->exec('ALTER TABLE industrial_disasters ADD COLUMN pipeline_id INTEGER NULL');
+        $this->db->exec("INSERT INTO well_pipelines (id, player_id, status, condition_pct, transport_loss) VALUES (10, 1, 'damaged', 0, 10), (11, 1, 'damaged', 0, 10)");
+        $this->db->exec("INSERT INTO industrial_disasters (id, player_id, pipeline_id, disaster_type, status) VALUES (1, 1, 10, 'pipeline_explosion', 'active'), (2, 1, 11, 'pipeline_explosion', 'active')");
+        $this->db->exec("INSERT INTO technical_tasks (id, player_id, staff_id, task_type, pipeline_id, title, status) VALUES (3, 1, 1, 'pipeline_repair', 10, 'Repair pipeline', 'in_progress')");
+
+        $this->makeService()->completeTask([
+            'id' => 3, 'staff_id' => 1, 'player_id' => 1, 'task_type' => 'pipeline_repair',
+            'title' => 'Repair pipeline', 'pipeline_id' => 10, 'well_id' => null,
+            'hub_id' => null, 'skill_level' => 8,
+        ]);
+
+        self::assertSame('resolved', $this->db->query('SELECT status FROM industrial_disasters WHERE id=1')->fetchColumn());
+        self::assertSame('active', $this->db->query('SELECT status FROM industrial_disasters WHERE id=2')->fetchColumn());
+    }
+
     public function testAssignTaskRejectsHubTaskWithoutHubId(): void
     {
         $this->seedPlayerAndStaff();
@@ -169,7 +248,7 @@ final class TechnicalHubTasksTest extends SqliteIntegrationTestCase
         $this->db->exec('CREATE TABLE technical_tasks (id INTEGER PRIMARY KEY, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, title TEXT, module_type TEXT NULL, start_time TEXT NULL, end_time TEXT NULL, duration_hours INTEGER DEFAULT 0, cost REAL DEFAULT 0, status TEXT, result_data TEXT NULL, notified INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_task_queue (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, staff_id INTEGER, task_type TEXT, well_id INTEGER NULL, hub_id INTEGER NULL, pipeline_id INTEGER NULL, module_type TEXT NULL, priority INTEGER DEFAULT 0, queued_at TEXT DEFAULT CURRENT_TIMESTAMP)');
         $this->db->exec('CREATE TABLE technical_notifications (id INTEGER PRIMARY KEY AUTOINCREMENT, player_id INTEGER, well_id INTEGER NULL, type TEXT, message TEXT, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)');
-        $this->db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT)');
+        $this->db->exec('CREATE TABLE wells (id INTEGER PRIMARY KEY, player_id INTEGER, status TEXT, service_prev_status TEXT NULL)');
         $this->db->exec('CREATE TABLE logistics_hubs (id INTEGER PRIMARY KEY, player_id INTEGER DEFAULT 1, tenant_player_id INTEGER DEFAULT 0, name TEXT, condition_pct REAL, repair_cost_estimate REAL, status TEXT, last_maintenance_at TEXT NULL, updated_at TEXT NULL)');
         $this->db->exec('CREATE TABLE logistics_hub_assignments (id INTEGER PRIMARY KEY AUTOINCREMENT, hub_id INTEGER, well_id INTEGER, status TEXT)');
         $this->db->exec('CREATE TABLE board_roles (id INTEGER PRIMARY KEY, code TEXT)');

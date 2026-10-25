@@ -3,7 +3,6 @@
 <?php else: ?>
 
 <?php
-$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     $mgrInitials = strtoupper(substr($manager['first_name'] ?? '', 0, 1) . substr($manager['last_name'] ?? '', 0, 1));
     $mgrSkill    = (int)($mBonus['skill'] ?? 0);
 ?>
@@ -23,9 +22,9 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     </div>
     <?php if ($mgrSkill > 0): ?>
     <div class="mgr-perks">
-        <span class="mgr-perk mgr-perk--time">-<?= $mgrSkill * 2.5 ?>% <?= $locale === 'en' ? 'time' : 'czasu' ?></span>
-        <span class="mgr-perk mgr-perk--cost">-<?= $mgrSkill * 1.5 ?>% <?= $locale === 'en' ? 'cost' : 'kosztow' ?></span>
-        <span class="mgr-perk mgr-perk--skill">Org. <?= $mgrSkill ?>/10</span>
+        <span class="mgr-perk mgr-perk--time">-<?= $mgrSkill * 2.5 ?>% <?= t('technical.mgr_time_bonus') ?></span>
+        <span class="mgr-perk mgr-perk--cost">-<?= $mgrSkill * 1.5 ?>% <?= t('technical.mgr_cost_bonus') ?></span>
+        <span class="mgr-perk mgr-perk--skill"><?= t('technical.mgr_organization') ?> <?= $mgrSkill ?>/10</span>
         <div class="mgr-skill-track"><div class="mgr-skill-fill" style="width:<?= min(100,$mgrSkill*10) ?>%"></div></div>
     </div>
     <?php endif ?>
@@ -39,6 +38,30 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     <?php if (empty($staff)): ?>
     <div class="empty-state"><?= t('technical.no_staff') ?></div>
     <?php else:
+    $specFilters = [];
+    $specCatalog = TechnicalTeamService::getSpecsCatalog();
+    foreach ($staff as $member) {
+        $code = (string)$member['spec_code'];
+        $definition = $specCatalog[$code] ?? null;
+        $specFilters[$code] = (string)($definition['name'] ?? $member['spec_name'] ?? $code);
+    }
+    asort($specFilters);
+    ?>
+    <div class="technical-team-filters">
+        <label><?= t('technical.team_search') ?><input type="search" class="form-input" data-tech-team-search placeholder="<?= htmlspecialchars(t('technical.team_search'), ENT_QUOTES, 'UTF-8') ?>"></label>
+        <label><?= t('technical.team_filter_spec') ?><select class="form-input" data-tech-team-spec>
+            <option value=""><?= t('technical.filter_all') ?></option>
+            <?php foreach ($specFilters as $code => $name): ?><option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($name, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach ?>
+        </select></label>
+        <label><?= t('technical.team_filter_status') ?><select class="form-input" data-tech-team-status>
+            <option value=""><?= t('technical.filter_all') ?></option>
+            <option value="available"><?= t('technical.status_available') ?></option>
+            <option value="busy"><?= t('technical.status_busy') ?></option>
+            <option value="unavailable"><?= t('technical.status_unavailable') ?></option>
+        </select></label>
+    </div>
+    <div class="empty-state" data-tech-team-empty hidden><?= t('technical.team_no_results') ?></div>
+    <?php
     $sectionMap = [
         'well_operator'        => ['label' => t('technical.section_operators'),    'icon' => 'OP'],
         'roughneck'            => ['label' => t('technical.section_operators'),    'icon' => 'OP'],
@@ -68,13 +91,21 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
     foreach ($sections as $sectionLabel => $sectionStaff):
     ?>
     <div class="staff-section-title"><?= htmlspecialchars($sectionLabel) ?> <span class="muted">(<?= count($sectionStaff) ?>)</span></div>
-    <div class="staff-grid">
+    <div class="staff-grid" data-tech-team-list>
     <?php foreach ($sectionStaff as $s):
-        $specDef   = TechnicalTeamService::getSpecDefinition($s['spec_code']) ?? ['icon'=>'?','name'=>$s['spec_name']];
+        $specDef   = $specCatalog[$s['spec_code']] ?? ['icon'=>'','name'=>$s['spec_name']];
         $isBusy    = $s['active_task_id'] !== null;
+        $canWork   = in_array((string)$s['status'], ['active', 'busy'], true)
+            && !in_array((string)($s['relation_status'] ?? ''), ['on_strike', 'leaving', 'inactive'], true);
+        $displayStatus = !$canWork ? 'unavailable' : ($isBusy ? 'busy' : 'available');
         $skillFill = (int)$s['skill_level'] * 10;
-        $statusCls = $isBusy ? 'b-busy' : 'b-active';
-        $statusLbl = $isBusy ? t('technical.status_busy') : t('technical.status_available');
+        $statusCls = $displayStatus === 'available' ? 'b-active' : 'b-busy';
+        $relationStatus = (string)($s['relation_status'] ?? '');
+        $statusLbl = $displayStatus === 'unavailable'
+            ? (in_array($relationStatus, ['on_strike', 'leaving', 'inactive'], true)
+                ? t('hr.relation.' . $relationStatus)
+                : t('technical.status_unavailable'))
+            : t('technical.status_' . $displayStatus);
 
         $progress = 0;
         if ($isBusy && $s['active_task_end']) {
@@ -100,7 +131,17 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
             $__anchorId = 'tech-drl'; $__drlAnchorPlaced = true;
         }
     ?>
-    <div class="staff-card <?= $isBusy ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES) ?>"<?= $__anchorId ? ' id="' . $__anchorId . '"' : '' ?>>
+    <div class="staff-card <?= $displayStatus !== 'available' ? 'busy' : '' ?>" data-spec="<?= htmlspecialchars($s['spec_code'], ENT_QUOTES, 'UTF-8') ?>" data-status="<?= $displayStatus ?>" data-search="<?= htmlspecialchars($s['first_name'] . ' ' . $s['last_name'] . ' ' . $specDef['name'], ENT_QUOTES, 'UTF-8') ?>"<?= $__anchorId ? ' id="' . $__anchorId . '"' : '' ?>>
+        <details class="technical-staff-details" name="technical-staff" data-tech-accordion="team">
+            <summary class="technical-staff-summary">
+                <span class="staff-name"><?= $safeName ?></span>
+                <span class="staff-spec"><?= htmlspecialchars($specDef['name'], ENT_QUOTES, 'UTF-8') ?></span>
+                <span class="c-gold"><?= (int)$s['skill_level'] ?>/10</span>
+                <span class="badge <?= $statusCls ?>"><?= $statusLbl ?></span>
+                <?php if ($isBusy): ?><span class="task-running-title"><?= htmlspecialchars($s['active_task_title'] ?? '', ENT_QUOTES, 'UTF-8') ?></span><?php endif ?>
+                <span class="c-gold"><?= number_format($s['salary'], 0, '.', ' ') ?> <?= t('common.currency') ?>/<?= t('hr.month_short') ?></span>
+            </summary>
+        <div class="technical-staff-panel">
         <div class="staff-hdr">
             <div>
                 <span class="staff-spec-icon"><?= htmlspecialchars($specDef['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?></span>
@@ -146,7 +187,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
         </div>
         <?php endif ?>
 
-        <?php if (!$isBusy && $manager): ?>
+        <?php if (!$isBusy && $canWork && $manager): ?>
         <div class="staff-actions">
             <details>
                 <summary class="task-assign-toggle"><?= t('technical.assign_task_toggle') ?></summary>
@@ -181,8 +222,9 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                 <select name="well_id" class="form-input">
                                     <option value=""><?= t('technical.no_well_option') ?></option>
                                     <?php foreach ($wells as $w): ?>
-                                    <?php $wSt = $w['status'] ?? 'active'; ?>
-                                    <option value="<?= (int)$w['id'] ?>"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars($statusLabels[$wSt]['icon'] ?? '', ENT_QUOTES, 'UTF-8') ?> <?= htmlspecialchars($statusLabels[$wSt]['lbl'] ?? $wSt, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php $wSt = (string)($w['status'] ?? 'active');
+                                    $wellStatusKey = in_array($wSt, ['active', 'paused_staff', 'paused_cash', 'paused_storage', 'contaminated', 'blowout', 'seized', 'broken', 'servicing'], true) ? 'technical.ws_' . $wSt : null; ?>
+                                    <option value="<?= (int)$w['id'] ?>"><?= htmlspecialchars(!empty($w['well_name']) ? $w['well_name'] : ($w['location_name'] ?? tPlain('technical.well_default_name')), ENT_QUOTES, 'UTF-8') ?> - <?= htmlspecialchars((string)($wellStatusKey ? t($wellStatusKey) : $wSt), ENT_QUOTES, 'UTF-8') ?></option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
@@ -203,7 +245,7 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
                                     <option value=""><?= t('technical.no_pipeline_option') ?></option>
                                     <?php foreach (($pipelines ?? []) as $pp): ?>
                                     <?php $ppSt = $pp['status'] ?? 'active'; ?>
-                                    <option value="<?= (int)$pp['id'] ?>">#<?= (int)$pp['id'] ?> <?= htmlspecialchars((string)($pp['name'] ?? (($locale === 'en' ? 'Pipeline #' : 'Rurociag #') . (int)$pp['id']))) ?> &mdash; <?= htmlspecialchars((string)($pp['location_name'] ?? $pp['well_name'] ?? '')) ?> (<?= round((float)($pp['condition_pct'] ?? 0)) ?>%, <?= htmlspecialchars((string)$ppSt) ?>)</option>
+                                    <option value="<?= (int)$pp['id'] ?>">#<?= (int)$pp['id'] ?> <?= htmlspecialchars((string)($pp['name'] ?? (t('technical.pipeline_default_name') . ' #' . (int)$pp['id'])), ENT_QUOTES, 'UTF-8') ?> &mdash; <?= htmlspecialchars((string)($pp['location_name'] ?? $pp['well_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?> (<?= round((float)($pp['condition_pct'] ?? 0)) ?>%, <?= htmlspecialchars((string)$ppSt, ENT_QUOTES, 'UTF-8') ?>)</option>
                                     <?php endforeach ?>
                                 </select>
                             </div>
@@ -231,6 +273,8 @@ $locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
             <button type="submit" class="btn btn-danger btn-sm"><?= t('technical.btn_fire') ?></button>
         </form>
         <?php endif ?>
+        </div>
+        </details>
     </div>
     <?php endforeach ?>
     </div>

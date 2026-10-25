@@ -3,7 +3,17 @@
     <h1><?= t('technical.incidents_title') ?></h1>
     <p><?= t('technical.incidents_subtitle') ?></p>
 </div>
-<details class="g-card incident-panel" open>
+<form class="technical-incident-filter" method="get" action="<?= htmlspecialchars(url('technical'), ENT_QUOTES, 'UTF-8') ?>">
+    <input type="hidden" name="tab" value="incidents">
+    <label for="technical-incident-status"><?= t('technical.incidents_filter_status') ?></label>
+    <select id="technical-incident-status" class="form-input" name="inc_status" data-tech-incident-status>
+        <option value=""><?= t('technical.filter_all') ?></option>
+        <option value="active" <?= $incStatus === 'active' ? 'selected' : '' ?>><?= t('technical.incidents_active') ?></option>
+        <option value="resolved" <?= $incStatus === 'resolved' ? 'selected' : '' ?>><?= t('technical.incidents_resolved') ?></option>
+    </select>
+    <button type="submit" class="btn btn-sm btn-secondary"><?= t('technical.incidents_filter_status') ?></button>
+</form>
+<details class="g-card incident-panel" data-tech-incident-panel name="technical-incident-panels" data-tech-accordion="incident-panels" open>
     <summary class="g-card-title incident-panel-heading">
         <span><?= incidentIconSvg('rig', 'incident-svg--heading') ?><?= t('technical.incidents_wells_title') ?> (<?= (int)$incTotal ?>)</span>
         <small><?= t('technical.incidents_wells_hint') ?></small>
@@ -11,7 +21,7 @@
     </summary>
 
     <?php if (empty($incidents)): ?>
-    <div class="empty-state"><?= t('technical.no_incidents') ?></div>
+    <div class="empty-state"><?= t($incStatus ? 'technical.incidents_no_filter_results' : 'technical.no_incidents') ?></div>
     <?php else: ?>
     <div class="inc-list">
     <?php foreach ($incidents as $incidentIndex => $inc):
@@ -24,9 +34,9 @@
         $lvl       = $inc['level'];
         $cause     = $inc['cause_type'];
         $lvlCls    = match($lvl) { 'micro'=>'inc-micro','minor'=>'inc-minor','medium'=>'inc-medium','major'=>'inc-major', default=>'' };
-        $resolved  = !empty($inc['repaired_at']);
+        $resolved = !empty($inc['repaired_at']) || !empty($inc['auto_repair']);
     ?>
-    <article class="inc-row <?= $lvlCls ?> <?= $resolved ? 'inc-row--resolved' : 'inc-row--active' ?>">
+    <article class="inc-row <?= $lvlCls ?> <?= $resolved ? 'inc-row--resolved' : 'inc-row--active' ?>" data-incident-status="<?= $resolved ? 'resolved' : 'active' ?>">
         <div class="inc-badge"><span class="inc-status-dot" aria-hidden="true"></span><?= t($resolved ? 'technical.incidents_resolved' : 'technical.incidents_active') ?></div>
         <div class="inc-body">
             <div class="inc-msg"><?= htmlspecialchars($inc['message']) ?></div>
@@ -40,7 +50,7 @@
                 </span>
                 <?php if ($inc['cost'] > 0): ?>
                 <span class="sep">·</span>
-                <span class="c-gold"><?= t('technical.inc_cost') ?>: $<?= number_format($inc['cost'], 0, '.', ' ') ?></span>
+                <span class="c-gold"><?= t('technical.inc_cost') ?>: <?= number_format((float)$inc['cost'], 0, '.', ' ') ?> <?= t('common.currency') ?></span>
                 <?php endif ?>
                 <?php if ($inc['deg_damage'] > 0): ?>
                 <span class="sep">·</span>
@@ -54,7 +64,7 @@
             <?php if (!$inc['auto_repair'] && !$resolved): ?>
             <?php /* Route repair requests to the maintenance team.
                      Przekieruj zlecenia napraw do zespolu utrzymania. */ ?>
-            <a class="btn btn-sm btn-primary inc-repair-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team', 'repair_well' => (int)$inc['well_id']]), ENT_QUOTES, 'UTF-8') ?>#tech-mnt">
+            <a class="btn btn-sm btn-primary inc-repair-link" href="<?= htmlspecialchars(url('technical', ['tab' => 'team', 'repair_well' => (int)$inc['well_id'], 'task_type' => 'well_repair']), ENT_QUOTES, 'UTF-8') ?>">
                 <?= t('incident.btn_repair') ?>
             </a>
             <?php endif ?>
@@ -68,11 +78,11 @@
     <?php if ($incTotalPages > 1): ?>
     <nav class="inc-pagination">
         <?php if ($incPage > 1): ?>
-        <a href="?tab=incidents&inc_page=<?= $incPage - 1 ?>" class="btn btn-sm btn-secondary">‹ <?= t('common.prev') ?></a>
+        <a href="<?= htmlspecialchars(url('technical', ['tab' => 'incidents', 'inc_status' => $incStatus, 'inc_page' => $incPage - 1]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-secondary">‹ <?= t('common.prev') ?></a>
         <?php endif ?>
         <span class="inc-page-info"><?= $incPage ?> / <?= $incTotalPages ?></span>
         <?php if ($incPage < $incTotalPages): ?>
-        <a href="?tab=incidents&inc_page=<?= $incPage + 1 ?>" class="btn btn-sm btn-secondary"><?= t('common.next') ?> ›</a>
+        <a href="<?= htmlspecialchars(url('technical', ['tab' => 'incidents', 'inc_status' => $incStatus, 'inc_page' => $incPage + 1]), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-sm btn-secondary"><?= t('common.next') ?> ›</a>
         <?php endif ?>
     </nav>
     <?php endif ?>
@@ -81,7 +91,7 @@
 </details>
 
 <?php if (!empty($hubIncidents)): ?>
-<details class="g-card incident-panel incident-panel--logistics" open>
+<details class="g-card incident-panel incident-panel--logistics" name="technical-incident-panels" data-tech-accordion="incident-panels">
     <summary class="g-card-title incident-panel-heading">
          <span><?= incidentIconSvg('truck', 'incident-svg--heading') ?><?= t('logistics.hub.incidents_title') ?> (<?= (int)$hubIncTotal ?>)</span>
          <small><?= t('technical.incidents_hubs_hint', ['count' => count($hubIncidents), 'earlier' => max(0, $hubIncTotal - count($hubIncidents))]) ?></small>

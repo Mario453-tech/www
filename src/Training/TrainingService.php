@@ -335,7 +335,7 @@ class TrainingService
     public function getActiveTrainings(int $playerId, string $department): array
     {
         $stmt = $this->db->prepare(
-            "SELECT st.*, tp.name_pl, tp.name_en, tp.target_skill, tp.duration_hours
+            "SELECT st.*, tp.name_pl, tp.name_en, tp.code, tp.target_skill, tp.duration_hours
                FROM staff_trainings st
                JOIN training_programs tp ON tp.id = st.program_id
               WHERE st.player_id = ? AND st.staff_type = ? AND st.status = 'in_progress'
@@ -364,7 +364,7 @@ class TrainingService
     {
         $limit = max(1, min(100, $limit));
         $stmt = $this->db->prepare(
-            "SELECT st.*, tp.name_pl, tp.name_en, tp.target_skill
+            "SELECT st.*, tp.name_pl, tp.name_en, tp.code, tp.target_skill
                FROM staff_trainings st
                JOIN training_programs tp ON tp.id = st.program_id
               WHERE st.player_id = ? AND st.staff_type = ? AND st.status <> 'in_progress'

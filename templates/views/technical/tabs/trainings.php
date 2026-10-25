@@ -6,6 +6,21 @@
  * Zmienne z $viewData: $staff, $trainingPrograms, $trainingActive, $trainingHistory, $csrf.
  */
 $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fired');
+$trainingSkills = [];
+foreach ($trainingPrograms as $program) {
+    $trainingSkills[$program['target_skill']] = t('training.skill.' . $program['target_skill']);
+}
+asort($trainingSkills);
+$trainingProgramName = static function (array $program): string {
+    $locale = getLocale();
+    $code = (string)($program['code'] ?? $program['program_code'] ?? '');
+    $key = 'technical.training_program.' . $code;
+    if ($locale === 'de' && $code !== '' && tPlain($key) !== $key) {
+        return tPlain($key);
+    }
+    return (string)(($locale === 'pl' ? null : ($program['name_en'] ?? null))
+        ?: ($program['name_pl'] ?? $program['program_name'] ?? ''));
+};
 ?>
 
 <div class="g-card">
@@ -26,7 +41,7 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
             ?>
             <div class="trn-active-item">
                 <div class="trn-active-head">
-                    <span class="trn-prog-name"><?= htmlspecialchars((string)$tr['name_pl']) ?></span>
+                    <span class="trn-prog-name"><?= htmlspecialchars($trainingProgramName($tr), ENT_QUOTES, 'UTF-8') ?></span>
                     <span class="trn-skill-tag"><?= t('training.skill.' . $tr['target_skill']) ?></span>
                 </div>
                 <div class="trn-bar"><div class="trn-bar-fill" style="width:<?= $progress ?>%"></div></div>
@@ -47,6 +62,15 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
 
 <div class="g-card">
     <div class="g-card-title"><?= t('training.heading_available') ?></div>
+    <?php if (!empty($trainingPrograms)): ?>
+    <label class="technical-training-filter"><?= t('technical.training_filter_skill') ?>
+        <select class="form-input" data-tech-training-skill>
+            <option value=""><?= t('technical.filter_all') ?></option>
+            <?php foreach ($trainingSkills as $code => $label): ?><option value="<?= htmlspecialchars($code, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></option><?php endforeach ?>
+        </select>
+    </label>
+    <div class="empty-state" data-tech-training-empty hidden><?= t('technical.training_no_results') ?></div>
+    <?php endif ?>
 
     <?php if (empty($trainingPrograms)): ?>
         <div class="empty-state"><?= t('training.empty_programs') ?></div>
@@ -55,9 +79,11 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
     <?php else: ?>
         <div class="trn-program-grid">
         <?php foreach ($trainingPrograms as $prog): ?>
-            <div class="trn-program-card">
-                <div class="trn-prog-name"><?= htmlspecialchars((string)$prog['name_pl']) ?></div>
+            <?php $courseLevel = str_ends_with((string)$prog['code'], '_advanced') ? 'II' : (str_ends_with((string)$prog['code'], '_basic') ? 'I' : null); ?>
+            <div class="trn-program-card" data-training-skill="<?= htmlspecialchars((string)$prog['target_skill'], ENT_QUOTES, 'UTF-8') ?>">
+                <div class="trn-prog-name"><?= htmlspecialchars($trainingProgramName($prog), ENT_QUOTES, 'UTF-8') ?></div>
                 <div class="trn-prog-skill"><?= t('training.skill.' . $prog['target_skill']) ?></div>
+                <?php if ($courseLevel !== null): ?><div class="trn-prog-level"><?= t('technical.course_level') ?>: <?= $courseLevel ?></div><?php endif ?>
                 <div class="trn-prog-stats">
                     <span><?= t('training.label_duration') ?>:
                         <strong><?= (int)$prog['duration_hours'] ?> h</strong></span>
@@ -68,7 +94,7 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
                         <strong><?= (int)$prog['base_pass_rate'] ?>%</strong></span>
                 </div>
                 <form method="post" class="trn-enroll-form"
-                      data-confirm="<?= htmlspecialchars(tPlain('training.btn_enroll') . ' — ' . (string)$prog['name_pl'], ENT_QUOTES, 'UTF-8') ?>">
+                      data-confirm="<?= htmlspecialchars(tPlain('training.btn_enroll') . ' — ' . $trainingProgramName($prog), ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="_token" value="<?= $csrf ?>">
                     <input type="hidden" name="action" value="start_training">
                     <input type="hidden" name="program_id" value="<?= (int)$prog['id'] ?>">
@@ -99,7 +125,7 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
             <div class="trn-cert">
                 <div class="trn-cert-seal"><?= (int)$cert['level_after'] ?></div>
                 <div class="trn-cert-body">
-                    <div class="trn-prog-name"><?= htmlspecialchars((string)$cert['program_name']) ?></div>
+                    <div class="trn-prog-name"><?= htmlspecialchars($trainingProgramName($cert), ENT_QUOTES, 'UTF-8') ?></div>
                     <div class="trn-cert-meta">
                         <span class="trn-skill-tag"><?= t('training.skill.' . $cert['skill_code']) ?></span>
                         <span><?= t('training.label_score') ?>: <?= (int)$cert['score'] ?>/100</span>
@@ -129,7 +155,7 @@ $techStaff = array_filter($staff, static fn($s) => ($s['status'] ?? '') !== 'fir
             ?>
             <div class="trn-history-item <?= $statusCls ?>">
                 <div class="trn-h-main">
-                    <span class="trn-prog-name"><?= htmlspecialchars((string)$h['name_pl']) ?></span>
+                    <span class="trn-prog-name"><?= htmlspecialchars($trainingProgramName($h), ENT_QUOTES, 'UTF-8') ?></span>
                     <span class="trn-skill-tag"><?= t('training.skill.' . $h['target_skill']) ?></span>
                 </div>
                 <div class="trn-h-meta">
