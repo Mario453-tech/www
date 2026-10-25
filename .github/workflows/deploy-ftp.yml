@@ -68,27 +68,17 @@ jobs:
   # -------------------------------------------------------------------
   mysql-tests:
     name: Testy MySQL / MySQL gate
-    runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: public.ecr.aws/docker/library/mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: ci_root
-          MYSQL_DATABASE:      ci_test
-          MYSQL_USER:          ci_user
-          MYSQL_PASSWORD:      ci_pass
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root --password=ci_root"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=10
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Start MySQL 8 on the runner
+        run: |
+          sudo systemctl start mysql.service
+          mysql -h 127.0.0.1 -u root --password=root -e "CREATE DATABASE ci_test; CREATE USER 'ci_user'@'%' IDENTIFIED BY 'ci_pass'; GRANT ALL PRIVILEGES ON ci_test.* TO 'ci_user'@'%';"
+          mysql -h 127.0.0.1 -u ci_user --password=ci_pass ci_test -e "SELECT VERSION();"
 
       - name: Ustaw PHP / Setup PHP
         uses: shivammathur/setup-php@v2
@@ -110,7 +100,7 @@ jobs:
       - name: Zaladuj schemat CI / Load CI schema
         run: |
           # Test-only fault injection triggers; no production server is changed.
-          mysql -h 127.0.0.1 -u root -pci_root -e "SET GLOBAL log_bin_trust_function_creators = 1;"
+          mysql -h 127.0.0.1 -u root --password=root -e "SET GLOBAL log_bin_trust_function_creators = 1;"
           mysql -h 127.0.0.1 -u ci_user -pci_pass ci_test < tests/ci-schema.sql
 
       - name: Uruchom testy MySqlIntegration / Run MySqlIntegration

@@ -25,21 +25,7 @@ on:
 jobs:
   php-tests:
     name: PHPUnit + training migration on MySQL 8
-    runs-on: ubuntu-latest
-
-    services:
-      mysql:
-        image: public.ecr.aws/docker/library/mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: oil_test
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=20
+    runs-on: ubuntu-24.04
 
     env:
       DB_HOST: 127.0.0.1
@@ -66,14 +52,10 @@ jobs:
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
-      - name: Wait for MySQL
+      - name: Start MySQL 8 on the runner
         run: |
-          for i in $(seq 1 30); do
-            if mysqladmin ping -h 127.0.0.1 -uroot -proot --silent; then
-              echo "MySQL is up"; break
-            fi
-            echo "Waiting for MySQL... ($i)"; sleep 2
-          done
+          sudo systemctl start mysql.service
+          mysql -h 127.0.0.1 -uroot -proot -e "CREATE DATABASE oil_test; SELECT VERSION();"
 
       - name: Load base schema (no training tables — those are bootstrapped at runtime)
         run: mysql -h 127.0.0.1 -uroot -proot oil_test < tests/ci-schema.sql
