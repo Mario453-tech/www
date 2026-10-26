@@ -1469,10 +1469,11 @@
 }
 
 /* Technical department layout / Uklad dzialu technicznego */
-.t-wrap .technical-nav-groups, .t-wrap .technical-nav-subgroups { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid rgba(200,168,75,.2); }
-.t-wrap .technical-nav-groups { gap: 12px; }
-.t-wrap .technical-nav-group, .t-wrap .technical-nav-subgroup { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; color: var(--text, #e8e8f0); text-decoration: none; font-size: 12px; font-weight: 600; }
-.t-wrap .technical-nav-group { flex-direction: column; min-width: 114px; }
+.t-wrap .technical-nav-groups, .t-wrap .technical-nav-subgroups { align-items: stretch; gap: 8px; padding: 10px 0; border-bottom: 1px solid rgba(200,168,75,.2); }
+.t-wrap .technical-nav-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.t-wrap .technical-nav-subgroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); }
+.t-wrap .technical-nav-group, .t-wrap .technical-nav-subgroup { display: inline-flex; align-items: center; justify-content: center; text-align: center; min-width: 0; overflow-wrap: anywhere; gap: 8px; min-height: 42px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.14); border-radius: 7px; color: var(--text, #e8e8f0); text-decoration: none; font-size: 12px; font-weight: 600; }
+.t-wrap .technical-nav-group { flex-direction: column; }
 .t-wrap .technical-nav-group.active, .t-wrap .technical-nav-subgroup.active { color: #e8cc7a; background: rgba(200,168,75,.14); border-color: rgba(200,168,75,.55); }
 .t-wrap .technical-nav-group:hover, .t-wrap .technical-nav-subgroup:hover { border-color: rgba(200,168,75,.55); }
 .t-wrap .technical-nav-icon { width: 19px; height: 19px; flex: none; }

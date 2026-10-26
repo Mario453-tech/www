@@ -23,6 +23,13 @@ class TechnicalUiContractTest(unittest.TestCase):
                      'infrastructure', 'incidents'):
             self.assertTrue((ROOT / f'assets/img/icons/technical/nav/{icon}.svg').is_file())
 
+    def test_navigation_fills_available_width_without_horizontal_scrolling(self):
+        css = source('assets/css/technical.css')
+        self.assertIn('.t-wrap .technical-nav-groups { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));', css)
+        self.assertIn('.t-wrap .technical-nav-subgroups { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr));', css)
+        self.assertIn('.t-wrap .technical-nav-group, .t-wrap .technical-nav-subgroup {', css)
+        self.assertIn('justify-content: center;', css)
+
     def test_team_filter_and_card_details_preserve_actions(self):
         text = source('templates/views/technical/tabs/team.php')
         self.assertIn('data-tech-team-search', text)
