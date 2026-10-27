@@ -1,425 +1,206 @@
 <?php extract($viewData, EXTR_SKIP); ?>
 <?php
-$locale = $_SESSION['locale'] ?? $_COOKIE['locale'] ?? 'pl';
-$currencyLabel = $locale === 'en' ? 'USD' : ($locale === 'de' ? 'EUR' : 'PLN');
-$profileAvatarAlt = $locale === 'en' ? 'Avatar' : 'Awatar';
-$profileFallbackInitial = $locale === 'en' ? 'P' : 'G';
-$profileFallbackUser = $locale === 'en' ? 'Player' : 'Gracz';
+/**
+ * Profil gracza - widok zgodny z briefem BRIEF-AI-PROFIL.md.
+ * Player profile - view per the BRIEF-AI-PROFIL.md brief.
+ * Dwie kolumny: lewa szyna (tozsamosc, statystyki, czarny rynek,
+ * wiarygodnosc), prawa kolumna (dane firmy, bezpieczenstwo konta).
+ * Two columns: left rail (identity, stats, black market, credibility),
+ * right column (company details, account security).
+ *
+ * Wszystkie interakcje sa w assets/js/profile.js; tutaj tylko dane
+ * konfiguracyjne (data attributes) - bez inline JS i handlerow.
+ * All interactions live in assets/js/profile.js; here only config data
+ * (data attributes) - no inline JS or handlers.
+ */
+
+$__username = (string)($playerData['username'] ?? '');
+$__fallbackInitial = mb_strtoupper(mb_substr($__username, 0, 1));
+if ($__fallbackInitial === '') {
+    $__fallbackInitial = ($_SESSION['locale'] ?? 'pl') === 'en' ? 'P' : 'G';
+}
+$__allowedLevels = ['critical', 'low', 'shaky', 'stable', 'high'];
+$__level = in_array($credibilityLevel, $__allowedLevels, true) ? $credibilityLevel : 'shaky';
+$__penalties = (float)($bmStats['total_penalties'] ?? 0);
+$__currency = t('common.currency');
+$__eyeShow = htmlspecialchars(asset('/assets/icons/profile/eye.svg'), ENT_QUOTES, 'UTF-8');
+$__eyeHide = htmlspecialchars(asset('/assets/icons/profile/eye-off.svg'), ENT_QUOTES, 'UTF-8');
 ?>
 
-<div class="profile-wrap">
+<div class="profile-shell">
 
     <?php if (!empty($errors)): ?>
-    <noscript><?php foreach ($errors as $e): ?><div class="msg-bar msg-error"><?= htmlspecialchars($e) ?></div><?php endforeach ?></noscript>
-    <script>(function(){var msgs=<?= json_encode(array_values($errors), JSON_UNESCAPED_UNICODE) ?>;function s(){var m=msgs.join('\n');if(typeof window.alertError==='function'){window.alertError(m);}else if(typeof window.showGameToast==='function'){msgs.forEach(function(t){window.showGameToast(t,'error');});}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+    <div class="profile-flash profile-flash--error" role="alert">
+        <?php foreach ($errors as $__e): ?><p><?= $__e ?></p><?php endforeach ?>
+    </div>
     <?php endif ?>
     <?php if (!empty($success)): ?>
-    <noscript><?php foreach ($success as $s): ?><div class="msg-bar msg-success"><?= htmlspecialchars($s) ?></div><?php endforeach ?></noscript>
-    <script>(function(){var msgs=<?= json_encode(array_values($success), JSON_UNESCAPED_UNICODE) ?>;function s(){var m=msgs.join('\n');if(typeof window.alertInfo==='function'){window.alertInfo(m);}else if(typeof window.showGameToast==='function'){msgs.forEach(function(t){window.showGameToast(t,'success');});}}if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',s);}else{s();}})();</script>
+    <div class="profile-flash profile-flash--success" role="status">
+        <?php foreach ($success as $__s): ?><p><?= $__s ?></p><?php endforeach ?>
+    </div>
     <?php endif ?>
 
-    <div class="profile-grid">
-        <div class="profile-left">
-            <div class="profile-avatar-card">
-                <div class="profile-avatar-wrap">
-                    <?php if ($avatarUrl): ?>
-                    <img src="<?= $avatarUrl ?>" alt="<?= htmlspecialchars($profileAvatarAlt, ENT_QUOTES) ?>" class="profile-avatar-img" id="avatarPreview">
-                    <?php else: ?>
-                    <div class="profile-avatar-placeholder" id="avatarPreview">
-                        <span><?= strtoupper(substr($playerData['username'] ?? $profileFallbackInitial, 0, 1)) ?></span>
-                    </div>
-                    <?php endif ?>
-                    <label class="profile-avatar-overlay" for="avatarInput" title="<?= t('profile.avatar_change_title') ?>">
-                        &#128247;
-                    </label>
-                </div>
-                <div class="profile-username"><?= htmlspecialchars($playerData['username'] ?? $profileFallbackUser) ?></div>
-                <?php if ($companyName): ?>
-                <div class="profile-company"><?= $companyName ?></div>
+    <div id="profileConfig" hidden
+         data-csrf="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>"
+         data-avatar-uploading="<?= t('profile_js.avatar_uploading') ?>"
+         data-avatar-invalid="<?= t('profile.avatar_invalid') ?>"
+         data-avatar-preview="<?= t('profile.avatar_preview_note') ?>"
+         data-avatar-failed="<?= t('profile.err_upload_error') ?>"
+         data-name-prefix="<?= t('profile.name_preview') ?>"
+         data-name-empty="<?= t('profile.name_preview_empty', ['n' => $playerId]) ?>"
+         data-toggle-show="<?= t('profile.toggle_show') ?>"
+         data-toggle-hide="<?= t('profile.toggle_hide') ?>"
+         data-pass-very-weak="<?= t('profile_js.pass_very_weak') ?>"
+         data-pass-weak="<?= t('profile_js.pass_weak') ?>"
+         data-pass-medium="<?= t('profile_js.pass_medium') ?>"
+         data-pass-strong="<?= t('profile_js.pass_strong') ?>"
+         data-pass-very-strong="<?= t('profile_js.pass_very_strong') ?>"
+         data-pass-match="<?= t('profile_js.pass_match') ?>"
+         data-pass-no-match="<?= t('profile_js.pass_no_match') ?>"
+    ></div>
+
+    <header class="profile-heading"><h1><?= t('profile.heading') ?></h1></header>
+
+    <div class="profile-layout">
+        <div class="profile-rail">
+
+            <section class="profile-card profile-identity" aria-label="<?= t('profile.identity_aria') ?>">
+                <?php if ($avatarUrl): ?>
+                <img class="profile-avatar-img" id="avatar-preview" src="<?= $avatarUrl ?>" alt="<?= t('profile.avatar_alt') ?>">
+                <?php else: ?>
+                <div class="profile-avatar-ph" id="avatar-preview" aria-hidden="true"><span><?= $__fallbackInitial ?></span></div>
                 <?php endif ?>
+                <div class="identity-copy">
+                    <h2><?= htmlspecialchars($__username, ENT_QUOTES, 'UTF-8') ?></h2>
+                    <strong><?= $companyName !== '' ? $companyName : t('profile.no_company', ['n' => $playerId]) ?></strong>
+                    <button class="profile-photo-button" id="photo-button" type="button" aria-label="<?= t('profile.avatar_change_title') ?>">
+                        <img src="<?= asset('/assets/icons/profile/camera.svg') ?>" alt="" aria-hidden="true"><?= t('profile.change_photo') ?>
+                    </button>
+                    <form method="post" enctype="multipart/form-data" id="avatar-form" class="profile-avatar-form">
+                        <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="upload_avatar">
+                        <input type="file" name="avatar" id="photo-input" class="visually-hidden" accept="image/jpeg,image/png,image/webp" tabindex="-1">
+                    </form>
+                    <small><?= t('profile.avatar_hint') ?></small>
+                    <small class="photo-feedback" id="photo-feedback" role="status"></small>
+                </div>
+            </section>
 
-                <form method="post" enctype="multipart/form-data" id="avatarForm">
-                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
-                    <input type="hidden" name="action" value="upload_avatar">
-                    <input
-                        type="file"
-                        name="avatar"
-                        id="avatarInput"
-                        accept="image/*"
-                        class="visually-hidden"
-                        onchange="previewAndSubmitAvatar(this)"
-                    >
-                </form>
-                <div class="profile-avatar-hint"><?= t('profile.avatar_hint') ?></div>
-            </div>
+            <section class="profile-card profile-account-stats" aria-labelledby="stats-heading">
+                <h2 id="stats-heading"><img src="<?= asset('/assets/icons/profile/stats.svg') ?>" alt="" aria-hidden="true"><?= t('profile.stats_title') ?></h2>
+                <dl>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/calendar.svg') ?>" alt="" aria-hidden="true"><?= t('profile.member_since') ?></dt>
+                        <dd><?= $memberSince ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/sign-in.svg') ?>" alt="" aria-hidden="true"><?= t('profile.last_login') ?></dt>
+                        <dd><?= $lastLogin ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/well.svg') ?>" alt="" aria-hidden="true"><?= t('profile.wells_label') ?></dt>
+                        <dd><?= sprintf(t('profile.wells_stat'), (int)$playerData['active_wells'], (int)$playerData['well_count']) ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/oil.svg') ?>" alt="" aria-hidden="true"><?= t('profile.sold_oil_label') ?></dt>
+                        <dd><?= number_format((float)($sellStats['total_sold'] ?? 0), 0, '.', ' ') ?> bbl</dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/safety.svg') ?>" alt="" aria-hidden="true"><?= t('profile.safety_label') ?></dt>
+                        <dd><?= sprintf(t('profile.safety_level'), (int)($playerData['safety_procedures_level'] ?? 0)) ?></dd>
+                    </div>
+                </dl>
+            </section>
 
-            <div class="profile-stats-card">
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('profile.member_since') ?></span>
-                    <span class="profile-stat-value"><?= $memberSince ?></span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('profile.last_login') ?></span>
-                    <span class="profile-stat-value"><?= $lastLogin ?></span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('profile.wells_label') ?></span>
-                    <span class="profile-stat-value"><?= sprintf(t('profile.wells_stat'), $playerData['active_wells'], $playerData['well_count']) ?></span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('profile.sold_oil_label') ?></span>
-                    <span class="profile-stat-value"><?= number_format((float) ($sellStats['total_sold'] ?? 0), 0, '.', ' ') ?> bbl</span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('profile.safety_label') ?></span>
-                    <span class="profile-stat-value"><?= sprintf(t('profile.safety_level'), $playerData['safety_procedures_level'] ?? 0) ?></span>
-                </div>
-            </div>
+            <section class="profile-card profile-market-stats" aria-labelledby="market-heading">
+                <h2 id="market-heading"><img src="<?= asset('/assets/icons/profile/black-market.svg') ?>" alt="" aria-hidden="true"><?= t('profile.market_title') ?></h2>
+                <dl>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/transactions.svg') ?>" alt="" aria-hidden="true"><?= t('profile.bm_transactions') ?></dt>
+                        <dd><?= (int)$bmStats['total_transactions'] ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/revenue.svg') ?>" alt="" aria-hidden="true"><?= t('profile.bm_revenue') ?></dt>
+                        <dd class="profile-value--positive"><?= number_format((float)$bmStats['total_revenue'], 0, ',', ' ') ?> <?= $__currency ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/penalty.svg') ?>" alt="" aria-hidden="true"><?= t('profile.bm_penalties') ?></dt>
+                        <dd class="<?= $__penalties > 0 ? 'profile-value--negative' : '' ?>"><?= number_format($__penalties, 0, ',', ' ') ?> <?= $__currency ?></dd>
+                    </div>
+                    <div>
+                        <dt><img src="<?= asset('/assets/icons/profile/detected.svg') ?>" alt="" aria-hidden="true"><?= t('profile.bm_detected') ?></dt>
+                        <dd><?= (int)$bmStats['times_detected'] ?></dd>
+                    </div>
+                </dl>
+            </section>
 
-            <div class="profile-stats-card">
-                <h3 class="profile-bm-heading">&#127980; <?= t('black_market.profile_heading') ?></h3>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('black_market.profile_transactions') ?></span>
-                    <span class="profile-stat-value"><?= (int) $bmStats['total_transactions'] ?></span>
+            <section class="profile-card profile-reputation" aria-labelledby="reputation-heading">
+                <div class="reputation-head">
+                    <h2 id="reputation-heading"><img src="<?= asset('/assets/icons/profile/trust.svg') ?>" alt="" aria-hidden="true"><?= t('profile.credibility_title') ?></h2>
+                    <span class="profile-rep-badge profile-rep-badge--<?= $__level ?>"><?= t('profile.credibility_level_' . $__level) ?></span>
                 </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('black_market.profile_revenue') ?></span>
-                    <span class="profile-stat-value money"><?= number_format((float) $bmStats['total_revenue'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('black_market.profile_penalties') ?></span>
-                    <span class="profile-stat-value profile-bm-score--high"><?= number_format((float) $bmStats['total_penalties'], 0, ',', ' ') ?> <?= $currencyLabel ?></span>
-                </div>
-                <div class="profile-stat">
-                    <span class="profile-stat-label"><?= t('black_market.profile_detected') ?></span>
-                    <span class="profile-stat-value"><?= (int) $bmStats['times_detected'] ?></span>
-                </div>
-            </div>
+                <p><?= t('profile.credibility_desc_' . $__level) ?></p>
+            </section>
 
-            <?php require __DIR__ . '/../../components/company_credibility.php'; ?>
         </div>
 
-        <div class="profile-right">
-            <div class="profile-card">
-                <h2 class="profile-card-title"><?= t('profile.company_title') ?></h2>
-                <form method="post">
-                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
-                    <input type="hidden" name="action" value="update_profile">
-                    <div class="profile-field">
-                        <label class="profile-label"><?= t('profile.company_label') ?></label>
-                        <input
-                            type="text"
-                            name="company_name"
-                            class="profile-input"
-                            value="<?= $companyName ?>"
-                            placeholder="<?= t('profile.company_placeholder') ?>"
-                            maxlength="80"
-                        >
-                        <span class="profile-hint"><?= sprintf(t('profile.company_hint'), $playerId) ?></span>
-                    </div>
-                    <button type="submit" class="btn btn-primary"><?= t('profile.company_save_btn') ?></button>
-                </form>
-            </div>
+        <div class="profile-content">
 
-            <div class="profile-card">
-                <h2 class="profile-card-title"><?= t('profile.password_title') ?></h2>
-                <form method="post" id="passwordForm">
-                    <input type="hidden" name="_token" value="<?= $csrfToken ?>">
+            <section class="profile-card profile-company" aria-labelledby="company-heading">
+                <h2 id="company-heading"><img src="<?= asset('/assets/icons/profile/company.svg') ?>" alt="" aria-hidden="true"><?= t('profile.company_title') ?></h2>
+                <form method="post" id="company-form">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="update_profile">
+                    <label for="company-name"><?= t('profile.company_label') ?></label>
+                    <input id="company-name" name="company_name" type="text" value="<?= $companyName ?>" placeholder="<?= t('profile.company_placeholder') ?>" maxlength="80" autocomplete="off" required>
+                    <p id="company-name-preview"><?= t('profile.name_preview_empty', ['n' => $playerId]) ?></p>
+                    <button class="profile-gold-button" type="submit"><?= t('profile.company_save_btn') ?></button>
+                </form>
+            </section>
+
+            <section class="profile-card profile-security" aria-labelledby="security-heading">
+                <h2 id="security-heading"><img src="<?= asset('/assets/icons/profile/lock.svg') ?>" alt="" aria-hidden="true"><?= t('profile.security_title') ?></h2>
+                <form method="post" id="password-form" autocomplete="off">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars($csrfToken, ENT_QUOTES, 'UTF-8') ?>">
                     <input type="hidden" name="action" value="change_password">
 
-                    <div class="profile-field">
-                        <label class="profile-label"><?= t('profile.current_pass_label') ?></label>
-                        <div class="profile-password-wrap">
-                            <input
-                                type="password"
-                                name="current_password"
-                                id="currentPass"
-                                class="profile-input"
-                                autocomplete="current-password"
-                                required
-                            >
-                            <button type="button" class="profile-pass-toggle" onclick="togglePass('currentPass', this)">&#128065;</button>
+                    <div class="password-field">
+                        <label for="current-password"><?= t('profile.current_pass_label') ?></label>
+                        <div class="password-input">
+                            <input id="current-password" name="current_password" type="password" placeholder="<?= t('profile.current_pass_placeholder') ?>" autocomplete="current-password" required>
+                            <button type="button" data-password-toggle="current-password" data-field-label="<?= t('profile.current_pass_label') ?>" data-icon-show="<?= $__eyeShow ?>" data-icon-hide="<?= $__eyeHide ?>" aria-label="<?= t('profile.toggle_show') ?> <?= t('profile.current_pass_label') ?>">
+                                <img src="<?= asset('/assets/icons/profile/eye.svg') ?>" alt="" aria-hidden="true">
+                            </button>
                         </div>
                     </div>
 
-                    <div class="profile-field">
-                        <label class="profile-label"><?= t('profile.new_pass_label') ?></label>
-                        <div class="profile-password-wrap">
-                            <input
-                                type="password"
-                                name="new_password"
-                                id="newPass"
-                                class="profile-input"
-                                autocomplete="new-password"
-                                required
-                                minlength="8"
-                                oninput="checkPassStrength(this.value)"
-                            >
-                            <button type="button" class="profile-pass-toggle" onclick="togglePass('newPass', this)">&#128065;</button>
+                    <div class="password-field">
+                        <label for="new-password"><?= t('profile.new_pass_label') ?></label>
+                        <div class="password-input">
+                            <input id="new-password" name="new_password" type="password" placeholder="<?= t('profile.new_pass_placeholder') ?>" autocomplete="new-password" minlength="8" required>
+                            <button type="button" data-password-toggle="new-password" data-field-label="<?= t('profile.new_pass_label') ?>" data-icon-show="<?= $__eyeShow ?>" data-icon-hide="<?= $__eyeHide ?>" aria-label="<?= t('profile.toggle_show') ?> <?= t('profile.new_pass_label') ?>">
+                                <img src="<?= asset('/assets/icons/profile/eye.svg') ?>" alt="" aria-hidden="true">
+                            </button>
                         </div>
-                        <div class="profile-pass-strength" id="passStrength"></div>
-                        <span class="profile-hint"><?= t('profile.new_pass_hint') ?></span>
+                        <small id="pass-strength" role="status"></small>
+                        <small><?= t('profile.new_pass_hint') ?></small>
                     </div>
 
-                    <div class="profile-field">
-                        <label class="profile-label"><?= t('profile.confirm_pass_label') ?></label>
-                        <div class="profile-password-wrap">
-                            <input
-                                type="password"
-                                name="confirm_password"
-                                id="confirmPass"
-                                class="profile-input"
-                                autocomplete="new-password"
-                                required
-                                minlength="8"
-                            >
-                            <button type="button" class="profile-pass-toggle" onclick="togglePass('confirmPass', this)">&#128065;</button>
+                    <div class="password-field">
+                        <label for="confirm-password"><?= t('profile.confirm_pass_label') ?></label>
+                        <div class="password-input">
+                            <input id="confirm-password" name="confirm_password" type="password" placeholder="<?= t('profile.confirm_pass_placeholder') ?>" autocomplete="new-password" required>
+                            <button type="button" data-password-toggle="confirm-password" data-field-label="<?= t('profile.confirm_pass_label') ?>" data-icon-show="<?= $__eyeShow ?>" data-icon-hide="<?= $__eyeHide ?>" aria-label="<?= t('profile.toggle_show') ?> <?= t('profile.confirm_pass_label') ?>">
+                                <img src="<?= asset('/assets/icons/profile/eye.svg') ?>" alt="" aria-hidden="true">
+                            </button>
                         </div>
-                        <div class="profile-pass-match" id="passMatch"></div>
+                        <small id="pass-match" role="status"></small>
                     </div>
 
-                    <button type="submit" class="btn btn-primary"><?= t('profile.change_pass_btn') ?></button>
+                    <button class="profile-gold-button" type="submit"><?= t('profile.change_pass_btn') ?></button>
                 </form>
-            </div>
+            </section>
+
         </div>
     </div>
 </div>
-
-<script>
-var PROFILE_LANG = {
-    uploading: <?= json_encode(t('profile_js.avatar_uploading')) ?>,
-    uploadFailed: <?= json_encode(t('profile.err_upload_error')) ?>,
-    uploadSaveFailed: <?= json_encode(t('profile.err_upload_save')) ?>,
-    avatarAlt: <?= json_encode(t('profile.avatar_change_title')) ?>,
-    passVeryWeak: <?= json_encode(t('profile_js.pass_very_weak')) ?>,
-    passWeak: <?= json_encode(t('profile_js.pass_weak')) ?>,
-    passMedium: <?= json_encode(t('profile_js.pass_medium')) ?>,
-    passStrong: <?= json_encode(t('profile_js.pass_strong')) ?>,
-    passVeryStrong: <?= json_encode(t('profile_js.pass_very_strong')) ?>,
-    passMatch: <?= json_encode(t('profile_js.pass_match')) ?>,
-    passNoMatch: <?= json_encode(t('profile_js.pass_no_match')) ?>
-};
-
-function togglePass(id, btn) {
-    var input = document.getElementById(id);
-    var isText = input.type === 'text';
-    input.type = isText ? 'password' : 'text';
-    btn.innerHTML = isText ? '&#128065;' : '&#128584;';
-}
-
-function checkPassStrength(val) {
-    var el = document.getElementById('passStrength');
-    if (!val) {
-        el.textContent = '';
-        return;
-    }
-    var score = 0;
-    if (val.length >= 8) score++;
-    if (val.length >= 12) score++;
-    if (/[A-Z]/.test(val)) score++;
-    if (/[0-9]/.test(val)) score++;
-    if (/[^A-Za-z0-9]/.test(val)) score++;
-    var labels = ['', PROFILE_LANG.passVeryWeak, PROFILE_LANG.passWeak, PROFILE_LANG.passMedium, PROFILE_LANG.passStrong, PROFILE_LANG.passVeryStrong];
-    var colors = ['', '#e05555', '#e07b55', '#e0b44c', '#7ec97a', '#4ec97a'];
-    el.textContent = labels[score] || '';
-    el.style.color = colors[score] || '';
-}
-
-document.getElementById('confirmPass')?.addEventListener('input', function() {
-    var match = document.getElementById('passMatch');
-    var newVal = document.getElementById('newPass').value;
-    if (!this.value) {
-        match.textContent = '';
-        return;
-    }
-    if (this.value === newVal) {
-        match.textContent = PROFILE_LANG.passMatch;
-        match.style.color = '#4ec97a';
-    } else {
-        match.textContent = PROFILE_LANG.passNoMatch;
-        match.style.color = '#e05555';
-    }
-});
-
-function profileShowMessage(kind, text) {
-    var wrap = document.querySelector('.profile-wrap');
-    if (!wrap) return;
-
-    wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(node) {
-        node.remove();
-    });
-
-    var bar = document.createElement('div');
-    bar.className = 'msg-bar msg-dynamic ' + (kind === 'success' ? 'msg-success' : 'msg-error');
-    bar.textContent = text;
-    wrap.insertBefore(bar, wrap.firstChild);
-}
-
-function profileShowResult(kind, text) {
-    if (kind === 'error' && typeof window.alertError === 'function') {
-        window.alertError(text);
-    } else if (kind === 'success' && typeof window.alertInfo === 'function') {
-        window.alertInfo(text);
-    } else if (typeof window.showGameToast === 'function') {
-        window.showGameToast(text, kind === 'error' ? 'error' : 'success');
-    } else {
-        profileShowMessage(kind, text);
-    }
-}
-
-function updateTopbarAvatar(url) {
-    var link = document.querySelector('.topbar-user-link');
-    if (!link) return;
-
-    var img = link.querySelector('.topbar-avatar');
-    if (img) {
-        img.src = url;
-        return;
-    }
-
-    var initials = link.querySelector('.topbar-avatar-initials');
-    if (!initials) return;
-
-    img = document.createElement('img');
-    img.src = url;
-    img.className = 'topbar-avatar';
-    img.alt = 'avatar';
-    initials.replaceWith(img);
-}
-
-function compressAvatarBlob(file) {
-    return new Promise(function(resolve, reject) {
-        var reader = new FileReader();
-        reader.onerror = function() {
-            reject(new Error('read_failed'));
-        };
-        reader.onload = function(e) {
-            var original = new Image();
-            original.onerror = function() {
-                reject(new Error('image_decode_failed'));
-            };
-            original.onload = function() {
-                var maxBytes = 6000;
-                var minSide = 64;
-                var scale = 1;
-                var qualities = [0.82, 0.72, 0.64, 0.56, 0.48, 0.4];
-
-                function attempt() {
-                    var width = Math.max(minSide, Math.round(original.width * scale));
-                    var height = Math.max(minSide, Math.round(original.height * scale));
-                    var maxDim = 96;
-
-                    if (width > height && width > maxDim) {
-                        height = Math.max(minSide, Math.round(height * maxDim / width));
-                        width = maxDim;
-                    } else if (height >= width && height > maxDim) {
-                        width = Math.max(minSide, Math.round(width * maxDim / height));
-                        height = maxDim;
-                    }
-
-                    var canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    canvas.getContext('2d').drawImage(original, 0, 0, width, height);
-
-                    var index = 0;
-                    function tryNextQuality() {
-                        var quality = qualities[index++];
-                        canvas.toBlob(function(blob) {
-                            if (!blob) {
-                                reject(new Error('blob_failed'));
-                                return;
-                            }
-                            if (blob.size <= maxBytes || index >= qualities.length) {
-                                if (blob.size <= maxBytes || (width <= minSide && height <= minSide)) {
-                                    resolve({
-                                        blob: blob,
-                                        previewUrl: canvas.toDataURL('image/jpeg', Math.min(quality, 0.72))
-                                    });
-                                    return;
-                                }
-                                scale = scale * 0.85;
-                                attempt();
-                                return;
-                            }
-                            tryNextQuality();
-                        }, 'image/jpeg', quality);
-                    }
-
-                    tryNextQuality();
-                }
-
-                attempt();
-            };
-            original.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    });
-}
-
-function previewAndSubmitAvatar(input) {
-    if (!input.files || !input.files[0]) return;
-
-    var tokenNode = document.querySelector('#avatarForm [name="_token"]');
-    var token = tokenNode ? tokenNode.value : '';
-    var file = input.files[0];
-
-    profileShowMessage('success', PROFILE_LANG.uploading);
-
-    compressAvatarBlob(file)
-        .then(function(result) {
-            var prev = document.getElementById('avatarPreview');
-            if (prev && prev.tagName === 'IMG') {
-                prev.src = result.previewUrl;
-            } else if (prev) {
-                var img = document.createElement('img');
-                img.src = result.previewUrl;
-                img.className = 'profile-avatar-img';
-                img.id = 'avatarPreview';
-                img.alt = PROFILE_LANG.avatarAlt;
-                prev.replaceWith(img);
-            }
-
-            return fetch(window.location.pathname + window.location.search, {
-                method: 'POST',
-                body: result.blob,
-                credentials: 'same-origin',
-                headers: {
-                    'Content-Type': 'image/jpeg',
-                    'X-CSRF-Token': token,
-                    'X-Upload-Action': 'upload_avatar',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
-        })
-        .then(function(response) {
-            return response.json().catch(function() {
-                throw new Error(PROFILE_LANG.uploadSaveFailed);
-            });
-        })
-        .then(function(data) {
-            if (!data || !data.ok) {
-                throw new Error((data && data.message) || PROFILE_LANG.uploadSaveFailed);
-            }
-
-            if (data.avatar_url) {
-                var img = document.getElementById('avatarPreview');
-                if (img && img.tagName === 'IMG') {
-                    img.src = data.avatar_url;
-                }
-                updateTopbarAvatar(data.avatar_url);
-            }
-
-            var wrap = document.querySelector('.profile-wrap');
-            if (wrap) { wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(n) { n.remove(); }); }
-            profileShowResult('success', data.message || PROFILE_LANG.uploading);
-            input.value = '';
-        })
-        .catch(function(err) {
-            var wrap = document.querySelector('.profile-wrap');
-            if (wrap) { wrap.querySelectorAll('.msg-bar.msg-dynamic').forEach(function(n) { n.remove(); }); }
-            profileShowResult('error', err && err.message ? err.message : PROFILE_LANG.uploadFailed);
-            input.value = '';
-        });
-}
-</script>

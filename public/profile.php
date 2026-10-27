@@ -40,11 +40,10 @@ function profileSendAvatarJson(bool $ok, string $message, ?string $avatarUrl = n
 
 function profilePersistAvatar(PDO $db, int $playerId, string $avatarDir, string $mime, string $bytes): array
 {
-    $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    $allowed = ['image/jpeg', 'image/png', 'image/webp'];
     $extMap = [
         'image/jpeg' => 'jpg',
         'image/png' => 'png',
-        'image/gif' => 'gif',
         'image/webp' => 'webp',
     ];
     $maxSize = 2 * 1024 * 1024;
@@ -59,11 +58,17 @@ function profilePersistAvatar(PDO $db, int $playerId, string $avatarDir, string 
     if ($size > $maxSize) {
         return ['ok' => false, 'error_key' => 'profile.err_upload_size'];
     }
+    // Inspect image contents, not just the user-provided Content-Type.
+    // Sprawdz zawartosc obrazu, nie tylko naglowek od uzytkownika.
+    $image = @getimagesizefromstring($bytes);
+    if ($image === false || ($image['mime'] ?? '') !== $mime || $image[0] <= 0 || $image[1] <= 0) {
+        return ['ok' => false, 'error_key' => 'profile.err_upload_format'];
+    }
     if (!is_dir($avatarDir) && !mkdir($avatarDir, 0755, true) && !is_dir($avatarDir)) {
         return ['ok' => false, 'error_key' => 'profile.err_upload_save'];
     }
 
-    $filename = 'avatar_' . $playerId . '_' . time() . '.' . ($extMap[$mime] ?? 'jpg');
+    $filename = 'avatar_' . $playerId . '_' . bin2hex(random_bytes(12)) . '.' . $extMap[$mime];
     $destPath = $avatarDir . $filename;
 
     if (file_put_contents($destPath, $bytes, LOCK_EX) === false) {
@@ -76,18 +81,25 @@ function profilePersistAvatar(PDO $db, int $playerId, string $avatarDir, string 
         return ['ok' => false, 'error_key' => 'profile.err_upload_save'];
     }
 
-    $oldStmt = $db->prepare("SELECT avatar_path FROM players WHERE id=?");
-    $oldStmt->execute([$playerId]);
-    $old = $oldStmt->fetchColumn();
-    if ($old) {
-        $oldPath = __DIR__ . '/' . ltrim((string) $old, '/');
-        if (is_file($oldPath)) {
+    $relPath = 'assets/img/avatars/' . $filename;
+    try {
+        $oldStmt = $db->prepare("SELECT avatar_path FROM players WHERE id=?");
+        $oldStmt->execute([$playerId]);
+        $old = $oldStmt->fetchColumn();
+        $db->prepare("UPDATE players SET avatar_path=? WHERE id=?")->execute([$relPath, $playerId]);
+    } catch (Throwable $e) {
+        @unlink($destPath);
+        GameLog::error('profile.php', 'Avatar DB update FAILED', $e, ['player_id' => $playerId]);
+        return ['ok' => false, 'error_key' => 'profile.err_upload_save'];
+    }
+    // Only remove a previously stored avatar after the new path has been saved.
+    // Usun stary avatar dopiero po zapisaniu nowej sciezki w bazie.
+    if (is_string($old) && str_starts_with($old, 'assets/img/avatars/')) {
+        $oldPath = $avatarDir . basename($old);
+        if (is_file($oldPath) && $oldPath !== $destPath) {
             @unlink($oldPath);
         }
     }
-
-    $relPath = 'assets/img/avatars/' . $filename;
-    $db->prepare("UPDATE players SET avatar_path=? WHERE id=?")->execute([$relPath, $playerId]);
 
     GameLog::info('profile.php', 'Avatar zapisany', [
         'player_id' => $playerId,
@@ -108,6 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $csrfValue = $isAjaxAvatarUpload
         ? ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? '')
         : ($_POST['_token'] ?? '');
+    $csrfValue = is_string($csrfValue) ? $csrfValue : '';
 
     if (!CSRF::validateToken($csrfValue)) {
         $errors[] = t('profile.err_csrf');
@@ -121,7 +134,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             : ($_POST['action'] ?? '');
 
         if ($isAjaxAvatarUpload && $action === 'upload_avatar') {
-            $rawBytes = file_get_contents('php://input') ?: '';
+            $rawBytes = file_get_contents('php://input', false, null, 0, 2 * 1024 * 1024 + 1) ?: '';
             $contentLength = (int) ($_SERVER['CONTENT_LENGTH'] ?? 0);
             $contentType = strtolower(trim(explode(';', $_SERVER['CONTENT_TYPE'] ?? 'application/octet-stream')[0]));
 
@@ -151,9 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'change_password') {
-            $current = $_POST['current_password'] ?? '';
-            $new = $_POST['new_password'] ?? '';
-            $confirm = $_POST['confirm_password'] ?? '';
+            $current = is_string($_POST['current_password'] ?? null) ? $_POST['current_password'] : '';
+            $new = is_string($_POST['new_password'] ?? null) ? $_POST['new_password'] : '';
+            $confirm = is_string($_POST['confirm_password'] ?? null) ? $_POST['confirm_password'] : '';
 
             $row = $db->prepare("SELECT password_hash FROM players WHERE id=?");
             $row->execute([$playerId]);
@@ -174,106 +187,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($action === 'update_profile') {
-            $companyName = trim($_POST['company_name'] ?? '');
-            if (strlen($companyName) > 80) {
-                $errors[] = t('profile.err_company_too_long');
+            $companyValue = $_POST['company_name'] ?? null;
+            if (!is_string($_POST['company_name'] ?? null)) {
+                $errors[] = t('profile.err_company_invalid');
             } else {
-                $db->prepare("UPDATE players SET company_name=? WHERE id=?")->execute([$companyName ?: null, $playerId]);
-                $success[] = t('profile.success_company');
-                GameLog::info('profile.php', 'Nazwa firmy zaktualizowana', [
-                    'player_id' => $playerId,
-                    'company_name' => $companyName,
-                ]);
+                $companyName = trim($companyValue);
+                if (strlen($companyName) > 80) {
+                    $errors[] = t('profile.err_company_too_long');
+                } else {
+                    $db->prepare("UPDATE players SET company_name=? WHERE id=?")->execute([$companyName ?: null, $playerId]);
+                    $success[] = t('profile.success_company');
+                    GameLog::info('profile.php', 'Nazwa firmy zaktualizowana', [
+                        'player_id' => $playerId,
+                        'company_name' => $companyName,
+                    ]);
+                }
             }
         }
 
         if ($action === 'upload_avatar' && isset($_FILES['avatar'])) {
             $file = $_FILES['avatar'];
-            $allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            $extMap = [
-                'image/jpeg' => 'jpg',
-                'image/png' => 'png',
-                'image/gif' => 'gif',
-                'image/webp' => 'webp',
-            ];
-            $maxSize = 2 * 1024 * 1024;
-
-            GameLog::info('profile.php', 'Avatar FORM upload request', [
-                'player_id' => $playerId,
-                'file_error' => $file['error'] ?? null,
-                'file_size' => $file['size'] ?? null,
-                'file_type' => $file['type'] ?? null,
-                'tmp_name' => $file['tmp_name'] ?? null,
-                'content_length' => (int) ($_SERVER['CONTENT_LENGTH'] ?? 0),
-            ]);
-
-            $realMime = 'application/octet-stream';
-            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-                if (function_exists('finfo_open')) {
-                    $fi = finfo_open(FILEINFO_MIME_TYPE);
-                    if ($fi !== false) {
-                        $detected = finfo_file($fi, $file['tmp_name']);
-                        finfo_close($fi);
-                        if ($detected !== false) {
-                            $realMime = $detected;
-                        } else {
-                            $realMime = $file['type'];
-                        }
-                    } else {
-                        $realMime = $file['type'];
-                    }
-                } else {
-                    $realMime = $file['type'];
-                }
-            }
-
-            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+            if (!is_array($file) || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
                 $errors[] = t('profile.err_upload_error');
-            } elseif (!in_array($realMime, $allowed, true)) {
-                $errors[] = t('profile.err_upload_format');
-            } elseif (($file['size'] ?? 0) > $maxSize) {
+            } elseif ((int)($file['size'] ?? 0) > 2 * 1024 * 1024) {
                 $errors[] = t('profile.err_upload_size');
+            } elseif (!is_string($file['tmp_name'] ?? null) || !is_uploaded_file($file['tmp_name'])) {
+                $errors[] = t('profile.err_upload_error');
             } else {
-                $ext = $extMap[$realMime] ?? strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-                $filename = 'avatar_' . $playerId . '_' . time() . '.' . $ext;
-                $destPath = $avatarDir . $filename;
-
-                if (!is_dir($avatarDir)) {
-                    mkdir($avatarDir, 0755, true);
-                }
-
-                if (move_uploaded_file($file['tmp_name'], $destPath)) {
-                    $oldStmt = $db->prepare("SELECT avatar_path FROM players WHERE id=?");
-                    $oldStmt->execute([$playerId]);
-                    $old = $oldStmt->fetchColumn();
-                    if ($old) {
-                        $oldPath = __DIR__ . '/' . ltrim((string) $old, '/');
-                        if (is_file($oldPath)) {
-                            @unlink($oldPath);
-                        }
-                    }
-
-                    $relPath = 'assets/img/avatars/' . $filename;
-                    $db->prepare("UPDATE players SET avatar_path=? WHERE id=?")->execute([$relPath, $playerId]);
+                $bytes = file_get_contents($file['tmp_name'], false, null, 0, 2 * 1024 * 1024 + 1);
+                $image = $bytes !== false ? @getimagesizefromstring($bytes) : false;
+                $realMime = $image['mime'] ?? 'application/octet-stream';
+                $result = profilePersistAvatar($db, $playerId, $avatarDir, $realMime, $bytes ?: '');
+                if ($result['ok']) {
                     $success[] = t('profile.success_avatar');
-                    GameLog::info('profile.php', 'Avatar zapisany przez move_uploaded_file', [
-                        'player_id' => $playerId,
-                        'path' => $relPath,
-                        'mime' => $realMime,
-                        'size' => $file['size'] ?? null,
-                    ]);
                 } else {
-                    $phpErr = error_get_last();
-                    GameLog::error('profile.php', 'move_uploaded_file FAILED', null, [
-                        'dest' => $destPath,
-                        'tmp' => $file['tmp_name'] ?? null,
-                        'tmp_exists' => !empty($file['tmp_name']) && file_exists($file['tmp_name']),
-                        'dir_exists' => is_dir($avatarDir),
-                        'dir_write' => is_writable($avatarDir),
-                        'php_error' => $phpErr['message'] ?? 'brak',
-                        'player_id' => $playerId,
-                    ]);
-                    $errors[] = t('profile.err_upload_save');
+                    $errors[] = t($result['error_key'] ?? 'profile.err_upload_error');
                 }
             }
         } elseif ($action === 'upload_avatar') {
@@ -364,7 +312,8 @@ $viewData = compact(
 );
 
 $pageTitle = t('profile.page_title');
-$extraCss = ['/assets/css/profile.css', '/assets/css/credibility.css'];
+$extraCss = ['/assets/css/profile.css'];
+$extraJs = ['/assets/js/profile.js'];
 require_once __DIR__ . '/../templates/header.php';
 require __DIR__ . '/../templates/views/profile/main.php';
 require_once __DIR__ . '/../templates/footer.php';

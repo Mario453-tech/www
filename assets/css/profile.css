@@ -1,241 +1,273 @@
 /* profile.css
-   Style specyficzne dla profilu gracza.
-   Wspólne elementy topbara i utility zostają w style.css.
-*/
+   Redesign profilu gracza wg briefu BRIEF-AI-PROFIL.md.
+   Player profile redesign per the BRIEF-AI-PROFIL.md brief.
+   Dwukolumnowy ciemny uklad kart: lewa szyna (profil, statystyki,
+   czarny rynek, wiarygodnosc) + prawa kolumna (firma, bezpieczenstwo).
+   Two-column dark card layout: left rail (profile, stats, black market,
+   credibility) + right column (company, security).
+   Kolory i odstepy sa scoped na .profile-shell - nie dotykaja globali. */
 
-.profile-wrap {
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 24px 16px 60px;
+.profile-shell{
+    --pf-surface:#16171f;
+    --pf-line:#4a4135;
+    --pf-line-soft:#30313a;
+    --pf-text:#f0eef2;
+    --pf-muted:#a1a1ad;
+    --pf-faint:#858590;
+    --pf-gold:#d7b547;
+    --pf-green:#52d28b;
+    --pf-red:#fa626d;
+    width:min(1360px,calc(100% - 48px));
+    margin:0 auto 40px;
+}
+.profile-heading{margin:0 0 20px}
+.profile-heading h1{
+    width:max-content;
+    margin:0;
+    padding-bottom:9px;
+    border-bottom:3px solid var(--pf-gold);
+    font-size:31px;
+    line-height:1.2;
+}
+.profile-layout{
+    display:grid;
+    grid-template-columns:minmax(320px,430px) minmax(0,1fr);
+    gap:16px;
+    align-items:start;
+}
+.profile-rail,.profile-content{min-width:0;display:grid;gap:16px}
+.profile-card{
+    min-width:0;
+    padding:22px 25px;
+    background:linear-gradient(145deg,#18191f,#13141a);
+    border:1px solid var(--pf-line);
+    border-radius:10px;
+    box-shadow:0 14px 35px rgba(0,0,0,.17);
 }
 
-.profile-grid {
-    display: grid;
-    grid-template-columns: 280px 1fr;
-    gap: 24px;
-    margin-top: 24px;
+/* Karta profilu: docelowo 191 px na szerokim ekranie, avatar 120 px.
+   Profile card: about 191 px on wide screens, 120 px avatar. */
+.profile-identity{display:flex;align-items:center;gap:22px;min-height: 191px}
+.profile-avatar-img,.profile-avatar-ph{
+    width:120px;
+    height:120px;
+    flex:none;
+    object-fit:cover;
+    border:2px solid var(--pf-gold);
+    border-radius:50%;
+}
+.profile-avatar-ph{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(200,168,75,.15);
+    font-size:38px;
+    font-weight:700;
+    color:var(--pf-gold);
+}
+.identity-copy{min-width:0;display:grid;justify-items:start;gap:5px}
+.identity-copy h2{margin:0;font-size:24px;line-height:1.2;overflow-wrap:anywhere;color:var(--pf-text)}
+.identity-copy strong{color:var(--pf-gold);font-size:15px;overflow-wrap:anywhere}
+.profile-photo-button{
+    min-height:44px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    margin-top:7px;
+    padding:0 13px;
+    color:#e6e3e9;
+    background:#24242b;
+    border:1px solid #8b723a;
+    border-radius:6px;
+    cursor:pointer;
+    font-size:12px;
+    font-weight:700;
+}
+.profile-photo-button img{width:17px;height:17px}
+.profile-avatar-form{margin:0;padding:0;border:0}
+.identity-copy small{color:var(--pf-faint);font-size:10px}
+#photo-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.photo-feedback{min-height:13px;color:var(--pf-faint)}
+.photo-feedback.error{color:var(--pf-red)}
+
+/* Karta firmy: zblizona wysokosc do karty profilu, bez rozciagania.
+   Company card: similar height to the profile card, no stretching. */
+.profile-company{min-height: 191px;padding-block:18px}
+.profile-company h2{margin:0 0 10px;display:flex;align-items:center;gap:10px;font-size:18px;line-height:1.25;color:var(--pf-gold)}
+.profile-company form{display:grid;justify-items:start;gap:4px}
+.profile-company label,.password-field label{
+    color:#b9b6be;
+    font-size:11px;
+    font-weight:850;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+}
+.profile-company input,.password-input{
+    width:100%;
+    min-height:42px;
+    color:var(--pf-text);
+    background:#202026;
+    border:1px solid #62533a;
+    border-radius:7px;
+    box-sizing:border-box;
+}
+.profile-company input{padding:0 14px;font-size:14px}
+.profile-company form>p{margin:0 0 4px;color:var(--pf-faint);font-size:11px}
+.profile-company form>p.is-preview{color:#d5d2da}
+
+/* Wiersze statystyk: etykieta z ikona po lewej, wartosc po prawej.
+   Stat rows: label with icon on the left, value aligned right. */
+.profile-account-stats dl,.profile-market-stats dl{margin:0}
+.profile-account-stats dl>div,.profile-market-stats dl>div{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    gap:12px;
+    min-height:39px;
+    padding:8px 0;
+    border-top:1px solid var(--pf-line-soft);
+}
+.profile-account-stats dt,.profile-market-stats dt{display:flex;align-items:center;gap:8px;color:#adaab1;font-size:12px}
+.profile-account-stats dt img,.profile-market-stats dt img{width:16px;height:16px;flex:none;opacity:.75}
+.profile-account-stats dd,.profile-market-stats dd{margin:0;font-size:12px;font-weight:750;text-align:right;color:var(--pf-text)}
+.profile-market-stats dd.profile-value--positive{color:var(--pf-green)}
+.profile-market-stats dd.profile-value--negative{color:var(--pf-red)}
+
+.profile-account-stats h2,.profile-market-stats h2,.profile-reputation h2{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 16px;
+    font-size:18px;
+    line-height:1.25;
+    color:var(--pf-text);
+}
+.profile-market-stats h2{color:var(--pf-gold)}
+.profile-account-stats h2 img,.profile-market-stats h2 img,.profile-reputation h2 img{
+    display:block;
+    width:21px;
+    height:21px;
+    flex:none;
 }
 
-.profile-avatar-card {
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 12px;
-    padding: 24px;
-    text-align: center;
-    margin-bottom: 16px;
+/* Wiarygodnosc: zielony badge dla dobrego statusu.
+   Credibility: green badge for a good status. */
+.profile-reputation{border-left:3px solid var(--pf-gold)}
+.reputation-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.profile-reputation h2{margin:0;font-size:17px}
+.profile-rep-badge{
+    padding:4px 13px;
+    color:var(--pf-green);
+    background:#163427;
+    border:1px solid #347750;
+    border-radius:18px;
+    font-size:11px;
+    font-weight:850;
+    text-transform:uppercase;
+    letter-spacing:.05em;
 }
+.profile-rep-badge--critical,.profile-rep-badge--low{color:var(--pf-red);background:#34161a;border-color:#75343d}
+.profile-rep-badge--shaky{color:var(--pf-gold);background:#33290f;border-color:#75602e}
+.profile-reputation p{max-width:42ch;margin:12px 0 0;color:#b5b2bc;font-size:12px;line-height:1.55}
 
-.profile-avatar-wrap {
-    position: relative;
-    display: inline-block;
-    margin-bottom: 14px;
+/* Przycisk zloty wspolny dla firmy i bezpieczenstwa.
+   Shared gold button for company and security. */
+.profile-gold-button{
+    min-height:40px;
+    padding:0 21px;
+    color:#17140b;
+    background:linear-gradient(#e7c55e,#d2ae41);
+    border:1px solid #e8c962;
+    border-radius:7px;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    cursor:pointer;
 }
+.profile-gold-button:hover{filter:brightness(1.06)}
 
-.profile-avatar-img {
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid rgba(200, 168, 75, .4);
-    display: block;
+/* Karta bezpieczenstwa: wysokosc wynika z zawartosci, bez min-height.
+   Security card: height comes from content, no min-height. */
+.profile-security{padding-top:20px;padding-bottom:20px}
+.profile-security h2{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin:0 0 16px;
+    font-size:18px;
+    line-height:1.25;
+    color:var(--pf-gold);
 }
-
-.profile-avatar-placeholder {
-    width: 96px;
-    height: 96px;
-    border-radius: 50%;
-    background: rgba(200, 168, 75, .15);
-    border: 2px solid rgba(200, 168, 75, .35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 36px;
-    font-weight: 700;
-    color: var(--gold);
+.profile-security h2 img{display:block;width:21px;height:21px;flex:none}
+.profile-security form{display:grid;gap:14px}
+.password-field{display:grid;gap:5px}
+.password-field small{color:var(--pf-faint);font-size:11px;min-height:13px}
+.password-input{display:flex;align-items:center;padding:0 6px 0 13px}
+.password-input input{
+    flex:1;
+    min-width:0;
+    height:40px;
+    color:var(--pf-text);
+    background:transparent;
+    border:0;
+    outline:0;
+    font-size:13px;
 }
-
-.profile-avatar-overlay {
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: rgba(0, 0, 0, .5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 22px;
-    opacity: 0;
-    transition: opacity .2s;
-    cursor: pointer;
+.password-input input::placeholder{color:#81808b}
+.password-input button{
+    width:44px;
+    min-height:44px;
+    display:grid;
+    place-items:center;
+    padding:0;
+    background:transparent;
+    border:0;
+    border-radius:5px;
+    cursor:pointer;
 }
+.password-input button img{width:19px;height:19px}
+.password-input button:hover{opacity:.85}
+.profile-security .profile-gold-button{justify-self:start;margin-top:4px}
 
-.profile-avatar-wrap:hover .profile-avatar-overlay {
-    opacity: 1;
+/* Komunikaty flash (PRG, jednorazowe). One-shot PRG flash bars. */
+.profile-flash{
+    margin:0 0 16px;
+    padding:12px 16px;
+    border-radius:8px;
+    font-size:13px;
 }
+.profile-flash p{margin:0}
+.profile-flash--error{color:#f6c9cd;background:rgba(250,98,109,.12);border:1px solid rgba(250,98,109,.4)}
+.profile-flash--success{color:#b8ead0;background:rgba(82,210,139,.12);border:1px solid rgba(82,210,139,.4)}
 
-.profile-username {
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text);
-    margin-bottom: 4px;
+button:focus-visible,input:focus-visible,.profile-photo-button:focus-visible{outline:2px solid #f0cf66;outline-offset:2px}
+
+@media (max-width: 900px){
+    .profile-layout{grid-template-columns:minmax(280px,.85fr) minmax(0,1.15fr)}
+    .profile-identity{flex-wrap:wrap}
+    .profile-avatar-img,.profile-avatar-ph{width:90px;height:90px}
+    .profile-card{padding:18px}
+    .profile-account-stats dl>div,.profile-market-stats dl>div{flex-wrap:wrap}
 }
-
-.profile-company {
-    font-size: 12px;
-    color: var(--gold);
-    margin-bottom: 8px;
+@media (max-width: 690px){
+    .profile-shell{width:calc(100% - 24px);margin:16px auto 28px}
+    .profile-heading h1{font-size:26px}
+    .profile-layout{grid-template-columns:1fr;gap:12px}
+    .profile-rail,.profile-content{display: contents}
+    .profile-identity{order: 1;flex-wrap:nowrap}
+    .profile-company{order: 2}
+    .profile-account-stats{order: 3}
+    .profile-market-stats{order: 4}
+    .profile-reputation{order: 5}
+    .profile-security{order: 6}
+    .profile-account-stats dl>div,.profile-market-stats dl>div{flex-wrap:nowrap}
 }
-
-.profile-avatar-hint {
-    font-size: 11px;
-    color: rgba(255, 255, 255, .3);
-    margin-top: 8px;
-}
-
-.profile-stats-card {
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 12px;
-    padding: 16px;
-}
-
-.profile-stat {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, .05);
-    font-size: 12px;
-}
-
-.profile-stat:last-child {
-    border-bottom: none;
-}
-
-.profile-stat-label {
-    color: rgba(255, 255, 255, .45);
-}
-
-.profile-stat-value {
-    font-weight: 600;
-    color: var(--text);
-    text-align: right;
-}
-
-.profile-right {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.profile-card {
-    background: rgba(255, 255, 255, .04);
-    border: 1px solid rgba(255, 255, 255, .08);
-    border-radius: 12px;
-    padding: 24px;
-}
-
-.profile-card-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: var(--gold);
-    margin: 0 0 20px 0;
-}
-
-.profile-field {
-    margin-bottom: 16px;
-}
-
-.profile-label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: rgba(255, 255, 255, .55);
-    margin-bottom: 6px;
-    letter-spacing: .5px;
-    text-transform: uppercase;
-}
-
-.profile-input {
-    width: 100%;
-    box-sizing: border-box;
-    background: rgba(255, 255, 255, .06);
-    border: 1px solid rgba(255, 255, 255, .12);
-    border-radius: 7px;
-    padding: 10px 14px;
-    font-size: 14px;
-    color: var(--text);
-    font-family: inherit;
-    transition: border-color .2s;
-}
-
-.profile-input:focus {
-    outline: none;
-    border-color: rgba(200, 168, 75, .5);
-}
-
-.profile-hint {
-    display: block;
-    font-size: 11px;
-    color: rgba(255, 255, 255, .3);
-    margin-top: 5px;
-}
-
-.profile-password-wrap {
-    position: relative;
-}
-
-.profile-password-wrap .profile-input {
-    padding-right: 42px;
-}
-
-.profile-pass-toggle {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    font-size: 16px;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    color: rgba(255, 255, 255, .4);
-}
-
-.profile-pass-toggle:hover {
-    color: rgba(255, 255, 255, .8);
-}
-
-.profile-pass-strength,
-.profile-pass-match {
-    font-size: 11px;
-    font-weight: 600;
-    margin-top: 5px;
-    min-height: 16px;
-}
-
-.profile-bm-heading {
-    color: var(--gold);
-    font-size: .95rem;
-    margin: 0 0 .75rem;
-    font-weight: 600;
-}
-
-.profile-bm-score--low {
-    color: var(--green);
-}
-
-.profile-bm-score--mid {
-    color: var(--gold);
-}
-
-.profile-bm-score--high {
-    color: var(--red);
-}
-
-@media (max-width: 700px) {
-    .profile-grid {
-        grid-template-columns: 1fr;
-    }
+@media (max-width: 390px){
+    .profile-identity{gap:14px}
+    .profile-avatar-img,.profile-avatar-ph{width:76px;height:76px}
+    .identity-copy h2{font-size:19px}
+    .reputation-head{align-items:flex-start;flex-direction:column}
+    .profile-account-stats dl>div,.profile-market-stats dl>div{flex-wrap:wrap}
 }
