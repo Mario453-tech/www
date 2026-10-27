@@ -229,13 +229,12 @@ class SabotageService
         ];
     }
 
-    public function countPlayerTargets(int $playerId): int
+    public function countPlayerTargets(int $playerId, string $status = 'active', string $query = ''): int
     {
         try {
-            $stmt = $this->db->prepare(
-                "SELECT COUNT(*) FROM players WHERE id <> ? AND status = 'active'"
-            );
-            $stmt->execute([$playerId]);
+            [$where, $params] = $this->playerTargetFilter($playerId, $status, $query);
+            $stmt = $this->db->prepare("SELECT COUNT(*) FROM players WHERE {$where}");
+            $stmt->execute($params);
             return (int)$stmt->fetchColumn();
         } catch (Throwable $e) {
             return 0;
@@ -243,19 +242,18 @@ class SabotageService
     }
 
     /** @return list<array<string,mixed>> */
-    public function getPlayerTargets(int $playerId, int $limit = 12, int $offset = 0): array
+    public function getPlayerTargets(int $playerId, int $limit = 12, int $offset = 0, string $status = 'active', string $query = ''): array
     {
         try {
+            [$where, $params] = $this->playerTargetFilter($playerId, $status, $query);
             $stmt = $this->db->prepare(
                 "SELECT id, username, company_name, status, cash, black_market_score
-                   FROM players
-                  WHERE id <> ? AND status = 'active'
-                  ORDER BY company_name ASC, username ASC
-                  LIMIT ? OFFSET ?"
+                   FROM players WHERE {$where}
+                  ORDER BY company_name ASC, username ASC LIMIT ? OFFSET ?"
             );
-            $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
-            $stmt->bindValue(2, max(1, min(50, $limit)), PDO::PARAM_INT);
-            $stmt->bindValue(3, max(0, $offset), PDO::PARAM_INT);
+            foreach ([...$params, max(1, min(50, $limit)), max(0, $offset)] as $i => $param) {
+                $stmt->bindValue($i + 1, $param, is_int($param) ? PDO::PARAM_INT : PDO::PARAM_STR);
+            }
             $stmt->execute();
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Throwable $e) {
@@ -264,6 +262,107 @@ class SabotageService
             }
             return [];
         }
+    }
+
+    /** @return array{string,list<int|string>} */
+    private function playerTargetFilter(int $playerId, string $status, string $query): array
+    {
+        $where = "id <> ? AND status IN ('active', 'inactive')";
+        $params = [$playerId];
+        if ($status === 'active' || $status === 'inactive') {
+            $where .= ' AND status = ?';
+            $params[] = $status;
+        }
+        $query = trim($query);
+        if ($query !== '') {
+            $where .= " AND (username LIKE ? ESCAPE '\\' OR company_name LIKE ? ESCAPE '\\')";
+            $match = '%' . addcslashes(substr($query, 0, 80), '%_\\') . '%';
+            $params[] = $match;
+            $params[] = $match;
+        }
+        return [$where, $params];
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function searchPlayerTargets(int $playerId, string $query, int $limit = 8): array
+    {
+        $query = trim($query);
+        if ($query === '') {
+            return [];
+        }
+        $escaped = addcslashes(substr($query, 0, 80), '%_\\');
+        $stmt = $this->db->prepare(
+            "SELECT id, username, company_name, status FROM players
+             WHERE id <> ? AND status = 'active'
+               AND (username LIKE ? ESCAPE '\\' OR company_name LIKE ? ESCAPE '\\')
+             ORDER BY company_name ASC, username ASC LIMIT ?"
+        );
+        $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, '%' . $escaped . '%');
+        $stmt->bindValue(3, '%' . $escaped . '%');
+        $stmt->bindValue(4, max(1, min(8, $limit)), PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function countRecentPlayerAttempts(int $playerId): int
+    {
+        $cutoff = gmdate('Y-m-d H:i:s', time() - 48 * 3600);
+        $stmt = $this->db->prepare("SELECT COUNT(*) FROM sabotage_attempts WHERE player_id = ? AND source_type = 'player' AND created_at >= ?");
+        $stmt->execute([$playerId, $cutoff]);
+        return (int)$stmt->fetchColumn();
+    }
+
+    /** @return list<array<string,mixed>> */
+    public function getRecentPlayerAttempts(int $playerId, int $page): array
+    {
+        if ($page < 1 || $page > 100000) {
+            throw new InvalidArgumentException('Invalid history page');
+        }
+        $stmt = $this->db->prepare(
+            'SELECT sa.*, so.code AS option_code, so.name AS option_name,
+                    p.username AS target_username, p.company_name AS target_company
+               FROM sabotage_attempts sa
+               LEFT JOIN sabotage_options so ON so.id = sa.sabotage_option_id
+               LEFT JOIN players p ON p.id = sa.target_player_id
+              WHERE sa.player_id = ? AND sa.source_type = \'player\' AND sa.created_at >= ?
+              ORDER BY sa.created_at DESC, sa.id DESC LIMIT 5 OFFSET ?'
+        );
+        $stmt->bindValue(1, $playerId, PDO::PARAM_INT);
+        $stmt->bindValue(2, gmdate('Y-m-d H:i:s', time() - 48 * 3600));
+        $stmt->bindValue(3, ($page - 1) * 5, PDO::PARAM_INT);
+        $stmt->execute();
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function pruneExpiredPlayerAttempts(): int
+    {
+        // Keep attempts that still enforce cooldown; delete only resolved, expired PvP history.
+        // Zachowaj proby z aktywna przerwa; usun tylko wygasla historie PvP.
+        $cutoff = gmdate('Y-m-d H:i:s', time() - 48 * 3600);
+        $driver = (string)$this->db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $expiry = $driver === 'sqlite'
+            ? "datetime(sa.created_at, '+' || so.cooldown_minutes || ' minutes')"
+            : 'DATE_ADD(sa.created_at, INTERVAL so.cooldown_minutes MINUTE)';
+        // Delete audit logs tied to attempts before removing attempts; preserve active cooldowns.
+        // Usun logi prob przed samymi probami; zachowaj aktywne przerwy.
+        $ids = "SELECT sa.id FROM sabotage_attempts sa
+                LEFT JOIN sabotage_options so ON so.id = sa.sabotage_option_id
+                WHERE sa.source_type = 'player' AND sa.created_at < ?
+                  AND (so.id IS NULL OR {$expiry} <= ?)";
+        $params = [$cutoff, gmdate('Y-m-d H:i:s')];
+        $stmt = $this->db->prepare($ids);
+        $stmt->execute($params);
+        $expired = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        $removed = 0;
+        foreach (array_chunk($expired, 200) as $chunk) {
+            $placeholders = implode(',', array_fill(0, count($chunk), '?'));
+            $this->db->prepare("DELETE FROM sabotage_logs WHERE sabotage_attempt_id IN ({$placeholders})")->execute($chunk);
+            $stmt = $this->db->prepare("DELETE FROM sabotage_attempts WHERE id IN ({$placeholders}) AND source_type = 'player' AND created_at < ?");
+            $stmt->execute([...$chunk, $cutoff]);
+            $removed += $stmt->rowCount();
+        }
+        return $removed;
     }
 
     /**
@@ -441,7 +540,7 @@ class SabotageService
         $attacker = $this->loadPlayerRow($playerId);
         $target = $this->loadPlayerRow($targetPlayerId);
 
-        if ($option === null || $attacker === null || $target === null) {
+        if ($option === null || $attacker === null || $target === null || (string)($target['status'] ?? '') !== 'active') {
             return [
                 'success' => false,
                 'status' => 'cancelled',
@@ -912,6 +1011,12 @@ class SabotageService
     }
 
     /** @param array<string,mixed> $option */
+    public function estimatePlayerCost(array $option, float $targetCash): float
+    {
+        return $this->calculateCost($option, $targetCash);
+    }
+
+    /** @param array<string,mixed> $option */
     private function calculateCost(array $option, float $referenceValue): float
     {
         $type = (string)($option['cost_type'] ?? 'fixed');
@@ -1069,6 +1174,11 @@ class SabotageService
             $message,
             $meta !== [] ? json_encode($meta, JSON_UNESCAPED_UNICODE) : null,
         ]);
+    }
+
+    public function getRequiredBlackMarketScore(): float
+    {
+        return $this->getBmSabotageThreshold();
     }
 
     // Prog punktow czarnego rynku wymagany do odblokowania sabotazu.

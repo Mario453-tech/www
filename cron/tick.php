@@ -27,6 +27,18 @@ if (php_sapi_name() !== 'cli' && !defined('FORCE_TICK_INTERNAL')) {
 $coordinator = new TickCoordinator($db);
 $result = $coordinator->run($source);
 
+// Prune expired player history after a completed tick, outside the tick transaction.
+// Usun wygasla historie graczy po zakonczonym ticku, poza jego transakcja.
+if (!$coordinator->wasBusy() && in_array($result->status, [TickRunResult::STATUS_SUCCESS, TickRunResult::STATUS_PARTIAL], true)) {
+    try {
+        (new SabotageService($db))->pruneExpiredPlayerAttempts();
+    } catch (Throwable $e) {
+        if (class_exists('GameLog', false)) {
+            GameLog::error('SabotageService', 'pruneExpiredPlayerAttempts FAILED', $e);
+        }
+    }
+}
+
 $GLOBALS['OILCORP_TICK_BUSY'] = $coordinator->wasBusy();
 $GLOBALS['OILCORP_TICK_LOCK_ERROR'] = $coordinator->hadLockError();
 $GLOBALS['OILCORP_TICK_RESULT'] = $result;

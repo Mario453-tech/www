@@ -1,208 +1,116 @@
 <?php
-/** @var bool $moduleEnabled */
-/** @var array<int,array<string,mixed>> $options */
-/** @var array<int,array<string,mixed>> $targets */
-/** @var array<int,array<string,mixed>> $attempts */
-/** @var array<int,array<int,string>> $cooldownMap */
-/** @var array<string,mixed> $playerData */
-/** @var string $error */
-/** @var string $success */
+/** @var array<string,mixed> $viewData */
 extract($viewData, EXTR_SKIP);
-
+$esc = static fn(mixed $value): string => htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8');
 $currency = tPlain('common.currency');
-$blackMarketScore = (float)($playerData['black_market_score'] ?? 0.0);
+$blackMarketScore = (float)($playerData['black_market_score'] ?? 0);
+$navUrl = static fn(array $overrides = []): string => url('sabotage', array_merge([
+    'q' => $targetQuery, 'status' => $targetStatus,
+    'tpage' => $targetPage, 'hpage' => $historyPage,
+], $overrides));
 ?>
+<div class="sabotage-page" data-sabotage-suggest-url="<?= $esc(url('sabotage')) ?>" data-sabotage-selected-target="<?= (int)$selectedTarget ?>" data-sabotage-currency="<?= $esc($currency) ?>" data-sabotage-cash="<?= $esc($playerData['cash']) ?>" data-sabotage-market-score="<?= $esc($blackMarketScore) ?>" data-sabotage-market-threshold="<?= $esc($bmThreshold) ?>" data-sabotage-empty="<?= $esc(tPlain('sabotage.selection_empty')) ?>" data-sabotage-inactive="<?= $esc(tPlain('sabotage.disabled_inactive')) ?>" data-sabotage-funds="<?= $esc(tPlain('sabotage.err_insufficient_funds')) ?>" data-sabotage-market="<?= $esc(tPlain('sabotage.disabled_black_market')) ?>" data-sabotage-cooldown="<?= $esc(tPlain('sabotage.disabled_cooldown_label')) ?>">
+    <?php if ($error !== ''): ?><div class="sabotage-alert sabotage-alert--error" role="alert"><?= $esc($error) ?></div><?php endif; ?>
+    <?php if ($success !== ''): ?><div class="sabotage-alert sabotage-alert--success" role="status"><?= $esc($success) ?></div><?php endif; ?>
 
-<div class="sabotage-page">
-    <?php if ($error !== ''): ?>
-    <section class="card sabotage-alert sabotage-alert--error">
-        <strong><?= t('sabotage.alert_error') ?></strong>
-        <p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
-    </section>
-    <?php endif; ?>
-
-    <?php if ($success !== ''): ?>
-    <section class="card sabotage-alert sabotage-alert--success">
-        <strong><?= t('sabotage.alert_success') ?></strong>
-        <p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p>
-    </section>
-    <?php endif; ?>
-
-    <section class="card sabotage-hero">
-        <div>
-            <h2><?= t('sabotage.hero_title') ?></h2>
-            <p><?= t('sabotage.hero_text') ?></p>
-        </div>
+    <header class="sabotage-hero">
+        <div><h2><?= t('sabotage.hero_title') ?></h2><p><?= t('sabotage.hero_text') ?></p></div>
         <dl class="sabotage-stats">
-            <div>
-                <dt><?= t('sabotage.stat_black_market') ?></dt>
-                <dd><?= number_format($blackMarketScore, 1, ',', ' ') ?></dd>
-            </div>
-            <div>
-                <dt><?= t('sabotage.stat_cash') ?></dt>
-                <dd><?= number_format((float)($playerData['cash'] ?? 0.0), 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?></dd>
-            </div>
+            <div><dt><?= t('sabotage.stat_black_market') ?></dt><dd><?= number_format($blackMarketScore, 1, ',', ' ') ?></dd></div>
+            <div><dt><?= t('sabotage.stat_cash') ?></dt><dd><?= number_format((float)$playerData['cash'], 0, ',', ' ') ?> <?= $esc($currency) ?></dd></div>
         </dl>
-    </section>
+    </header>
 
-    <?php if (!$moduleEnabled): ?>
-    <section class="card sabotage-alert sabotage-alert--warning">
-        <strong><?= t('sabotage.module_disabled_title') ?></strong>
-        <p><?= t('sabotage.module_disabled_text') ?></p>
-    </section>
-    <?php elseif ($options === []): ?>
-    <section class="card sabotage-alert sabotage-alert--warning">
-        <strong><?= t('sabotage.no_options_title') ?></strong>
-        <p><?= t('sabotage.no_options_text') ?></p>
-    </section>
+    <?php if (!$moduleEnabled || $options === []): ?>
+        <section class="sabotage-alert sabotage-alert--warning" role="status">
+            <h3><?= t($moduleEnabled ? 'sabotage.no_options_title' : 'sabotage.module_disabled_title') ?></h3>
+            <p><?= t($moduleEnabled ? 'sabotage.no_options_text' : 'sabotage.module_disabled_text') ?></p>
+        </section>
     <?php else: ?>
-    <section class="card sabotage-options">
-        <h3><?= t('sabotage.options_title') ?></h3>
-        <div class="sabotage-option-grid">
+        <section class="sabotage-surface sabotage-options" aria-labelledby="sabotage-actions-heading">
+            <div class="sabotage-section-heading"><h3 id="sabotage-actions-heading"><?= t('sabotage.options_title') ?></h3><span><?= t('sabotage.select_action_hint') ?></span></div>
+            <div class="sabotage-option-grid" role="group" aria-label="<?= $esc(tPlain('sabotage.options_title')) ?>">
             <?php foreach ($options as $option): ?>
-            <?php
-            $requiresBlackMarket = (int)($option['requires_black_market'] ?? 0) === 1;
-            ?>
-            <article class="sabotage-option-card">
-                <div class="sabotage-option-head">
-                    <h4><?= htmlspecialchars((string)$option['name'], ENT_QUOTES, 'UTF-8') ?></h4>
-                    <span class="sabotage-option-severity sabotage-option-severity--<?= htmlspecialchars((string)$option['severity'], ENT_QUOTES, 'UTF-8') ?>">
-                        <?= t('sabotage.severity_' . (string)$option['severity']) ?>
+                <?php $severity = in_array($option['severity'], ['low', 'medium', 'high', 'critical'], true) ? $option['severity'] : 'high'; ?>
+                <button type="button" class="sabotage-option-card" data-sabotage-action data-id="<?= (int)$option['id'] ?>" data-name="<?= $esc($option['name']) ?>" data-description="<?= $esc($option['description']) ?>" data-severity="<?= $esc(tPlain('sabotage.severity_' . $severity)) ?>" data-risk="<?= $severity ?>" data-chance="<?= $esc(number_format((float)$option['base_chance_pct'], 1, ',', ' ') . '%') ?>" data-cooldown="<?= (int)$option['cooldown_minutes'] ?>" data-market="<?= (int)$option['requires_black_market'] ?>" aria-pressed="false">
+                    <span class="sabotage-option-head"><strong><?= $esc($option['name']) ?></strong><span class="sabotage-risk sabotage-risk--<?= $severity ?>"><?= t('sabotage.severity_' . $severity) ?></span></span>
+                    <span class="sabotage-option-desc"><?= $esc($option['description']) ?></span>
+                    <span class="sabotage-option-meta">
+                        <span><small><?= t('sabotage.meta_chance') ?></small><b><?= number_format((float)$option['base_chance_pct'], 1, ',', ' ') ?>%</b></span>
+                        <span><small><?= t('sabotage.meta_cost') ?></small><b><?php if ($option['cost_type'] === 'percent_reference'): ?><?= number_format((float)$option['cost_value'], 1, ',', ' ') ?>% <?= t('sabotage.cost_pct_of_cash') ?><?php else: ?><?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= $esc($currency) ?><?php endif; ?></b></span>
+                        <span><small><?= t('sabotage.meta_cooldown') ?></small><b><?= (int)$option['cooldown_minutes'] ?> min</b></span>
                     </span>
-                </div>
-                <p class="sabotage-option-desc"><?= htmlspecialchars((string)$option['description'], ENT_QUOTES, 'UTF-8') ?></p>
-                <dl class="sabotage-option-meta">
-                    <div>
-                        <dt><?= t('sabotage.meta_chance') ?></dt>
-                        <dd><?= number_format((float)$option['base_chance_pct'], 1, ',', ' ') ?>%</dd>
-                    </div>
-                    <div>
-                        <dt><?= t('sabotage.meta_cost') ?></dt>
-                        <dd>
-                        <?php if ((string)$option['cost_type'] === 'percent_reference'): ?>
-                            <?= number_format((float)$option['cost_value'], 1, ',', ' ') ?>% <?= t('sabotage.cost_pct_of_cash') ?>
-                        <?php elseif ((string)$option['cost_type'] === 'per_bbl'): ?>
-                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= t('sabotage.cost_per_bbl') ?>
-                        <?php else: ?>
-                            <?= number_format((float)$option['cost_value'], 0, ',', ' ') ?> <?= htmlspecialchars($currency, ENT_QUOTES, 'UTF-8') ?>
-                        <?php endif; ?>
-                        </dd>
-                    </div>
-                    <div>
-                        <dt><?= t('sabotage.meta_cooldown') ?></dt>
-                        <dd><?= (int)$option['cooldown_minutes'] ?> min</dd>
-                    </div>
-                </dl>
-                <?php if ($requiresBlackMarket): ?>
-                <div class="sabotage-option-flag"><?= t('sabotage.requires_black_market') ?></div>
-                <?php endif; ?>
-            </article>
+                    <?php if ((int)$option['requires_black_market'] === 1): ?><span class="sabotage-option-flag"><?= t('sabotage.requires_black_market') ?></span><?php endif; ?>
+                </button>
             <?php endforeach; ?>
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <section class="card sabotage-targets">
-        <div class="sabotage-targets-head">
-            <h3><?= t('sabotage.targets_title') ?></h3>
-            <span class="sabotage-targets-count"><?= (int)($targetTotal ?? 0) ?> graczy</span>
-        </div>
-        <?php if ($targets === []): ?>
-        <p class="sabotage-empty"><?= t('sabotage.no_targets') ?></p>
-        <?php else: ?>
-        <div class="sabotage-target-grid">
-            <?php foreach ($targets as $target): ?>
-            <?php
-            $targetId = (int)$target['id'];
-            $targetName = (string)($target['company_name'] ?: $target['username']);
-            ?>
-            <article class="sabotage-target-card">
-                <div class="sabotage-target-head">
-                    <div>
-                        <h4><?= htmlspecialchars($targetName, ENT_QUOTES, 'UTF-8') ?></h4>
-                        <p><?= htmlspecialchars((string)$target['username'], ENT_QUOTES, 'UTF-8') ?></p>
-                    </div>
-                    <span class="sabotage-target-status sabotage-target-status--<?= htmlspecialchars((string)($target['status'] ?? 'active'), ENT_QUOTES, 'UTF-8') ?>">
-                        <?= t('sabotage.player_status_' . (string)($target['status'] ?? 'active')) ?>
-                    </span>
-                </div>
-
-                <div class="sabotage-target-actions">
-                    <?php foreach ($options as $option): ?>
-                    <?php
-                    $optionId = (int)$option['id'];
-                    $requiresBlackMarket = (int)($option['requires_black_market'] ?? 0) === 1;
-                    $cooldownUntil = $cooldownMap[$targetId][$optionId] ?? null;
-                    $disabledReason = '';
-                    if ($requiresBlackMarket && $blackMarketScore <= 0.0) {
-                        $disabledReason = tPlain('sabotage.disabled_black_market');
-                    } elseif ($cooldownUntil !== null) {
-                        $disabledReason = tPlain('sabotage.disabled_cooldown', ['time' => $cooldownUntil]);
-                    }
-                    ?>
-                    <form method="post" action="<?= url('sabotage') ?>"
-                          class="sabotage-fire-form"
-                          <?= $disabledReason === '' ? 'data-confirm="' . htmlspecialchars(tPlain('sabotage.confirm_fire', ['name' => (string)$option['name'], 'target' => $targetName]), ENT_QUOTES, 'UTF-8') . '"' : '' ?>
-                          <?= $disabledReason === '' ? 'data-confirm-title="' . htmlspecialchars(tPlain('sabotage.confirm_title'), ENT_QUOTES, 'UTF-8') . '"' : '' ?>
-                          <?= $disabledReason === '' ? 'data-confirm-type="warning"' : '' ?>
-                          <?= $disabledReason === '' ? 'data-confirm-label="' . htmlspecialchars(tPlain('sabotage.btn_execute'), ENT_QUOTES, 'UTF-8') . '"' : '' ?>>
-                        <?= CSRF::field() ?>
-                        <input type="hidden" name="action" value="execute_sabotage">
-                        <input type="hidden" name="target_player_id" value="<?= $targetId ?>">
-                        <input type="hidden" name="option_id" value="<?= $optionId ?>">
-                        <button type="submit" class="btn btn-secondary sabotage-fire-btn"<?= $disabledReason !== '' ? ' disabled' : '' ?>>
-                            <?= htmlspecialchars((string)$option['name'], ENT_QUOTES, 'UTF-8') ?>
+        <div class="sabotage-work-grid">
+            <section class="sabotage-surface sabotage-targets" aria-labelledby="sabotage-targets-heading">
+                <div class="sabotage-section-heading"><h3 id="sabotage-targets-heading"><?= t('sabotage.targets_title') ?></h3><span><?= (int)$targetTotal ?> <?= t('sabotage.targets_count') ?></span></div>
+                <form class="sabotage-target-controls" method="get" action="<?= $esc(url('sabotage')) ?>" data-sabotage-search-form>
+                    <label class="sabotage-search-wrap"><span class="sr-only"><?= t('sabotage.search_label') ?></span><input type="search" name="q" value="<?= $esc($targetQuery) ?>" maxlength="80" placeholder="<?= $esc(tPlain('sabotage.search_placeholder')) ?>" autocomplete="off" data-sabotage-search aria-autocomplete="list" aria-controls="sabotage-suggestions" aria-expanded="false"><span class="sabotage-suggestions" id="sabotage-suggestions" role="listbox" hidden></span></label>
+                    <label class="sabotage-filter-wrap"><span class="sr-only"><?= t('sabotage.filter_label') ?></span><select name="status" data-sabotage-status><?php foreach (['all', 'active', 'inactive'] as $status): ?><option value="<?= $status ?>"<?= $targetStatus === $status ? ' selected' : '' ?>><?= t('sabotage.filter_' . $status) ?></option><?php endforeach; ?></select></label>
+                    <button type="submit" class="sabotage-search-submit"><?= t('sabotage.search_button') ?></button>
+                </form>
+                <div class="sabotage-target-headings" aria-hidden="true"><span><?= t('sabotage.target_player') ?></span><span><?= t('sabotage.filter_label') ?></span></div>
+                <div class="sabotage-target-list" role="group" aria-label="<?= $esc(tPlain('sabotage.targets_title')) ?>">
+                    <?php foreach ($targets as $target): ?>
+                        <?php $active = $target['status'] === 'active'; $targetId = (int)$target['id']; ?>
+                        <button type="button" class="sabotage-target-row" data-sabotage-target data-id="<?= $targetId ?>" data-name="<?= $esc($target['company_name'] ?: $target['username']) ?>" data-status="<?= $active ? 'active' : 'inactive' ?>" data-quotes="<?= $esc(json_encode($costQuotes[$targetId] ?? [], JSON_THROW_ON_ERROR)) ?>" data-cooldowns="<?= $esc(json_encode($cooldownMap[$targetId] ?? [], JSON_THROW_ON_ERROR)) ?>" aria-pressed="false"<?= !$active ? ' disabled' : '' ?>>
+                            <span class="sabotage-target-name"><span class="sabotage-radio" aria-hidden="true"></span><strong><?= $esc($target['company_name'] ?: $target['username']) ?></strong><?php if ($target['company_name'] && $target['company_name'] !== $target['username']): ?><small><?= $esc($target['username']) ?></small><?php endif; ?></span>
+                            <span class="sabotage-target-status sabotage-target-status--<?= $active ? 'active' : 'inactive' ?>"><?= t('sabotage.player_status_' . ($active ? 'active' : 'inactive')) ?></span>
                         </button>
-                        <?php if ($disabledReason !== ''): ?>
-                        <div class="sabotage-disabled-note"><?= htmlspecialchars($disabledReason, ENT_QUOTES, 'UTF-8') ?></div>
-                        <?php else: ?>
-                        <div class="sabotage-enabled-note">
-                            <?= t('sabotage.fire_hint', ['chance' => number_format((float)$option['base_chance_pct'], 1, ',', ' ')]) ?>
-                        </div>
-                        <?php endif; ?>
-                    </form>
                     <?php endforeach; ?>
                 </div>
-            </article>
-            <?php endforeach; ?>
+                <?php if ($targets === []): ?><p class="sabotage-empty" role="status"><?= t('sabotage.no_targets') ?></p><?php endif; ?>
+                <p class="sabotage-result-count" aria-live="polite"><?= t('sabotage.results_count', ['shown' => count($targets), 'total' => $targetTotal]) ?></p>
+                <?php if ($targetPages > 1): ?><nav class="sabotage-pagination" aria-label="<?= $esc(tPlain('sabotage.targets_pages')) ?>">
+                    <?php for ($p = max(1, $targetPage - 2); $p <= min($targetPages, $targetPage + 2); $p++): ?><a class="sabotage-page-btn<?= $p === $targetPage ? ' active' : '' ?>" href="<?= $esc($navUrl(['tpage' => $p])) ?>"<?= $p === $targetPage ? ' aria-current="page"' : '' ?>><?= $p ?></a><?php endfor; ?>
+                </nav><?php endif; ?>
+            </section>
+
+            <aside class="sabotage-surface sabotage-selection" aria-labelledby="sabotage-selection-heading">
+                <div class="sabotage-section-heading"><h3 id="sabotage-selection-heading"><?= t('sabotage.selection_title') ?></h3></div>
+                <div class="sabotage-chosen"><span class="sabotage-eyebrow"><?= t('sabotage.selection_action') ?></span><strong data-sabotage-chosen-action><?= t('sabotage.selection_empty') ?></strong><p data-sabotage-chosen-description></p><span class="sabotage-risk" data-sabotage-chosen-risk hidden></span></div>
+                <div class="sabotage-chosen"><span class="sabotage-eyebrow"><?= t('sabotage.selection_target') ?></span><strong data-sabotage-chosen-target><?= t('sabotage.selection_empty') ?></strong></div>
+                <div class="sabotage-summary"><h4><?= t('sabotage.selection_summary') ?></h4><dl><div><dt><?= t('sabotage.meta_chance') ?></dt><dd data-sabotage-chance>—</dd></div><div><dt><?= t('sabotage.meta_cost') ?></dt><dd data-sabotage-cost>—</dd></div><div><dt><?= t('sabotage.meta_cooldown') ?></dt><dd data-sabotage-cooldown>—</dd></div></dl></div>
+                <p class="sabotage-disabled-note" role="status" aria-live="polite" data-sabotage-disabled></p>
+                <button type="button" class="sabotage-execute" data-sabotage-execute disabled><?= t('sabotage.btn_execute') ?></button>
+                <form id="sabotage-action-form" method="post" action="<?= $esc(url('sabotage')) ?>">
+                    <?= CSRF::field() ?>
+                    <input type="hidden" name="operation_token" value="<?= $esc($operationToken) ?>">
+                    <input type="hidden" name="action" value="execute_sabotage">
+                    <input type="hidden" name="option_id" value="">
+                    <input type="hidden" name="target_player_id" value="">
+                </form>
+            </aside>
         </div>
-        <?php if (($targetPages ?? 1) > 1): ?>
-        <nav class="sabotage-pagination" aria-label="Strony celów">
-            <?php if (($targetPage ?? 1) > 1): ?>
-            <a href="?tpage=<?= ($targetPage ?? 1) - 1 ?>" class="sabotage-page-btn">&larr;</a>
-            <?php endif; ?>
-            <?php for ($p = max(1, ($targetPage ?? 1) - 2); $p <= min(($targetPages ?? 1), ($targetPage ?? 1) + 2); $p++): ?>
-            <a href="?tpage=<?= $p ?>" class="sabotage-page-btn<?= $p === ($targetPage ?? 1) ? ' active' : '' ?>"><?= $p ?></a>
-            <?php endfor; ?>
-            <?php if (($targetPage ?? 1) < ($targetPages ?? 1)): ?>
-            <a href="?tpage=<?= ($targetPage ?? 1) + 1 ?>" class="sabotage-page-btn">&rarr;</a>
-            <?php endif; ?>
-        </nav>
-        <?php endif; ?>
-        <?php endif; ?>
-    </section>
     <?php endif; ?>
 
-    <section class="card sabotage-history">
-        <h3><?= t('sabotage.history_title') ?></h3>
-        <?php if ($attempts === []): ?>
-        <p class="sabotage-empty"><?= t('sabotage.history_empty') ?></p>
-        <?php else: ?>
-        <div class="sabotage-history-list">
-            <?php foreach ($attempts as $attempt): ?>
-            <article class="sabotage-history-item">
-                <div>
-                    <strong><?= htmlspecialchars((string)($attempt['option_name'] ?? $attempt['option_code'] ?? ''), ENT_QUOTES, 'UTF-8') ?></strong>
-                    <p><?= htmlspecialchars((string)($attempt['target_company'] ?: $attempt['target_username']), ENT_QUOTES, 'UTF-8') ?></p>
-                </div>
-                <div class="sabotage-history-meta">
-                    <span class="sabotage-history-status sabotage-history-status--<?= htmlspecialchars((string)$attempt['status'], ENT_QUOTES, 'UTF-8') ?>">
-                        <?= t('sabotage.status_' . (string)$attempt['status']) ?>
-                    </span>
-                    <span><?= htmlspecialchars((string)$attempt['created_at'], ENT_QUOTES, 'UTF-8') ?></span>
-                </div>
-            </article>
-            <?php endforeach; ?>
-        </div>
+    <section class="sabotage-surface sabotage-history" aria-labelledby="sabotage-history-heading">
+        <div class="sabotage-section-heading"><h3 id="sabotage-history-heading"><?= t('sabotage.history_title') ?></h3><span><?= (int)$historyTotal ?></span></div>
+        <?php if ($attempts === []): ?><p class="sabotage-empty"><?= t('sabotage.history_empty') ?></p><?php else: ?>
+            <div class="sabotage-history-head" aria-hidden="true"><span><?= t('sabotage.history_action') ?></span><span><?= t('sabotage.history_target') ?></span><span><?= t('sabotage.history_result') ?></span><span><?= t('sabotage.history_date') ?></span></div>
+            <ol class="sabotage-history-list">
+                <?php foreach ($attempts as $attempt): ?>
+                    <?php $status = in_array($attempt['status'], ['success', 'failed', 'partially_blocked', 'blocked_by_protection', 'detected', 'cancelled'], true) ? $attempt['status'] : 'failed'; ?>
+                    <li class="sabotage-history-item"><span><?= $esc($attempt['option_name'] ?? $attempt['option_code'] ?? '') ?></span><span><?= $esc($attempt['target_company'] ?: ($attempt['target_username'] ?? '')) ?></span><span><span class="sabotage-history-status sabotage-history-status--<?= $status ?>"><?= t('sabotage.status_' . $status) ?></span></span><time datetime="<?= $esc($attempt['created_at']) ?>"><?= $esc($attempt['created_at']) ?></time></li>
+                <?php endforeach; ?>
+            </ol>
         <?php endif; ?>
+        <?php if ($historyPages > 1): ?><nav class="sabotage-pagination" aria-label="<?= $esc(tPlain('sabotage.history_pages')) ?>">
+            <?php if ($historyPage > 1): ?><a class="sabotage-page-btn" href="<?= $esc($navUrl(['hpage' => $historyPage - 1])) ?>"><?= t('sabotage.prev') ?></a><?php else: ?><span class="sabotage-page-btn" aria-disabled="true"><?= t('sabotage.prev') ?></span><?php endif; ?>
+            <?php for ($p = 1; $p <= $historyPages; $p++): ?><a class="sabotage-page-btn<?= $p === $historyPage ? ' active' : '' ?>" href="<?= $esc($navUrl(['hpage' => $p])) ?>"<?= $p === $historyPage ? ' aria-current="page"' : '' ?>><?= $p ?></a><?php endfor; ?>
+            <?php if ($historyPage < $historyPages): ?><a class="sabotage-page-btn" href="<?= $esc($navUrl(['hpage' => $historyPage + 1])) ?>"><?= t('sabotage.next') ?></a><?php else: ?><span class="sabotage-page-btn" aria-disabled="true"><?= t('sabotage.next') ?></span><?php endif; ?>
+        </nav><?php endif; ?>
     </section>
+
+    <dialog id="sabotage-confirm-dialog" class="sabotage-dialog" aria-labelledby="sabotage-confirm-heading">
+        <h3 id="sabotage-confirm-heading"><?= t('sabotage.confirm_title') ?></h3>
+        <dl class="sabotage-confirm-details"><div><dt><?= t('sabotage.selection_action') ?></dt><dd data-sabotage-confirm-action></dd></div><div><dt><?= t('sabotage.selection_target') ?></dt><dd data-sabotage-confirm-target></dd></div><div><dt><?= t('sabotage.meta_cost') ?></dt><dd data-sabotage-confirm-cost></dd></div><div><dt><?= t('sabotage.meta_cooldown') ?></dt><dd data-sabotage-confirm-cooldown></dd></div></dl>
+        <div class="sabotage-dialog-actions"><button type="button" data-sabotage-cancel><?= t('sabotage.cancel') ?></button><button type="button" data-sabotage-confirm><?= t('sabotage.btn_execute') ?></button></div>
+    </dialog>
 </div>
+<script src="/assets/js/sabotage.js" defer></script>
