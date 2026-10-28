@@ -1,0 +1,14 @@
+# Source: 7521a97aab762c1ff4dd27b249b78778922cb5ed. All observations STATIC_ONLY.
+file	admin_auth	post	csrf	view	view_present	missing_css_js	lines	status
+bank.php	requireLogin	yes	yes	templates/views/admin/bank/main.php	yes	none	177	STATIC_ONLY
+alerts.php	requireLogin	yes	yes	templates/views/admin/alerts/main.php	yes	none	360	STATIC_ONLY
+visits.php	requireLogin	yes	yes	templates/views/admin/visits/main.php	yes	none	90	STATIC_ONLY
+logs.php	requireLogin	yes	yes	templates/views/admin/logs/main.php	yes	none	275	STATIC_ONLY
+tick_modules.php	requireLogin	yes	yes	templates/views/admin/tick_modules/main.php	yes	none	170	STATIC_ONLY
+chat.php	requireLogin	yes	yes	templates/views/admin/chat/main.php	yes	none	489	STATIC_ONLY
+news.php	requireLogin	yes	yes	templates/views/admin/news/main.php	yes	none	180	STATIC_ONLY
+newsletter.php	requireLogin	yes	yes	templates/views/admin/newsletter/main.php	yes	none	260	STATIC_ONLY
+admin_help.php	requireLogin	yes	yes	templates/views/admin/admin_help/main.php	yes	none	151	STATIC_ONLY
+help_editor.php	requireLogin	yes	yes	templates/views/admin/help_editor/main.php	yes	none	158	STATIC_ONLY
+template_editor.php	requireLogin	yes	yes	templates/views/admin/template_editor/main.php	yes	none	702	STATIC_ONLY
+privacy.php	requireLogin	yes	yes	templates/views/admin/privacy/main.php	yes	none	78	STATIC_ONLY
