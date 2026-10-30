@@ -1,7 +1,7 @@
 # Protokół kontroli plik po pliku — OilCorp 2.0
 
 ## Zakres
-Źródło: Git `main` @ `7521a97aab762c1ff4dd27b249b78778922cb5ed`. Rejestr `02_ALL_TRACKED_FILES.tsv` obejmuje 5133 śledzonych plików. Dotąd 102 pliki mają status co najmniej kontroli statycznej (33 przeglądy krytyczne, 34 pozostałe kontrolery admina, 35 widoków admina). **5031 plików jeszcze nie sprawdzono indywidualnie**. Raporty uzupełniające: `07_EVIDENCE_ADDENDUM_B.md` oraz `08_MOBILE_AUTH_FILE_REVIEW_C.md` oraz `09_API_LIMITER_MARKET_FILE_REVIEW_D.md` oraz `10_MARKET_TICK_FILE_REVIEW_E.md`. Statusy nie oznaczają pełnej weryfikacji zależności ani działania. Dla żadnej funkcji nie odnotowano nowego, wykonanego w tej serii testu runtime.
+Źródło: Git `main` @ `7521a97aab762c1ff4dd27b249b78778922cb5ed`. Rejestr `02_ALL_TRACKED_FILES.tsv` obejmuje 5133 śledzonych plików. Dotąd 102 pliki mają status co najmniej kontroli statycznej (33 przeglądy krytyczne, 34 pozostałe kontrolery admina, 35 widoków admina). **5031 plików jeszcze nie sprawdzono indywidualnie**. Raporty uzupełniające: `07_EVIDENCE_ADDENDUM_B.md`–`10_MARKET_TICK_FILE_REVIEW_E.md`. Głęboki audyt 102 pozycji jest śledzony w `12_102_DEEP_REVIEW_TRACKER.tsv`: 18 odczytanych w całości z otwartymi zależnościami, 84 oczekujące. Raporty szczegółowe: `11_DEEP_REVIEW_MARKET_ADMIN_F.md`, `13_DEEP_REVIEW_TICK_MODULES_G.md`, `14_DEEP_REVIEW_FORCE_TICK_2FA_H.md`. Przekazanie: `15_HANDOFF_FOR_NEXT_AI.md`. Statusy nie oznaczają pełnej weryfikacji zależności ani działania. Dla żadnej funkcji nie odnotowano nowego, wykonanego w tej serii testu runtime.
 
 ## Procedura każdej pozycji rejestru
 
