@@ -1,7 +1,7 @@
 # Protokół kontroli plik po pliku — OilCorp 2.0
 
 ## Zakres
-Źródło: Git `main` @ `7521a97aab762c1ff4dd27b249b78778922cb5ed`. Rejestr `02_ALL_TRACKED_FILES.tsv` obejmuje 5133 śledzonych plików. Dotąd 92 pliki mają status co najmniej kontroli statycznej (23 przeglądy krytyczne, 34 pozostałe kontrolery admina, 35 widoków admina). **5041 plików jeszcze nie sprawdzono indywidualnie**. Dla żadnej funkcji nie odnotowano nowego, wykonanego w tej serii testu runtime.
+Źródło: Git `main` @ `7521a97aab762c1ff4dd27b249b78778922cb5ed`. Rejestr `02_ALL_TRACKED_FILES.tsv` obejmuje 5133 śledzonych plików. Dotąd 94 pliki mają status co najmniej kontroli statycznej (25 przeglądów krytycznych, 34 pozostałe kontrolery admina, 35 widoków admina). **5039 plików jeszcze nie sprawdzono indywidualnie**. Raporty uzupełniające: `07_EVIDENCE_ADDENDUM_B.md` oraz `08_MOBILE_AUTH_FILE_REVIEW_C.md`. Statusy nie oznaczają pełnej weryfikacji zależności ani działania. Dla żadnej funkcji nie odnotowano nowego, wykonanego w tej serii testu runtime.
 
 ## Procedura każdej pozycji rejestru
 
