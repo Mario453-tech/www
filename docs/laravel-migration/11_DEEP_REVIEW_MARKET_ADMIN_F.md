@@ -4,7 +4,7 @@ Data: 2026-10-30. Gałąź `feature/oilcorp-laravel-audit-baseline`. Przeczytano
 
 ## Wejście, uprawnienia i dane
 
-`admin/market.php:5-17`: bootstrap admina, `AdminAuth::requireLogin()`, kontrola CSRF dla POST. Widok ma 7 formularzy POST (cena, zmienność, trend aktywny, tick, dodanie/edycja trendu, usunięcie trendu w każdym wierszu) i 1 formularz GET do filtrowania. Wszystkie POST używają `CSRF::field()`. Strona ładuje `/assets/css/admin_market.css` (kontroler 200–203); dwa przyciski używają `confirmSubmit(...)` inline (widok 58–60, 104–106, 234–236 dla usunięcia), którego definicję i zachowanie przeglądarkowe trzeba osobno sprawdzić.
+`admin/market.php:5-17`: bootstrap admina, `AdminAuth::requireLogin()`, kontrola CSRF dla POST. Widok ma 6 formularzy POST (cena, zmienność, trend aktywny, tick, dodanie/edycja trendu, usunięcie trendu w każdym wierszu) i 1 formularz GET do filtrowania. Wszystkie POST używają `CSRF::field()`. Strona ładuje `/assets/css/admin_market.css` (kontroler 200–203); trzy przyciski używają `confirmSubmit(...)` inline (widok 58–60, 104–106, 234–236 dla usunięcia), którego definicję i zachowanie przeglądarkowe trzeba osobno sprawdzić.
 
 | Akcja | Linie kontrolera | Tabela/kolumny | Efekt w silniku |
 | --- | --- | --- | --- |
