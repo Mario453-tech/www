@@ -104,10 +104,10 @@ api/internal/WellStaffApi.php	175	0e360e029fdfe936a7aff446c8fda882241830ef	first
 api/notifications/mark-all-read.php	877	29ced6e26d45cd8e004b945d02609b82302af3ca	first_party_code	NOT_REVIEWED
 api/notifications/mark-read.php	1076	c30d29209cd818eb57ccbd4949b97287e58afc1a	first_party_code	NOT_REVIEWED
 api/privacy/consent.php	2356	2bb811e958c275eafa82091a3364516f38abc571	first_party_code	NOT_REVIEWED
-api/v1/_bootstrap.php	3222	8c93e780334b4f9d179cc6b04ee33bae04417a44	first_party_code	NOT_REVIEWED
+api/v1/_bootstrap.php	3222	8c93e780334b4f9d179cc6b04ee33bae04417a44	first_party_code	CRITICAL_STATIC_REVIEW
 api/v1/app/version.php	1379	146f6bbe488d81fb338a35032abea0b208772bcf	first_party_code	NOT_REVIEWED
 api/v1/auth/login.php	2746	eac860c96cbb0608c3992c9db61bd9b96bd9bfbe	first_party_code	CRITICAL_STATIC_REVIEW
-api/v1/auth/logout.php	598	2db8ac747bb0b3e9bda191410fd2ce21452e7143	first_party_code	NOT_REVIEWED
+api/v1/auth/logout.php	598	2db8ac747bb0b3e9bda191410fd2ce21452e7143	first_party_code	CRITICAL_STATIC_REVIEW
 api/v1/auth/webview-bridge.php	843	01a6ca5868659f85dfdc18d913463f64492bbf41	first_party_code	NOT_REVIEWED
 api/v1/healthcheck.php	13109	4ce225b9087e58caa88c04f8580269ca54c02fc1	first_party_code	NOT_REVIEWED
 api/v1/maps/index.php	4220	c1ef0608f123ead0728169e067a84b9261d758f3	first_party_code	NOT_REVIEWED
