@@ -1,0 +1,14 @@
+# Source: 7521a97aab762c1ff4dd27b249b78778922cb5ed. All observations STATIC_ONLY.
+file	admin_auth	post	csrf	view	view_present	missing_css_js	lines	status
+transport.php	requireLogin	yes	yes	templates/views/admin/transport/main.php	yes	none	239	STATIC_ONLY
+transport_loss.php	requireLogin	no	no	templates/views/admin/transport_loss/main.php	yes	none	137	STATIC_ONLY
+pipelines.php	requireLogin	yes	yes	templates/views/admin/pipelines/main.php	yes	none	350	STATIC_ONLY
+logistics_hubs.php	requireLogin	yes	yes	templates/views/admin/logistics/main.php	yes	none	189	STATIC_ONLY
+protection.php	requireLogin	yes	yes	templates/views/admin/protection/main.php	yes	none	254	STATIC_ONLY
+sabotage.php	requireLogin	yes	yes	templates/views/admin/sabotage/main.php	yes	none	224	STATIC_ONLY
+legal.php	requireLogin	yes	yes	templates/views/admin/legal/main.php	yes	none	319	STATIC_ONLY
+bribery.php	requireLogin	yes	yes	templates/views/admin/bribery/main.php	yes	none	92	STATIC_ONLY
+contracts.php	requireLogin	yes	yes	templates/views/admin/contracts/main.php	yes	none	399	STATIC_ONLY
+finance.php	requireLogin	yes	yes	templates/views/admin/finance/main.php	yes	none	68	STATIC_ONLY
+financial-crisis.php	requireLogin	yes	yes	templates/views/admin/financial-crisis/main.php	yes	none	142	STATIC_ONLY
+credibility.php	requireLogin	yes	yes	templates/views/admin/credibility/main.php	yes	none	123	STATIC_ONLY
