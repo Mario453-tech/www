@@ -54,6 +54,15 @@ Nie dotykać produkcyjnej DB, nie uruchamiać `full_wipe`, destrukcyjnych migrac
 
 W tej serii **nie uruchomiono nowych testów jednostkowych, integracyjnych, E2E ani wizualnych**. Brak izolowanej anonimowej kopii MySQL i działającego środowiska dla tej gałęzi; próba klonowania repo przez HTTPS w środowisku pracy zakończyła się błędem dostępu sieciowego. Odczyty i zapisy dokumentacji wykonano przez połączony GitHub. Nie uruchamiano CRON, panelu ani migracji. Istniejące testy `tests/Integration/ApiAuthSecurityTest.php`, `ApiAuthRetentionRaceTest.php`, `tests/MySqlIntegration/MySqlApiAuthRateLimiterTest.php` obejmują m.in. limity i wyścigi; ostatni wymaga `API_TEST_MYSQL_DSN` do dedykowanej bazy testowej i może być pominięty. Istnienie testu nie oznacza jego przejścia ani pokrycia konkretnych ustaleń. Potrzebny kontrakt API mobile, testy idempotencji/wyścigów ticków oraz porównania widoków 1440/390/320 px.
 
+
+## Korekta wymagania dotyczącego ticka — 2026-11-06
+
+Użytkownik sprostował wcześniejszy opis architektury: „tick jako tick będzie w trybie odczytywany od razu”. Wcześniejsza odpowiedź asystenta, że Laravel Scheduler ma po prostu uruchamiać globalny tick co 5 minut, **nie odzwierciedla tego wymagania**. Obecny kod ma `cron-5min.php` (blob `b2b49c2830fa6892a480825e6fab4fa076cbbcf1`) jako wejście hostingu co pięć minut, lecz jest to stan obecnego systemu, a nie zatwierdzony projekt nowego silnika.
+
+Dla dalszego projektu przyjmij jako wymaganie natychmiastową aktualność stanu widzianego przy odczycie. Pięć minut może wyznaczać okres rozliczeniowy, ale nie wolno projektować UX zakładającego czekanie do kolejnego CRON na zobaczenie należnego ticka. Bezpieczny wariant do sprawdzenia: przy żądaniu stanu oblicz zaległe okresy dla gracza, zapisz wynik idempotentnie pod blokadą i zwróć już aktualny stan. Nie uruchamiaj pełnego globalnego ticka na każdym GET. Rynek i inne dane wspólne wymagają osobnego, jednoznacznego punktu rozliczenia oraz tej samej blokady przy dostępie równoległym. Harmonogram w tle może być zabezpieczeniem, ale nie jedynym mechanizmem aktualizacji.
+
+**Otwarte doprecyzowanie przed implementacją:** czy „odczytywany od razu” oznacza trwałe rozliczenie zaległych okresów podczas odczytu, czy natychmiastową projekcję widoku z późniejszym zapisem? Nie narzucaj jednego z tych wariantów bez potwierdzenia. Testy muszą objąć dwa równoległe odczyty, brak podwójnego naliczenia, długi czas bez logowania, limit nadrabianych okresów, zmianę ustawień w środku okresu i zgodność z API mobilnym. Zachować jedno źródło prawdy dla sald i historii.
+
 ## Dokładna procedura kontynuacji
 
 1. Sprawdź head PR, aktualne SHA i różnice do `main`; nie wpisuj ustaleń dla starego blobu bez weryfikacji. Pracuj wyłącznie na gałęzi audytowej i utrzymuj PR jako draft.
