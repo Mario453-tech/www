@@ -1,0 +1,14 @@
+# Source 7521a97aab762c1ff4dd27b249b78778922cb5ed — static scan only; not proof that UI works.
+path	lines	forms	buttons	inline_events	php_data_bind	includes	missing_literal_assets	status
+templates/views/admin/transport_loss/main.php	202	0	0	0	extract	0	none	STATIC_ONLY
+templates/views/admin/pipelines/main.php	271	5	5	0	extract	3	none	STATIC_ONLY
+templates/views/admin/logistics/main.php	511	12	12	0	other	4	none	STATIC_ONLY
+templates/views/admin/protection/main.php	503	4	4	0	extract	4	none	STATIC_ONLY
+templates/views/admin/sabotage/main.php	319	4	4	0	extract	5	none	STATIC_ONLY
+templates/views/admin/legal/main.php	351	6	7	1	extract	2	none	STATIC_ONLY
+templates/views/admin/bribery/main.php	103	1	1	0	extract	0	none	STATIC_ONLY
+templates/views/admin/contracts/main.php	1025	13	13	0	other	7	none	STATIC_ONLY
+templates/views/admin/finance/main.php	819	4	4	3	extract	1	none	STATIC_ONLY
+templates/views/admin/financial-crisis/main.php	140	3	3	2	extract	0	none	STATIC_ONLY
+templates/views/admin/credibility/main.php	145	1	3	0	extract	2	none	STATIC_ONLY
+templates/views/admin/bank/main.php	254	1	5	0	extract	3	none	STATIC_ONLY
