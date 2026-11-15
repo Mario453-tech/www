@@ -1,0 +1,1818 @@
+# =====================================================================
+# OILEMPIRE — game_balance v1  (struktura modularna wg §29.6 specyfikacji)
+# Złożono: 2026-11-13 z 4 równoległych wyciągów (GPT-assembled) dokumentu
+# OILCORP_LARAVEL_ARCHITEKTURA_SYSTEMOWA.md (~2077 linii).
+# Zasady: zmiana = nowa balance_version + four-eyes (§18.3/§29.5);
+#   moduł dodaje własne poddrzewo + schemat JSON; rdzeń zna tylko manifesty.
+# KONFLIKTY ROZWIĄZANE PRZY SCALANIU:
+#   1) Ceny/czasy ochrony: §11A.7 (75k/500k/50k-h/120k/30k-h) vs §7.2 (2%/5%/35k/60k)
+#      -> KANON §7.2 (kalibrowany do ekonomii ataku); w logistics.protection zostały
+#         wyłącznie mnożniki ryzyka, pola cen wyzerowane do null.
+#   2) Eskorta: −40% ryzyka kradzieży (§7) vs partial_theft ×0.5 (§11A.7)
+#      -> do uzgodnienia przy implementacji (oznaczone komentarzem).
+# WARTOŚCI null = parametr wspomniany w dokumencie BEZ liczby — lista na końcu pliku.
+# =====================================================================
+meta:
+  balance_version: 1
+  generated_at: "2026-11-13"
+  source_document: "OILCORP_LARAVEL_ARCHITEKTURA_SYSTEMOWA.md"
+  source_lines: 2077
+  currency: "PLN (nazwa per locale; zapis BIGINT grosze — §24.1)"
+
+modules:
+  core:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§1-§2, §14, §23, §24, §10"
+    params:
+      starter:  # §1
+        starting_cash_pln: 2000000        # §1 portfel (PLN_CASH)
+        starting_bank_balance_pln: 2000000  # §1 konto bankowe (PLN_BANK)
+        starting_warehouse_capacity_bbl: 20000  # §1 magazyn
+        starting_company_credibility_pts: 70  # §1 wiarygodność
+      reputation:  # §2
+        company_credibility:  # §2.1
+          min_pts: 0
+          max_pts: 100
+          levels:  # §2.1
+            critical_range_pts: [0, 19]
+            low_range_pts: [20, 39]
+            unstable_range_pts: [40, 59]
+            stable_range_pts: [60, 79]
+            high_range_pts: [80, 100]
+          deltas:  # §2.1
+            black_market_detected_pts: -12
+            bailiff_entry_pts: -20
+            bankruptcy_pts: -25
+            repair_plan_breach_pts: -10
+            ecological_disaster_pts: -15
+            bribery_caught_pts: -18
+            installment_paid_on_time_pts: 2
+            loan_repaid_pts: 8
+            loan_repaid_early_pts: 6
+            clean_operation_7d_pts: 3
+            clean_operation_window_days: 7
+            sabotage_caught_pts: -15  # §7.1 wpadka sabotażu (ujęta też w pvp_sabotage)
+        credit_score:  # §2 (diagram)
+          min_pts: 0
+          max_pts: 115
+        b2b_reputation_scores:  # §2
+          min_pct: 0
+          max_pct: 100
+          propagation_from_credibility_pct: 50  # §2.2 każda zmiana credibility o Δ przenosi 50% Δ, clamp 0-100
+          propagation_clamp_pct: [0, 100]
+        contract_reputation:  # §2
+          min_pts: 0
+          max_pts: 100
+        black_market_score:  # §2.3
+          min_pts: 0
+          max_pts: 100
+          gain_per_trade_pts: 2
+          decay_pts_per_24h: -1  # §2.3 liniowy do zera, od ostatniej transakcji
+          tax_audit:  # §2.3
+            risk_threshold_pts: 30  # ryzyko gdy score > 30
+            hourly_risk_per_pt_over_threshold_pct: 0.02  # szansa/h = (score-30) × 0.02%
+            bank_lock_pct: 50       # blokada 50% PLN_BANK
+            bank_lock_min_h: 24
+            bank_lock_max_h: 72
+            fine_pct_of_undeclared_cash_income: 10
+            credibility_penalty_pts: -12
+      profile_security:                                        # §14
+        starter_cash_pln: 2000000                              # §14.1 — pakiet startowy: cash (raz na odcisk tożsamości)
+        starter_bank_pln: 2000000                              # §14.1 — pakiet startowy: bank
+        starter_storage_bbl: 20000                             # §14.1 — magazyn (pojemność vs przyznana ropa — do rozstrzygnięcia w §1, uwaga §19.2)
+        starter_loan_secondary_account_pln: 500000             # §14.1 — kolejne konto z tego samego odcisku: start bez pakietu + pożyczka rozruchowa od SYS_TREASURY
+        account_link_grace_h: 48                               # §14.1 — linkowanie logowania Google z istniejącym kontem: karencja
+        multikonto_confirmed_credibility_delta: -10            # §14.1 — kara company_credibility za potwierdzone multikonto
+        password_min_chars: 12                                 # §14.2 — NIST 800-63B (passphrases dozwolone, HIBP uncompromised)
+        password_max_chars: 128                                # §14.2
+        twofa_enable_credibility_bonus: 5                      # §14.3 — bonus JEDNORAZOWY +5 company_credibility (flaga twofa_bonus_granted)
+        twofa_disable_credibility_delta: -5                    # §14.3 — wyłączenie odejmuje 5 pkt (nie niżej niż stan sprzed bonusu)
+        password_reset_token_ttl_min: 60                       # §14.4 — ważność linku resetującego
+        password_reset_rate_limit_per_h: 3                     # §14.4 — max 3 prośby/h z IP/konta
+        login_throttle_tier1_attempts: 5                       # §14.5 — throttle na konto
+        login_throttle_tier1_lock_s: 60                        # §14.5
+        login_throttle_tier2_attempts: 10                      # §14.5
+        login_throttle_tier2_lock_min: 15                      # §14.5 — + powiadomienie e-mail
+        login_ip_soft_limit_per_h: 50                          # §14.5 — miękki limit na IP z ostrzeżeniem; pełna blokada IP niestosowana (NAT)
+        trusted_device_ttl_days: 90                            # §14.5 — trusted_devices: expires_at sliding, identyfikator = hash tokenu sesji
+        stepup_auth_validity_min: 15                           # §14.5 — hasło/2FA podane w ciągu ostatnich 15 min
+        stepup_transfer_threshold_pln: 100000                  # §14.5 — przelew powyżej 100 000 PLN wymaga step-up auth
+        company_name_max_chars: 80                             # §14.6 — walidacja unikalności natychmiastowa
+        avatar_max_size_mb: 2                                  # §14.6 — PNG/JPEG/WEBP, re-encode, storage prywatny
+        avatar_signed_url_ttl_min: 15                          # §14.6 — dostęp przez signed URL
+      simulation:                                        # §23
+        sweeper_interval_min: 5                          # §23.1
+        sweeper_candidate_inactive_min: 5                # §23.2 — WHERE last_calc_at < NOW() − 5 min
+        due_slot_rounding_min: 5                         # §23.6 — due_slot = czas zdarzenia zaokrąglony w dół do 5 min
+        max_delta_chunk_h: 1                             # §23.5 — MAX_DELTA_CHUNK
+        delta_cap_s: 604800                              # §23.5 — cap DR = 7 dni
+        delta_cap_days: 7                                # §23.5
+        dormant_to_bankruptcy_days: 14                   # §23.5 — ścieżka §17.3 po 14 dniach dormant
+        idle_opex_pct: 20                                # §23.4 — OPEX jałowy = 20% stawki nominalnej (próg plateau)
+        idle_wear_pct: 0                                 # §23.4 — zużycie jałowe ≈ 0
+        restart_incident_idle_hours_threshold_h: 24      # §23.4 — idle_hours > 24 → rzut restart_incident (micro/minor)
+        risk_aggregation_formula: "p_agg = 1 - (1 - p_per_h)^n"  # §23.6 — n = godziny segmentu, jeden rzut dwumianowy
+        sweeper_batch_players: 100                       # §23.8 — batch na job sweepera
+        sweeper_full_run_budget_s: 60                    # §23.10 — pełny przebieg ≤ 60 s
+        sweeper_scale_players: 1000                      # §23.10 — budżet przy 1000 graczy (zapas 5× w oknie 5 min)
+      currency_fts:                                      # §24, §29
+        oil_price_base_pln_bbl: 250                      # §24.1 — cena bazowa ropy na start
+        gbbl_to_pln_rate: 1000                           # §24.3 — 1 GBBL = 1000 PLN
+        kroplowka_max_exchanges_per_24h: 1               # §24.3 — doba 00:00 UTC
+        tier_v_kroplowka_daily_gbbl: 400                 # §26.3 — odsyłacz do §22.6
+        tier_v_kroplowka_daily_pln: 400000               # §26.3 — 400 GBBL × 1000
+        starter_package_cash_pln: 2000000                # §24.1
+        starter_package_bank_pln: 2000000                # §24.1
+        wealth_tax_threshold_pln: 200000000              # §24.1 — podatek od 200M (§19.1)
+        parking_fee_pln_h: 2000                          # §24.1 — opłata postojowa (§21)
+        shield_threshold_net_pln: 10000000               # §24.1 — tarcza 10M netto bez pakietu (§19.2)
+        c2b_deposit_fee_pct: 0                           # §24.5 — wpłata natychmiast, 0%, bez limitu
+        b2c_withdrawal_fee_pct: 0.5                      # §24.5
+        b2c_withdrawal_limit_pln_24h: 10000000           # §24.5
+        b2c_withdrawal_fee_max_pln_day: 50000            # §24.5
+        b2c_limit_anchor_black_market_bbl: 40000         # §24.5 — 40000 bbl × 250 PLN/bbl
+        b2c_alert_consecutive_days: 3                    # §24.5 — telemetria
+        b2c_alert_limit_usage_pct: 80                    # §24.5 — ≥80% limitu podczas Fazy 1
+        garnishment_phase1_external_income_pct: 50       # §24.5 — Faza 1 zajmuje 50% wpływów zewnętrznych
+        obligation_deadline_h: 72                        # §24.5 — niedobór na obu kontach = zobowiązanie 72h → §17.1
+        retention:                                       # §29.4
+          fts_partitioning: yearly                       # §29.4 — RANGE po created_at
+          simulation_sweeps_hot_days: 90                 # §29.4 — reszta archiwum
+          cold_archive_after_months: 24                  # §29.4 — parquet + obiektowe
+          cookie_consents_log_years: 3                   # §29.4
+          login_ip_logs_months: 12                       # §29.4
+          chat_log_days: 30                              # §29.4 (§26.2)
+          payment_logs_retention: permanent              # §29.4 — obowiązek podatkowy (wartość nieliczbowa)
+        backup_full_interval_h: 24                       # §29.2
+        rpo_min: 5                                       # §29.2 — RPO ≤ 5 min (ciągły binlog); RTO: brak wartości liczbowej w §29
+        restore_test_interval_months: 1                  # §29.2
+        maintenance_notice_min_h: 24                     # §29.1 — zapowiadane jako world_event
+        maintenance_tick_pause_max_min: 15               # §29.1
+        staging_copy_age_days: 7                         # §29.1 — zanonimizowana kopia sprzed 7 dni
+        alert_tick_duration_s: 30                        # §29.3 — alert: tick > 30 s
+        alert_queue_lag_min: 5                           # §29.3 — alert: kolejka > 5 min
+      finance_dept:                                      # §10
+        emergency_mode_spot_sale_limit_pln_h: 20000      # §10 (wakat dyrektora finansowego)
+        cashflow_chart_windows_h: [24, 168]              # §10.1 (24 godziny i 7 dni)
+        liquidity_forecast_horizons_h: [1, 6, 24]        # §10.3
+        liquidity_forecast_formula: "cash(t) = PLN_CASH + PLN_BANK + sum(przychody_zakontraktowane - koszty_stale) * t"  # §10.3
+        cost_coverage_formula: "(PLN_CASH + PLN_BANK) / max(1, opex_per_h + salaries_per_h)"  # §10.3 (godziny przetrwania bez sprzedaży)
+        emergency_cash_reserve:                          # §10.3
+          target: player_configured                      # §10.3
+          alert_on_below: true                           # §10.3 (in-app + e-mail §27.2)
+          funds_blocked: false                           # §10.3
+        risk_matrix:                                     # §10.4
+          pillars_count: 5                               # §10.4
+          scale_min: 0                                   # §10.4
+          scale_max: 100                                 # §10.4
+          weights: equal                                 # §10.4 (config)
+          liquidity_formula: "clamp(coverage_h / 72 * 100)"  # §10.4
+          liquidity_full_coverage_h: 72                  # §10.4
+          logistics_window_h: 24                         # §10.4 (100 − udział opóźnień/przeciążeń)
+          costs_formula: "100 - (OPEX / revenue * 100)"  # §10.4
+          wells_formula: "avg(condition_pct) floty"      # §10.4
+          policy_formula: "udzial_budzetow_standard_high * 100"  # §10.4
+        department_budgets:                              # §10.2
+          levels: [low, standard, high]                  # §10.2
+          technical_numeric_effects:                     # §9.2/§9.3 (patrz extraction)
+            budget_tech_factor: {low: 0.85, standard: 1.0, high: 1.10}          # §9.2
+            budget_tech_wear_multiplier: {low: 1.6, standard: 1.0, high: 0.75}  # §9.3
+          logistics_numeric_effects:                     # §11A.6 (patrz logistics.dept_budget)
+            ref: logistics.dept_budget                   # §11A.6
+          hr_numeric_effects:  # §10.2 kanon (K8)
+            cost_pln_per_employee_day: {low: 80, standard: 180, high: 320}
+            recruitment_time_multiplier: {low: 1.5, standard: 1.0, high: 0.75}
+            morale_component_pts: {low: 40, standard: 70, high: 100}  # §4.3
+          bhp_numeric_effects:  # §10.2 kanon (K8)
+            cost_pln_per_technical_employee_day: {low: 120, standard: 260, high: 460}
+            risk_multiplier: {low: 1.5, standard: 1.0, high: 0.7}  # §17.4
+            procedure_integrity_decay_mult: {low: 1.8, standard: 1.0, high: 0.6}  # §11.2
+          technical_budget:  # §10.2 — koszt PLN/prac.techn./dobę + zużycie sprzętu
+            cost_pln_per_employee_day: {low: 100, standard: 220, high: 400}
+            wear_multiplier: {low: 1.6, standard: 1.0, high: 0.7}
+          logistics_budget:
+            cost_pln_per_employee_day: {low: 80, standard: 180, high: 320}
+            transport_delay_chance_per_day: {low: 0.10, standard: 0.02, high: 0.005}
+          budget_change_cooldown_h: 24  # wszystkie działy; cięcie = morale −6 (§4.3)
+
+  staff:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§3-§6"
+    params:
+      hr:  # §3
+        recruitment:  # §3.1
+          local_market_time_min_min: 2
+          local_market_time_max_min: 4
+          international_market_time_min_min: 3
+          international_market_time_max_min: 5
+          max_parallel_processes: 2  # §3.1
+        traits:  # §3.2
+          trait_loyalty_range: [1, 10]
+          trait_ambition_range: [1, 10]
+          trait_corruption_risk_range: [1, 10]
+      morale:  # §4
+        salary_satisfaction:  # §4.1
+          min_pts: 0
+          cap_pts: 120  # §4.1 clamp(0,120)
+          formula: "clamp(0, 120, current_salary / max(expected_salary, min_market_salary) * 100)"
+          low_morale_threshold_pts: 80  # §4.1 morale obniża się przy salary_satisfaction < 80
+          min_market_salary_pln:  # §4.1 kanon miesięczny (K9); expected = min × rand(1.0–1.6) per kandydat, seed HMAC
+            director_finance: 38000
+            director_technical: 38000
+            director_legal: 36000
+            director_logistics: 34000
+            director_hr: 34000
+            well_operator: 15000
+            well_operator_offshore_mult: 1.35
+            hub_operator: 13000
+            pipeline_engineer: 19000
+            refinery_operator: 17000
+            chemical_engineer: 26000
+            bhp_inspector: 18000
+            analyst: 20000
+            dispatcher_logistician: 14000
+            expected_salary_personality_bands: {loyal: [1.0, 1.2], standard: [1.1, 1.4], ambitious: [1.3, 1.6]}
+        raise_requests:  # §4.2
+          trigger_salary_satisfaction_below_pts: 60
+          max_open_requests_per_employee: 1
+          decision_deadline_h: 72
+          deferral_allowed_count: 1
+          deferral_extension_h: 48
+          settlement_chance_formula: "clamp(5, 95, 40 + 5*skill_negotiation_hr_director + 15*[salary_negotiator_present] + 2*trait_loyalty - 2*trait_ambition)"  # §4.2
+          settlement_chance_clamp_pct: [5, 95]
+          settlement_chance_base_pct: 40
+          settlement_chance_per_skill_negotiation_pct: 5
+          settlement_chance_salary_negotiator_bonus_pct: 15
+          settlement_chance_per_trait_loyalty_pct: 2
+          settlement_chance_per_trait_ambition_pct: -2
+          paths:  # §4.2
+            full_accept_morale_pts: 20
+            full_accept_loyalty_pts: 5
+            counteroffer_success_morale_pts: 8
+            refuse_morale_pts: -20
+        morale_model:  # §4.3
+          range_pts: [0, 100]
+          target_formula: "clamp(0, 100, 0.45*min(s,100) + 0.15*W + 0.10*R + 0.10*B + 0.10*H + 0.10*U - P)"  # §4.3
+          weight_salary_satisfaction: 0.45
+          weight_overload_W: 0.15
+          weight_raise_recency_R: 0.10
+          weight_safety_B: 0.10
+          weight_hr_budget_H: 0.10
+          weight_recognition_U: 0.10
+          salary_satisfaction_component_cap_pts: 100  # §4.3 min(s,100)
+          overload_W:  # §4.3
+            formula: "100 - 40 * turbo_ratio"
+            turbo_ratio_penalty_per_unit_pts: 40
+            turbo_ratio_cap: 1.0
+          raise_recency_R:  # §4.3
+            full_value_pts: 100
+            full_value_max_days: 90
+            min_value_pts: 30
+            min_value_at_days: 365
+            zero_above_days: 365
+          safety_B:  # §4.3
+            formula: "max(0, 100 - 15*incidents_30d_dept - 40*fatal_accident_180d)"
+            per_incident_30d_pts: 15
+            fatal_accident_180d_pts: 40
+            floor_pts: 0
+          hr_budget_H:  # §4.3 (§10)
+            low_pts: 40
+            standard_pts: 70
+            high_pts: 100
+          recognition_U:  # §4.3
+            formula: "min(100, 40*hr_bonus_90d + 30*training_180d + 30*successful_mediation)"
+            hr_bonus_90d_pts: 40
+            training_180d_pts: 30
+            successful_mediation_pts: 30
+            cap_pts: 100
+          penalties_P:  # §4.3
+            rejected_raise_request_pts: -20
+            rejected_raise_request_regen_pts_per_day: 4
+            counteroffer_failure_pts: -15
+            counteroffer_failure_regen_pts_per_day: 3
+            dept_firing_per_person_pts: -8
+            dept_firing_duration_days: 14
+            dept_firing_cap_pts: -24
+            active_dispute_pts: -10
+            dept_budget_cut_pts: -6
+            dept_budget_cut_duration_days: 14
+          daily_smoothing:  # §4.3
+            formula: "morale <- clamp(0, 100, morale + clip(morale_target - morale, -12, +6))"
+            max_daily_decrease_pts: -12
+            max_daily_increase_pts: 6
+          department:  # §4.3
+            dept_weight: 0.7
+            company_weight: 0.3
+            formula: "morale_dept = round(0.7*avg(employee_morale_dept) + 0.3*avg(company_morale))"
+      strikes:  # §5
+        dispute_strike_threshold_morale_dept_pts: 35  # §5 / §4.3 morale_dept < 35
+        morale_population_notice_period_h: 24  # §5 zwolniony niezadowolony w średniej do końca wypowiedzenia
+        fired_unhappy_team_morale_penalty_pts: -10  # §5 (odsyła do §4.2 pkt 5)
+        logistics_strike:  # §5.1
+          hub_throughput_drop_base_pct: 30
+          hub_throughput_drop_per_striker_share_pct: 50  # spadek = 30% + 50% × udział_strajkujących
+          hub_throughput_drop_range_pct: [30, 80]
+          truck_cost_increase_pct: 20
+          incident_response_time_increase_pct: 25
+          main_route_shutdown_striker_share_threshold_pct: 60  # udział > 60% → trasa odwierty→magazyn WSTRZYMANA
+        technical_strike:  # §5.1
+          external_repair_cost_mult: 2.5
+          external_repair_time_mult: 1.4  # +40%
+          external_repair_time_increase_pct: 40
+          equipment_degradation_mult: 1.5
+          blowout_risk_mult: 2.0  # §5.1 / §17.4 strike_multiplier
+        hr_strike:  # §5.1
+          morale_decay_outside_hr_pts_per_24h_per_employee: -1
+          government_mediator_cost_pln: 50000
+          legal_director_skill_negotiation_min: 3
+          no_hr_staff_settlement_chance_penalty_pct: -10
+        dialogue_templates:  # §5.2
+          min_templates_count: 80
+          languages_count: 3  # PL/EN/DE, fallback PL
+          competitor_pay_premium_example_pct: 25  # §5.2 przykład argumentu w dialogu
+      training:  # §6
+        duration_min_h: 24
+        duration_max_h: 72
+        retake_cooldown_h: 12  # §6 po oblaniu egzaminu
+        base_pass_rate_pct: 70  # §6 domyślnie, per kurs w game_balance
+        retake_bonus_pp: 10  # §6 +10 p.p. pass rate przy kolejnej próbie
+        retake_bonus_max_pp: 30  # §6 maks. +30 p.p. (3 oblania)
+        max_failures_before_lock: 3
+        course_relock_days: 7  # §6 po trzecim oblaniu kurs dostępny ponownie po 7 dniach
+        subskill_cap_pts: 10  # §6
+        course_levels_min: 1
+        course_levels_max: 3  # §6 poziomy I–III
+        course_cost_min_pln: 10000   # §6 domyślnie (tabela game_balance)
+        course_cost_max_pln: 100000  # §6
+        skill_refining:  # §6.1
+          throughput_bonus_per_point_pct: 1
+          failure_rate_reduction_per_point_pct: 2
+
+  legal:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§7"
+    params:
+      pvp_sabotage:  # §7 / §7.1
+        operations:
+          road_ambush:  # §7.1
+            cost_pln: 25000
+            aggressor_cooldown_h: 6
+            pair_cooldown_h: 24
+            max_cargo_seized_pct: 30
+            base_catch_risk_pct: 15  # minus ochrona kursu
+          road_partial_theft:  # §7.1
+            cost_pln: 15000
+            aggressor_cooldown_h: 6
+            pair_cooldown_h: 24
+            stolen_cargo_min_pct: 20
+            stolen_cargo_max_pct: 50  # losowo 20-50%
+            base_catch_risk_pct: 20  # minus ochrona kursu
+          hub_valve_sabotage:  # §7.1
+            cost_pln: 40000
+            aggressor_cooldown_h: 12
+            pair_cooldown_h: 48
+            max_buffer_drained_bbl: 2000
+            wear_added_pts: 15
+            base_catch_risk_pct: 25  # minus hub_security
+          player_budget_hit:  # §7.1
+            cost_pln: 60000
+            aggressor_cooldown_h: 24
+            pair_cooldown_h: 72
+            damage_cap_fixed_pln: 50000
+            damage_cap_net_worth_pct: 2  # min(50000 PLN, 2% majątku netto ofiary)
+            base_catch_risk_pct: 30  # minus legal_defense
+          player_dirty_report:  # §7.1
+            cost_pln: 35000
+            aggressor_cooldown_h: 48
+            pair_cooldown_h: 96
+            credibility_hit_min_pts: -4
+            credibility_hit_max_pts: -8  # losowo; -50% przy legal_defense
+            legal_defense_reduction_pct: 50
+            base_catch_risk_pct: 20  # minus legal_defense
+        victim_limits:  # §7.1 anty-griefing zero-wipe
+          max_successful_sabotages_per_victim: 5
+          window_days: 7
+          over_limit_refund_pct: 100  # kolejne operacje odrzucane z pełnym zwrotem
+        caught_penalty:  # §7.1 wpadka
+          credibility_pts: -15
+          court_fine_pln: 100000
+        cancelled_refunds:  # §7.1
+          target_shielded_or_on_leave_refund_pct: 100
+          target_asset_sold_or_lost_refund_pct: 50
+      protection:  # §7 / §7.2
+        modules:
+          basic_escort:  # §7.2
+            price_pct_of_run_value: 2
+            price_min_pln: 2500
+            duration: one_run  # jeden kurs, auto-odnowienie w pętli cystern
+            theft_risk_reduction_pct: 40  # §7 diagram: zmniejsza ryzyko kradzieży o 40%
+            activation: immediate_on_run_order
+          armed_convoy:  # §7.2
+            price_pct_of_run_value: 5
+            price_min_pln: 8000
+            duration: one_run
+            ambush_risk_reduction_pct: 75  # §7 diagram: redukuje ryzyko o 75%
+            requires_legal_director_level_min: 3  # aktywny przy zakupie i w trakcie kursu
+            convoy_mount_time_min: 60  # zakup po starcie kursu działa od +60 min
+            director_departure: degrade_to_escort_no_refund
+          drone_patrol:  # §7.2
+            price_per_asset_pln: 35000
+            duration_days: 7
+            max_assets: 10
+            activation: next_sweep
+            aggressor_catch_risk_bonus_pp: 15  # §7 / §7.2 +15 p.p. do ryzyka wpadki agresora
+          hub_security:  # §7.2
+            price_per_hub_pln: 60000
+            duration_days: 7
+            activation: next_sweep
+            blocks: hub_valve_sabotage
+          legal_defense:  # §7
+            requires_legal_director_level_min: 3  # LUB skill_ethics >= 7
+            requires_skill_ethics_min: 7
+            effects_reduction_pct: 50  # redukuje skutki player_budget_hit i player_dirty_report o 50%
+        hse_budget_price_modifiers:  # §7.2 (§10)
+          high_budget_price_mod_pct: -10
+          low_budget_price_mod_pct: 15
+        refunds:  # §7.2
+          run_module_cancelled_before_departure_refund_pct: 100
+          subscriptions_refundable: false
+        retroactive_protection_allowed: false  # §7.2 zakaz działania wstecz
+      permits_bribes:  # §7.3
+        permits:
+          p1:  # §7.3 wydobycie/eksploatacja
+            fee_pln: 150000
+            review_time_h: 72
+            approval_chance_formula: "clamp(20, 98, 70 + 0.5*(credibility-70) - 3*grey_zone_flag - 2*env_incident_180d)"
+            approval_chance_clamp_pct: [20, 98]
+            approval_chance_base_pct: 70
+            credibility_reference_pts: 70
+            per_credibility_pt_coeff_pct: 0.5
+            per_grey_zone_flag_pp: -3
+            per_env_incident_180d_pp: -2
+          p2:  # §7.3 rafineria/instalacje niebezpieczne
+            fee_pln: 500000
+            review_time_days: 7
+            approval_chance_formula: "clamp(10, 95, 55 + 0.6*(credibility-70) - 4*grey_zone_flag - 5*env_incident_180d)"
+            approval_chance_clamp_pct: [10, 95]
+            approval_chance_base_pct: 55
+            credibility_reference_pts: 70
+            per_credibility_pt_coeff_pct: 0.6
+            per_grey_zone_flag_pp: -4
+            per_env_incident_180d_pp: -5
+          refusal:  # §7.3
+            fee_lost_pct: 50
+            reapply_cooldown_h: 72
+          appeal:  # §7.3
+            cost_pct_of_fee: 25
+            review_time_h: 48
+            bonus_per_skill_law_pp: 2
+            bonus_cap_pp: 10
+            second_refusal_final: true
+            reapply_after_final_refusal_days: 7
+        grey_zone_flag:  # §7.3 — definicja flaga_szarej_strefy; edytowalne w Filament „Balans gry" (four-eyes)
+          bms_threshold_pts: 30
+          active_epc_archetype_f_counts: true
+        env_incident_180d:  # §7.3 — licznik do wzorów pozwoleniowych
+          classes: [major, catastrophe]
+          types: [surface_spill, blowout]
+          window_days: 180
+          exclude_confirmed_sabotage: true
+        design_note_asymmetry: "BMS obniża ryzyko wpadek łapówek (-0.5 pp/pkt), podwyższa ryzyko kontroli skarbowej (§2.3) — celowe, dziedziczone z legacy"
+        bribes:
+          types:
+            permit_accelerate:  # §7.3
+              cost_pct_of_permit_fee: 40
+              remaining_review_time_mult: 0.5
+              base_catch_risk_pct: 22
+            penalty_mitigation:  # §7.3
+              cost_pct_of_fine: 30
+              cost_min_pln: 20000
+              fine_mult: 0.5  # raz na mandat
+              base_catch_risk_pct: 18
+            inspection_warning:  # §7.3
+              cost_pln: 25000
+              warning_lead_time_h: 24
+              base_catch_risk_pct: 12
+          black_market_score_per_bribe_pts: 2  # §7.3 / §2.3
+          catch_risk_formula: "clamp(3, 90, base - (skill_ethics-4)_pp - 0.5*bms_pp + 10_pp[caught_180d] + 15_pp[under_scrutiny])"  # §7.3
+          catch_risk_clamp_pct: [3, 90]
+          risk_modifiers:  # §7.3
+            skill_ethics_reduction_start: 5   # redukcja (skill_ethics-4) p.p. od ethics 5
+            skill_ethics_reduction_cap_pp: -6
+            per_black_market_score_pp: -0.5
+            black_market_score_reduction_cap_pp: -8
+            caught_within_180d_pp: 10
+            caught_within_window_days: 180
+            under_scrutiny_pp: 15
+            under_scrutiny_trigger_catches: 3
+            under_scrutiny_trigger_window_days: 180
+            under_scrutiny_duration_days: 90
+          caught_penalty:  # §7.3 skutek wpadki
+            credibility_pts: -18  # §7.3 kanon; spójne z §2.1 (wpadka przy łapówce -18)
+            fine_pln: 250000
+            bribe_menu_lock_days: 30
+            accelerated_permit_reverts_to_standard: true
+          limits:  # §7.3
+            max_bribes_per_company_per_24h: 1
+            same_type_cooldown_h: 72
+
+  extraction:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§9"
+    params:
+      extraction:                                        # §9
+        strata:                                          # §9.5 (tabela domyślna, do kalibracji §23.7)
+          shallow:
+            base_rate_bbl_h: 40                          # §9.5
+            drilling_cost_pln: 800000                    # §9.5
+            drilling_time_h: 6                           # §9.5
+            base_wear_pct_h: 0.05                        # §9.5
+            opex_pln_bbl: 30                             # §9.5
+            base_failure_risk_pct_per_tick: 0.2          # §9.5
+          mid:
+            base_rate_bbl_h: 70                          # §9.5
+            drilling_cost_pln: 2000000                   # §9.5
+            drilling_time_h: 12                          # §9.5
+            base_wear_pct_h: 0.08                        # §9.5
+            opex_pln_bbl: 45                             # §9.5
+            base_failure_risk_pct_per_tick: 0.4          # §9.5
+          deep:
+            base_rate_bbl_h: 110                         # §9.5
+            drilling_cost_pln: 5000000                   # §9.5
+            drilling_time_h: 24                          # §9.5
+            base_wear_pct_h: 0.12                        # §9.5
+            opex_pln_bbl: 70                             # §9.5
+            base_failure_risk_pct_per_tick: 0.7          # §9.5
+          offshore:
+            base_rate_bbl_h: 160                         # §9.5
+            drilling_cost_pln: 12000000                  # §9.5
+            drilling_time_h: 48                          # §9.5
+            base_wear_pct_h: 0.18                        # §9.5
+            opex_pln_bbl: 110                            # §9.5
+            base_failure_risk_pct_per_tick: 1.2          # §9.5
+        wells:                                           # §9.1
+          condition_pct_min: 0                           # §9.1
+          condition_pct_max: 100                         # §9.1
+          wear_level_pct_min: 0                          # §9.1
+          wear_level_pct_max: 100                        # §9.1
+          upgrade_level_min: 0                           # §9.1
+          upgrade_level_max: 3                           # §9.1
+          well_buffer_bbl_by_tier:                       # §9.1 (kolejność tierów: black_market/standard/premium)
+            black_market: 500                            # §9.1
+            standard: 2000                               # §9.1
+            premium: 5000                                # §9.1
+          operators_per_well: 1                          # §9.1
+          wells_per_technician_max: 3                    # §9.1
+        production:                                      # §9.2
+          formula: "production_bbl = base_rate(stratum) * (condition/100) * depletion_factor * (1 + 0.05 * upgrade_level) * budget_tech_factor * skill_analysis_factor"  # §9.2
+          upgrade_bonus_per_level_pct: 5                 # §9.2 (mnożnik 1 + 0.05 × upgrade_level)
+          depletion:                                     # §9.2 (doprecyzowanie §19.1)
+            full_factor_up_to_extracted_pct: 70          # §9.2 (do 70% zasobu = 1.0)
+            decline_pp_per_10000_bbl: 1.5                # §9.2 (liniowo, bez kapitalizacji)
+            factor_floor: 0.10                           # §9.2
+            depleted_at_remaining_bbl: 0                 # §9.2
+          budget_tech_factor:                            # §9.2 / §10
+            low: 0.85                                    # §9.2
+            standard: 1.0                                # §9.2
+            high: 1.10                                   # §9.2
+          skill_analysis_factor_formula: "1 + 0.02 * skill_analysis"  # §9.2
+          skill_analysis_bonus_per_point: 0.02           # §9.2
+        wear:                                            # §9.3
+          formula: "wear_gain_per_h = base_wear(stratum, tier) * budget_tech_wear_multiplier * (1 - 0.04 * skill_maintenance) * turbo_multiplier"  # §9.3
+          budget_tech_wear_multiplier:                   # §9.3
+            low: 1.6                                     # §9.3
+            standard: 1.0                                # §9.3
+            high: 0.75                                   # §9.3
+          skill_maintenance_reduction_per_point: 0.04    # §9.3
+          turbo_multiplier: 1.5                          # §9.3 (przeciążenie huba/odwiertu)
+          condition_risk_increase_below_pct: 20          # §9.3
+          condition_broken_at_pct: 0                     # §9.3
+          external_repair_cost_mult: 2.5                 # §9.3 (firma zewnętrzna vs TTS §11)
+        drilling_funnel:                                 # §9.4
+          geological_survey_time_h: 48                   # §9.4
+          survey_shortcut_cost_gbbl: 20                  # §9.4 (skrót §22.3)
+          drilling_time_skill_reduction_per_point: 0.05  # §9.4 (czas × (1 − 0.05 × skill_drilling))
+
+  incidents:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§11"
+    params:
+      technical_dept:                                    # §11
+        bhp_procedure_levels_min: 1                      # §11.1
+        bhp_procedure_levels_max: 5                      # §11.1
+        bhp_risk_reduction_per_level_pct: 12  # §17.4 ×(1−0,12×poziom); L1 ×0,88 … L5 ×0,40
+        bhp_upgrades:  # §11.1 kanon (K5); suma L1→L5 = 3,07 mln
+          to_2: {cost_pln: 120000, time_h: 8}
+          to_3: {cost_pln: 350000, time_h: 24, requires: director_technical}
+          to_4: {cost_pln: 800000, time_h: 48, requires: director_technical}
+          to_5: {cost_pln: 1800000, time_h: 72, requires: [director_technical, bhp_inspector]}
+          catastrophe_downgrade: {levels_lost: 1, rebuild_cost_factor: 0.5}
+          fts_code: TECH_BHP_UPGRADE
+        procedure_integrity:                             # §11.2
+          threshold_pct: {warning: 70, critical: 40}  # §11.2 (K6)
+          decay_per_24h_base: 0.4  # × mnożnik budżetu BHP (1,8/1,0/0,6) + 0,15/przeciążony obiekt/dobę
+          audit: {cost_pln: 25000, time_h: 6, restore_pts: 35, cooldown_h: 24}  # TECH_PROCEDURE_AUDIT
+          calibration_full: {cost_pln: 60000, time_h: 12, restore_to: 100, cooldown_h: 72}
+          incident_hit_pts: {minor: -2, major: -5, catastrophe: -15}
+          start_value: 100
+        tts_task_queue:                                  # §11.3
+          task_duration_field_s: seconds_remaining       # §11.3 (pole, bez wartości)
+          tasks:  # §11.3 kanon (K7); czasy w h → seconds_remaining = h×3600; zewnętrzna ×2,5/×1,4
+            pipeline_inspection: {time_h: 4, materials_pln: 8000, effect: wear_level −5}
+            wellhead_repair: {time_h: 8, materials_pln: 35000, effect: condition +25}
+            hub_buffer_service: {time_h: 6, materials_pln: 15000, effect: "bufor reset, −przeciążenie"}
+            tanker_overhaul: {time_h: 3, materials_pln: 6000, effect: road_loss −20% / 30 dni}
+            bhp_calibration: {time_h: 6, materials_pln: 25000, effect: '= audyt PI (§11.2)'}
+            pipe_section_replace: {time_h: 12, materials_pln: 110000, effect: "wear 0, condition 100"}
+            fts_code: TECH_TTS_MATERIALS
+          # material_costs_pln: scalone do tasks powyżej (K7)
+
+  logistics:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§11A"
+    params:
+      logistics:                                         # §11A
+        precision:                                       # §11A.1 pkt 5
+          volumes_decimal: "DECIMAL(16,4)"               # §11A.1 (bbl)
+          condition_decimal: "DECIMAL(9,5)"              # §11A.1 (0.05%/h = 0.00083/h — mniejsza precyzja zerowałaby degradację)
+          money: "BIGINT grosze (FTS §24.2)"             # §11A.1
+        fallback_direct:                                 # §11A.1 pkt 4 (tryb awaryjny bez huba, domyślnie WYŁĄCZONY)
+          default_enabled: false                         # §11A.1
+          throughput_bbl_h: 100                          # §11A.1
+          cost_mult: 2.0                                 # §11A.1
+          loss_pct: 3.0                                  # §11A.1
+          effective_cost_pln_bbl: 15.5                    # §11A.6 (~6.3)
+        hubs:                                            # §11A.2
+          classes:
+            small:
+              throughput_nominal_bbl_h: 150              # §11A.2
+              buffer_bbl: 4000                           # §11A.2
+              well_slots_leg1: 3                         # §11A.2
+              unload_bays_leg2: 2                        # §11A.2
+              maintenance_pln_h: 1800                    # §11A.2
+              build_cost_pln: 800000                     # §11A.2
+              base_wear_pct_h: 0.045                     # §11A.2
+              staff_required: 1                          # §11A.2 (obsada)
+            medium:
+              throughput_nominal_bbl_h: 400              # §11A.2
+              buffer_bbl: 12000                          # §11A.2
+              well_slots_leg1: 6                         # §11A.2
+              unload_bays_leg2: 4                        # §11A.2
+              maintenance_pln_h: 4800                    # §11A.2
+              build_cost_pln: 2500000                    # §11A.2
+              base_wear_pct_h: 0.040                     # §11A.2
+              staff_required: 2                          # §11A.2
+            large:
+              throughput_nominal_bbl_h: 1000             # §11A.2
+              buffer_bbl: 40000                          # §11A.2
+              well_slots_leg1: 12                        # §11A.2
+              unload_bays_leg2: 8                        # §11A.2
+              maintenance_pln_h: 12000                   # §11A.2
+              build_cost_pln: 8000000                    # §11A.2
+              base_wear_pct_h: 0.035                     # §11A.2
+              staff_required: 4                          # §11A.2
+          takeover:                                      # §11A.2
+            price_formula: "build_cost * (0.4 + 0.6 * condition_pct/100) * region_multiplier"  # §11A.2
+            price_condition_base_mult: 0.4               # §11A.2
+            price_condition_slope_mult: 0.6              # §11A.2
+            used_condition_pct_min: 42                   # §11A.2 (generator świata)
+            used_condition_pct_max: 72                   # §11A.2
+          lease:                                         # §11A.2
+            min_contract_days: 7                         # §11A.2
+            deposit_daily_rent_mult: 2.0                 # §11A.2 (kaucja = 2× dzienny czynsz miejsca)
+            notice_days: 7                               # §11A.2
+          permit_tier2:                                  # §11A.2
+            cost_pln: 500000                             # §11A.2
+            review_time_h: 12                            # §11A.2 (~12 h)
+            cooldown_after_denial_h: 12                  # §11A.2
+            applications_per_player_per_region: 1        # §11A.2
+          expansion:                                     # §11A.2
+            levels_min: 1                                # §11A.2
+            levels_max: 3                                # §11A.2
+            throughput_mult_per_level: 1.5               # §11A.2
+            buffer_mult_per_level: 1.6                   # §11A.2
+            slots_added_per_level: 2                     # §11A.2
+            throughput_mult_during_upgrade: 0.7          # §11A.2
+          well_assignment_fee:                           # §11A.2
+            daily_slot_cost_formula: "maintenance_per_day / slots_count"  # §11A.2
+            new_hub_daily_slot_cost_mult: 5              # §11A.2
+            used_hub_daily_slot_cost_mult: 8             # §11A.2
+            lease_days_upfront: 2                        # §11A.2
+            cooldown_after_detach_h: 4                   # §11A.2 (anty-reroll §23.6)
+          modes:                                         # §11A.2 (przepustowość/zużycie/utrzymanie/ryzyko)
+            eco:
+              throughput_mult: 0.75                      # §11A.2
+              wear_mult: 0.60                            # §11A.2
+              maintenance_mult: 0.85                     # §11A.2
+              failure_risk_mult: 0.80                    # §11A.2
+            standard:
+              throughput_mult: 1.00                      # §11A.2
+              wear_mult: 1.00                            # §11A.2
+              maintenance_mult: 1.00                     # §11A.2
+              failure_risk_mult: 1.00                    # §11A.2
+            turbo:
+              throughput_mult: 1.50                      # §11A.2
+              wear_mult: 2.20                            # §11A.2
+              maintenance_mult: 1.40                     # §11A.2
+              failure_risk_mult: 1.60                    # §11A.2
+          effective_throughput_formula: "nominal * f_condition * mode * staffing * dept_budget(§10) * (1 - strike_reduction) * events(§25)"  # §11A.2
+          f_condition:                                   # §11A.2
+            below_20_pct: 0.10                           # §11A.2
+            range_20_40_pct: 0.30                        # §11A.2
+            above_40_pct: "condition/100"                # §11A.2
+          processing_per_tick: "min(inflow + buffer, throughput * dt_h)"  # §11A.2
+          wear:                                          # §11A.2
+            formula: "base * mode * maintenance_age * overload * condition_accel * dt_h"  # §11A.2
+            cap_formula: "8 * base * max(1, dt_h)"       # §11A.2 (wzorzec legacy)
+            no_maintenance_thresholds_h: [72, 144, 240]  # §11A.2
+            no_maintenance_mults: [1.15, 1.35, 1.60]     # §11A.2
+            overload_above_pct: 100                      # §11A.2
+            overload_mult: 2.8                           # §11A.2
+            maintenance_cost_condition_mults:            # §11A.2 (koszty utrzymania wg kondycji)
+              below_70: 1.10                             # §11A.2
+              below_50: 1.25                             # §11A.2
+              below_30: 1.50                             # §11A.2
+              below_or_eq_20: 1.80                       # §11A.2
+          staffing:                                      # §11A.2
+            allocation_pct_min: 0                        # §11A.2
+            allocation_pct_max: 100                      # §11A.2 (suma ≤100%)
+            understaffed_throughput_mult: 0.70           # §11A.2 (brak obsady: 70% przepustowości)
+            understaffed_risk_mult: 2.0                  # §11A.2
+          state_machine_thresholds_condition_pct:        # §11A.2
+            degraded_range: [40, 70]                     # §11A.2
+            critical_range: [20, 40]                     # §11A.2
+            damaged_below: 20                            # §11A.2
+        pipelines:                                       # §11A.3
+          types_v1:                                      # §11A.3 (rodzaje 1–4 potwierdzone w v1)
+            field:                                       # rodzaj 1 Polowy
+              throughput_bbl_h: 80                       # §11A.3
+              build_cost_pln: 250000                     # §11A.3
+              build_time_h: 4                            # §11A.3
+              maintenance_pln_h: 120                     # §11A.3
+              losses_pct: 0.8                            # §11A.3
+              wear_pct_h: 0.070                          # §11A.3
+              risk_mult: 1.25                            # §11A.3
+              effective_cost_pln_bbl: 3.50               # §11A.3/§11A.6 (przy 250 zł/bbl)
+            standard:                                    # rodzaj 2 Standardowy
+              throughput_bbl_h: 200                      # §11A.3
+              build_cost_pln: 600000                     # §11A.3
+              build_time_h: 8                            # §11A.3
+              maintenance_pln_h: 180                     # §11A.3
+              losses_pct: 0.4                            # §11A.3
+              wear_pct_h: 0.050                          # §11A.3
+              risk_mult: 1.00                            # §11A.3
+              effective_cost_pln_bbl: 1.90               # §11A.3/§11A.6
+            trunk:                                       # rodzaj 3 Magistralny
+              throughput_bbl_h: 500                      # §11A.3
+              build_cost_pln: 1400000                    # §11A.3
+              build_time_h: 16                           # §11A.3
+              maintenance_pln_h: 480                     # §11A.3
+              losses_pct: 0.3                            # §11A.3
+              wear_pct_h: 0.035                          # §11A.3
+              risk_mult: 0.85                            # §11A.3
+              effective_cost_pln_bbl: 1.71               # §11A.3/§11A.6
+            submarine:                                   # rodzaj 4 Podmorski
+              throughput_bbl_h: 300                     # §11A.3
+              build_cost_pln: 3000000                    # §11A.3
+              build_time_h: 24                           # §11A.3
+              maintenance_pln_h: 400                     # §11A.3
+              losses_pct: 0.3                            # §11A.3
+              wear_pct_h: 0.045                          # §11A.3
+              risk: "sztormy (§25); odporny na sabotaże drogowe"  # §11A.3
+          types_planned:                                 # §11A.3 (5–6 planowane)
+            heated:                                      # rodzaj 5 Podgrzewany (planowany)
+              throughput_bbl_h: 200                      # §11A.3
+              build_cost_pln: 900000                     # §11A.3
+              build_time_h: 10                           # §11A.3
+              maintenance_mult_heating: 2.0              # §11A.3 (×2 grzanie; brak wartości zł/h)
+              losses_pct: 0.4                            # §11A.3
+              wear_pct_h: 0.050                          # §11A.3
+              no_power_throughput_reduction_pct: 50      # §11A.3 (−50% do przepchania, zadanie TTS)
+            illegal_tap:                                 # rodzaj 6 Nielegalne wcięcie (planowany)
+              throughput_bbl_h: 100                      # §11A.3
+              build_cost_pln: 150000                     # §11A.3
+              build_time_h: 2                            # §11A.3 (bez pozwolenia, bez opłat za miejsce)
+              maintenance_pln_h: 60                      # §11A.3
+              losses_pct: 1.0                            # §11A.3
+              wear_pct_h: 0.10                           # §11A.3
+              black_market_score_per_day: 1              # §11A.3
+              detection_credibility_penalty: -12         # §11A.3 (konfiskata + kara)
+          region_distance_multiplier_range: [0.8, 1.6]   # §11A.3 (koszt i czas ×)
+          sources:                                       # §11A.3 (nabycie rurociągu dopływowego)
+            new_standard:
+              price_mult_of_table: 1.0                   # §11A.3 (100% ceny z tabeli)
+              start_condition_pct: 100                   # §11A.3
+              permit_required: true                      # §11A.3
+            new_premium:
+              price_mult: 1.6                            # §11A.3
+              start_condition_pct: 100                   # §11A.3
+              wear_mult: 0.8                             # §11A.3
+              risk_mult: 0.8                             # §11A.3
+              overload_immune: true                      # §11A.3 (turbo/przeciążenie nie kaskadują kar)
+            used:
+              price_formula: "new_price * (0.4 + 0.6 * condition_pct/100)"  # §11A.3
+              offer_condition_pct_min: 42                # §11A.3
+              offer_condition_pct_max: 72                # §11A.3
+              install_time_mult: 0.5                     # §11A.3 (montaż, nie produkcja)
+              hidden_defect_chance_pct: 15               # §11A.3
+              hidden_defect_condition_drop_pts: [10, 20] # §11A.3 (po montażu)
+            black_market:
+              price_pct_of_new_min: 30                   # §11A.3
+              price_pct_of_new_max: 40                   # §11A.3
+              start_condition_pct_min: 30                # §11A.3 (losowo, zakryta do montażu)
+              start_condition_pct_max: 60                # §11A.3
+              permit_required: false                     # §11A.3
+              install_time_mult: 0.5                     # §11A.3
+              throughput_mult: 0.9                       # §11A.3
+              wear_mult: 1.5                             # §11A.3
+              failure_risk_mult: 1.5                     # §11A.3
+              black_market_score_on_purchase: 2          # §11A.3 (§2)
+              confiscation_credibility_penalty: -12      # §11A.3 (odwiert → awaiting_connection)
+          flow:                                          # §11A.3 (rozliczenie ciągłe Δt)
+            q_in_formula: "min(available_source_volume, throughput * f_condition * staffing * budget * strike * dt_h)"  # §11A.3
+            losses_formula: "min(10, losses_base + max(0, 70 - condition_pct) * 0.05 + (leak ? 3.0 : 0))"  # §11A.3
+            losses_cap_pct: 10                           # §11A.3
+            condition_loss_slope_per_pct: 0.05           # §11A.3 (od progu 70%)
+            leak_extra_loss_pct_h: 3.0                   # §11A.3 (w trakcie wycieku)
+            q_out_formula: "q_in * (1 - losses/100)"     # §11A.3
+          leak:                                          # §11A.3
+            condition_threshold_pct: 60                  # §11A.3 (wyciek samoistny przy <60%)
+            chance_formula: "0.0008 * dt_h * risk * (60 - condition)/60 * staffing_factor"  # §11A.3
+            base_chance_per_h: 0.0008                    # §11A.3
+            extra_losses_pp_h: 0.4                       # §11A.3
+            wear_mult: 1.2                               # §11A.3
+          inspection:                                    # §11A.3
+            mandatory_interval_h_max: 12                 # §11A.3 (zadanie TTS, nie wstrzymuje przesyłu)
+            overdue_risk_mult: 1.3                       # §11A.3
+            hidden_defect_condition_drop_pts: [5, 15]    # §11A.3 (do wykrycia)
+          explosion:                                     # §11A.3
+            condition_threshold_pct: 40                  # §11A.3 (poniżej)
+            chance_formula: "0.0006 * dt_h * multipliers"  # §11A.3
+            base_chance_per_h: 0.0006                    # §11A.3
+            loss_scope: "wyłącznie ropa w tranzycie tego odcinka"  # §11A.3 (nie magazyn — błąd legacy)
+          staffing:                                      # §11A.3
+            engineer_missing_wear_risk_mult: 2.0         # §11A.3 (jawne)
+            logistics_specialist_loss_reduction_pct_max: 20  # §11A.3 (straty do −20%)
+          paused_maintenance_mult: 0.5                   # §11A.3 (wstrzymany — utrzymanie biegnie)
+          state_machine_thresholds_condition_pct:        # §11A.3
+            degraded_below: 70                           # §11A.3
+            critical_below: 40                           # §11A.3
+            damaged_at: 0                                # §11A.3 (kondycja=0 | incydent | eksplozja)
+        road:                                            # §11A.4
+          vehicles:
+            standard:
+              capacity_bbl: 500                          # §11A.4
+              trip_base_cost_pln: 1250                   # §11A.4
+              trip_base_time_min: 12                     # §11A.4
+              risk_mult: 1.00                            # §11A.4
+              purchase_cost_pln: 150000                  # §11A.4
+              rental_pln_day: 750                        # §11A.4
+              unload_rate_bbl_min: 500                   # §11A.4
+              effective_cost_pln_bbl: 4.00               # §11A.6
+            heavy:
+              capacity_bbl: 900                          # §11A.4
+              trip_base_cost_pln: 2000                   # §11A.4
+              trip_base_time_min: 18                     # §11A.4
+              risk_mult: 0.85                            # §11A.4
+              purchase_cost_pln: 260000                  # §11A.4
+              rental_pln_day: 1300                       # §11A.4
+              unload_rate_bbl_min: 450                   # §11A.4
+            armored:
+              capacity_bbl: 350                          # §11A.4
+              trip_base_cost_pln: 3500                   # §11A.4
+              trip_base_time_min: 12                     # §11A.4
+              risk_mult: 0.35                            # §11A.4
+              purchase_cost_pln: 400000                  # §11A.4
+              rental_pln_day: 2000                       # §11A.4
+              unload_rate_bbl_min: 350                   # §11A.4
+              effective_cost_pln_bbl: 10.50               # §11A.6
+          trip_time_formula: "base_time * region_distance_mult * strike_mult"  # §11A.4
+          trip_cost_formula: "base * distance * (1 + region_risk_surcharge) * strike * budget"  # §11A.4 (płatny przy wysyłce; także kurs utracony)
+          route_advisor_cost_pln_range: [1500, 5000]     # §11A.4 (tylko doradztwo, przez FTS)
+          dispatch_thresholds:                           # §11A.4 / §11A.10
+            manual_buffer_pct_of_capacity_min: 50        # §11A.4
+            vip_auto_buffer_pct_of_capacity_min: 80      # §11A.4 (pętla automatyczna §22.6)
+          bays_per_hub: [2, 4, 8]                        # §11A.4 (mały/średni/duży)
+          queue_wait_demurrage:                          # §11A.4 / §21
+            wait_threshold_min: 30                       # §11A.4
+            fee_pln_h: 2000                              # §11A.4 (faza 5 rozliczeń)
+          incidents:                                     # §11A.4
+            base_chance_pct_per_trip_h: 0.8              # §11A.4 (× godziny_kursu × mnożniki, od rzeczywistego czasu w trasie)
+            chance_cap_pct: 95                           # §11A.4
+            road_ambush:
+              loss_pct: 100                              # §11A.4
+              draw_weight: 2                             # §11A.4
+            road_partial_theft:
+              loss_pct_range: [30, 70]                   # §11A.4
+              draw_weight: 3                             # §11A.4
+            accident:
+              loss_pct_range: [50, 100]                  # §11A.4 (+ awaria pojazdu)
+              draw_weight: 4                             # §11A.4
+            route_block:
+              delay_min_range: [30, 120]                 # §11A.4 (BEZ utraty ropy — poprawka legacy)
+              draw_weight: 2                             # §11A.4
+        marine:                                          # §11A.5
+          min_load_default_pct_of_capacity: 80           # §11A.5 (start rejsu; JEDNO źródło: game_balance)
+          # KONFLIKT (legacy, rozwiązany w dokumencie): §11A.5 — stary dokument 4000 bbl vs stary kod 5000 bbl → kanon: 80% ładowności z game_balance
+          tankers:
+            small:
+              capacity_bbl: 8000                         # §11A.5
+              voyage_cost_pln: 15000                     # §11A.5
+              voyage_base_time_min: 45                   # §11A.5
+              unit_cost_pln_bbl: 3.63                    # §11A.5
+            medium:
+              capacity_bbl: 25000                        # §11A.5
+              voyage_cost_pln: 40000                     # §11A.5
+              voyage_base_time_min: 60                   # §11A.5
+              unit_cost_pln_bbl: 3.35                    # §11A.5
+            large:
+              capacity_bbl: 60000                        # §11A.5
+              voyage_cost_pln: 90000                     # §11A.5
+              voyage_base_time_min: 75                   # §11A.5
+              unit_cost_pln_bbl: 3.25                    # §11A.5
+          unit_cost_includes:                            # §11A.5 (przypis *)
+            port_fee_pln_bbl: 0.50                       # §11A.5
+            expected_incident_loss_pct: 0.5              # §11A.5 (× 250 zł/bbl)
+          ports:                                         # §11A.5
+            unload_throughput_bbl_per_sweep:             # §11A.5
+              small: 500                                 # §11A.5
+              medium: 1500                               # §11A.5
+              large: 4000                                # §11A.5
+            handling_fee_pln_bbl: 0.50                   # §11A.5
+          sea_vs_road:                                   # §11A.5
+            land_long_haul_batch_threshold_bbl: 8000     # §11A.5 (opłaca się powyżej)
+            sea_unit_cost_pln_bbl_range: [3.25, 3.63]    # §11A.5
+            road_unit_cost_pln_bbl: 4.00                 # §11A.5
+        economics:                                       # §11A.6
+          break_even_pipeline_vs_road_bbl_day: 1440      # §11A.6 (na odwiert, rurociąg standardowy)
+          payback_days_standard_pipeline: 60             # §11A.6 (~60 dni przy pełnym obciążeniu, nakład 600000 zł)
+        dept_budget:                                     # §11A.6 (budżet działu logistyki §10)
+          low:
+            maintenance_mult: 0.90                       # §11A.6
+            wear_mult: 1.20                              # §11A.6
+            incident_risk_mult: 1.10                     # §11A.6
+            throughput_mult: 0.95                        # §11A.6
+          standard:
+            maintenance_mult: 1.00                       # §11A.6
+            wear_mult: 1.00                              # §11A.6
+            incident_risk_mult: 1.00                     # §11A.6
+            throughput_mult: 1.00                        # §11A.6
+          high:
+            maintenance_mult: 1.15                       # §11A.6
+            wear_mult: 0.85                              # §11A.6
+            incident_risk_mult: 0.90                     # §11A.6
+            throughput_mult: 1.05                        # §11A.6
+        strike:                                          # §11A.6 / §5.1 (wzór kanoniczny)
+          reduction_formula: "0.30 + 0.50 * u"           # §11A.6 (u = udział strajkujących ∈ [0,1])
+          reduction_base: 0.30                           # §11A.6
+          reduction_slope: 0.50                          # §11A.6
+          throughput_mult_formula: "max(0, 1 - reduction)"  # §11A.6
+          strike_stop_threshold_u: 0.60                  # §11A.6 (powyżej: główna trasa w strike_stop)
+          cost_mult_formula: "1 + 0.25 * u"              # §11A.6
+          time_mult_formula: "1 + 0.30 * u"              # §11A.6
+          route_block_weight_mult: 2.0                   # §11A.6
+        modifier_stack_order:                            # §11A.6 (jedna funkcja applyModifierStack)
+          - base                                         # §11A.6
+          - type_class                                   # §11A.6
+          - condition                                    # §11A.6
+          - work_mode                                    # §11A.6
+          - staffing                                     # §11A.6
+          - dept_budget                                  # §11A.6 (§10)
+          - strike                                       # §11A.6 (§5.1)
+          - protection                                   # §11A.6 (§7)
+          - events                                       # §11A.6 (§25)
+        protection:                                      # §11A.7 — mnożniki ryzyka; CENY/CZASY: kanon legal.protection (§7.2)
+          multiplier_clamp: [0.05, 1.0]                  # §11A.7 (ochrona nigdy nie zeruje ryzyka)
+          max_active_per_player_target_context: 1        # §11A.7
+          options:
+            escort_basic:
+              target: road_trip                          # §11A.7
+              cost_pln: null  # KONFLIKT ROZWIĄZANY: kanon cen w legal.protection (§7.2)
+              duration_min: null  # kanon czasu trwania: legal.protection (§7.2)
+              ambush_risk_mult: 0.6                      # §11A.7
+              partial_theft_risk_mult: 0.6               # §11A.7
+            armed_convoy:
+              target: road_trip                          # §11A.7
+              cost_pln: null  # KONFLIKT ROZWIĄZANY: kanon cen w legal.protection (§7.2)
+              duration_min: null  # kanon czasu trwania: legal.protection (§7.2)
+              ambush_risk_mult: 0.25                     # §11A.7
+              theft_risk_mult: 0.3                       # §11A.7
+            drone_patrol:
+              target: [road_trip, hub, pipeline]         # §11A.7
+              cost_pln: null  # KONFLIKT ROZWIĄZANY: kanon cen w legal.protection (§7.2)
+              duration_min: null  # kanon czasu trwania: legal.protection (§7.2)
+              ambush_risk_mult: 0.35                     # §11A.7
+              theft_risk_mult: 0.45                      # §11A.7
+              valve_sabotage_risk_mult: 0.5              # §11A.7
+              aggressor_exposure_bonus_pp: 15            # §11A.7 (§7.1)
+            hub_security:
+              target: hub                                # §11A.7
+              cost_pln: null  # KONFLIKT ROZWIĄZANY: kanon cen w legal.protection (§7.2)
+              duration_min: null  # kanon czasu trwania: legal.protection (§7.2)
+              valve_sabotage_risk_mult: 0.4              # §11A.7
+              equipment_failure_risk_mult: 0.7           # §11A.7
+            pipeline_monitor:
+              target: pipeline_segment                   # §11A.7
+              cost_pln: null  # KONFLIKT ROZWIĄZANY: kanon cen w legal.protection (§7.2)
+              duration_min: null  # kanon czasu trwania: legal.protection (§7.2)
+              pipeline_incident_risk_mult: 0.6           # §11A.7
+              leak_risk_mult: 0.7                        # §11A.7
+        sabotage:                                        # §11A.7 / §7
+          success_limit_per_victim: 5                    # §11A.7
+          success_limit_window_days: 7                   # §11A.7 (okno kroczące)
+          hub_valve_sabotage:                            # §11A.7
+            condition_drop_pts_range: [-15, -5]          # §11A.7 (−5…−15)
+            buffer_spill_pct_range: [2, 5]               # §11A.7
+            throughput_mult: 0.5                         # §11A.7
+            throughput_mult_duration_h_range: [6, 24]    # §11A.7
+
+  market:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§12, §13, §25"
+    params:
+      market:                                            # §12
+        base_price_pln_bbl: 250                          # §11A.3/§11A.5 (cena weryfikacyjna kosztów; §12 w liniach 427–766 nie podaje wprost ceny bazowej)
+        slippage:                                        # §12.3
+          rolling_window_min: 60                         # §12.3 (skumulowany wolumen; dzielenie zleceń nie omija poślizgu, §19.3)
+          volume_thresholds_pct_of_absorption: {discount_start: 70, stop: 100}  # §19.3
+          discount_pct_ranges: {standard_min: 3, standard_max: 12, substandard_extra_pct: -40}  # §19.3/§31.5
+          regeneration_pct_per_10min: 10  # §19.3 — liniowo 10% PIERWOTNEGO spadku co 10 min
+        spot:                                            # §12.1
+          reserved_bbl_excluded_from_spot: true          # §12.1 (zlecenia limit + escrow B2B; SELECT ... FOR UPDATE §23.5)
+          emergency_director_vacancy_limit_pln_h: 20000  # §10 (tryb awaryjny)
+        limit_offers:                                    # §12.2
+          offers_free_max: 3   # §22.6
+          offers_vip_max: 15   # §22.6 VIP (P2W boundary: wygoda, nie siła)
+          price_modifiable: true                         # §12.2
+          cancel_returns_oil_immediately: true           # §12.2
+        black_market:                                    # §12.4
+          oil_price_vs_spot: "wyższe niż oficjalna giełda (płatne w gotówce)"  # §12.4 — BRAK wartości liczbowej w §9–§12
+          oil_price_premium_pct: 15  # §12.4 kanon (K2): spot × 1,15, wypłata do PLN_CASH
+          daily_trade_limit: 5            # §12.4
+          daily_volume_limit_bbl: 1500    # §12.4
+          score_per_trade: 2              # §12.4 (legacy 3–8 odrzucone)
+          score_decay_per_24h: 1          # §2.3, liniowo z Δt od ostatniej transakcji
+          pipelines_price_pct_of_new: [30, 40]           # §12.4/§11A.3
+          pipelines_wear_mult: 1.5                       # §12.4/§11A.3
+          pipelines_failure_mult: 1.5                    # §12.4/§11A.3
+          black_market_score_per_pipeline_purchase: 2    # §11A.3
+          black_market_score_per_illegal_tap_day: 1      # §11A.3
+          confiscation_credibility_penalty: -12          # §11A.3 (kontrola skarbowa)
+          effects: "kontrole policji, blokady kont, spadek company_credibility"  # §12.4
+      contracts_system:                                        # §13.1 kontrakty długoterminowe (+§21)
+        security_deposit_pct: 10                               # §13.1 — kaucja 10% wartości kontraktu, zwrot po realizacji wszystkich transz
+        missed_tranche_penalty_pct: 5                          # §13.1 — kara umowna 5% wartości niedostarczonej transzy
+        contract_reputation_missed_delta: -6                   # §13.1 — contract_reputation −6 pkt za niedostarczoną transzę
+        consecutive_missed_for_deposit_forfeit: 3              # §13.1 — trzy niewykonane transze z rzędu = przepadek kaucji całego kontraktu
+        tender_lockout_days: 7                                 # §13.1 — blokada dostępu do przetargów po przepadku
+        force_majeure_delivery_extension_h: 24                 # §21 — klauzula Siły Wyższej wydłuża termin dostawy o 24h
+        b2b_reputation:  # §13.2 kanon (K3)
+          start_value: 50
+          cap: [0, 100]
+          settled_delta_by_tranche_value_pln: [{max: 500000, delta: 1}, {max: 5000000, delta: 2}, {max: null, delta: 3}]
+          settled_late_but_valid: 1
+          resolved_split: 0
+          refunded_seller_fault: -8
+          missed_or_penal_cancel: -6
+          cartel_sanction: -15
+          premium_threshold: 75   # kaucja 5% + market_plus_bonus (§13.1a)
+          market_lock_below: 25   # tylko spot
+          blacklist_below: 10     # zero kontraktów 14 dni
+        npc_generator:  # §13.1a (T3) — faza 4 sweepa, seed HMAC(contract_offer:{region}:{due_slot}:{balance_version})
+          target_offers_per_region: "3 + floor(aktywni_gracze/25), max 8"
+          min_gap_same_npc_h: 24
+          offer_ttl_h: [24, 72]
+          tiers_by_contract_reputation:
+            t1: {min_rep: 0, tranche_bbl: [240, 960]}
+            t2: {min_rep: 40, tranche_bbl: [1000, 3000]}
+            t3: {min_rep: 65, tranche_bbl: [3000, 8000]}
+            premium: {min_rep: 75, deposit_pct: 5}
+          pricing: {fixed_spot_mult: [1.02, 1.10], market_multiplier: [0.94, 1.06], market_plus_bonus_pln: [4, 15]}
+          deposit_pct: 10
+          subtypes: {aviation: {quality_min: 92, price_mult: 1.20}, rars: {quality_min: 90, volume_bonus_pct: 20}}
+          fts_codes: [CONTRACT_DEPOSIT, CONTRACT_DEPOSIT_RETURN, CONTRACT_DEPOSIT_FORFEIT, CONTRACT_TRANCHE_INCOME]
+      b2b:                                                     # §13.2 giełda B2B — maszyna stanów (+§21)
+        fee_pct: 1.5                                           # §13.2 — prowizja 1,5% wartości rozliczenia (B2B_FEE → SYS_TREASURY)
+        fee_pln_per_bbl_at_base_price: 3.75                    # §13.2 — wartość z dokumentu przy cenie bazowej 250 PLN/bbl
+        base_price_reference_pln_per_bbl: 250                  # §13.2 (także §19.1.1 — wartość identyczna)
+        tanker_cost_reference_pln_per_bbl: 4.00                # §13.2 — odsyłacz §11A.6 (prowizja poniżej kosztu cysterny)
+        escrow_hard_limit_h: 168                               # §13.2 — od accepted: 24h wysyłka + 72h max trasa + 72h max kolejka; obejmuje disputed
+        escrow_lock_buyer_pct: 100                             # §13.2 — accepted blokuje 100% wartości po stronie kupującego (PLN_ESCROW per transza)
+        dispatch_deadline_h: 24                                # §13.2 — termin wysyłki po accepted
+        dispatch_penalty_pct: 5                                # §13.2 — kara niewysłania od sprzedającego (B2B_DISPATCH_PENALTY)
+        dispatch_refund_pct: 100                               # §13.2 — refund kupującego przy anulowaniu z powodu niewysłania
+        route_eta_min_h: 24                                    # §13.2 — ETA trasy (zakres)
+        route_eta_max_h: 72                                    # §13.2
+        delivery_margin_h: 24                                  # §13.2 — dostawa = ETA trasy + 24h margines; przekroczenie → disputed
+        seller_response_timeout_h: 24                          # §13.2 — brak reakcji sprzedawcy → auto refunded (−8 b2b_reputation)
+        quality_claim_window_h: 12                             # §13.2 — reklamacja jakości 12h od receipt; po oknie settled ostateczne
+        quality_deduction_min_pct: 0                           # §13.2 — potrącenie przy zasadnej reklamacji (resolved_split)
+        quality_deduction_max_pct: 20                          # §13.2
+        settlement_after_receipt_h: 12                         # §13.2 — settlement T+12h automatyczny
+        gm_dispute_sla_h: 72                                   # §13.2 — SLA GM rozstrzygnięcia sporu (twardo 168h od accepted)
+        contradictory_evidence_freeze_max_h: 72                # §13.2 — freeze przy dowodach sprzecznych, potem decyzja GM (domyślnie refund)
+        parking_fee_pln_per_h: 2000                            # §13.2 — postojowe przy pełnym magazynie kupującego, płaci KUPUJĄCY (wartość identyczna §21)
+        parking_grace_h: 2                                     # §13.2 — postojowe naliczane po 2h (identycznie §21)
+        auto_return_after_h: 72                                # §13.2 — auto-zwrot reszty: refund − postojowe − fracht powrotny (B2B_RETURN_FREIGHT)
+        cancel_penalty_floor_pct: 10                           # §13.2 — kara = min(40%, max(10%, |spot_now − cena_kontraktu|/cena_kontraktu)) × wartość_escrow
+        cancel_penalty_cap_pct: 40                             # §13.2 — cap chroni przed ruiną przy wydarzeniach −70% (§25)
+        cancel_reputation_delta: -6                            # §13.2 — b2b_reputation przy karalnym anulowaniu
+        cargo_total_loss_refund_pct: 100                       # §13.2 — utrata całkowita → refunded 100% kupującemu
+        cargo_insurance_premium_pct: 0.8                       # §13.2 — premia ubezpieczenia ładunku (B2B_CARGO_INS_PREMIUM)
+        cargo_insurance_payout_pct: 85                         # §13.2 — wypłata 85% wartości straty z SYS_INSURANCE_POOL
+        cargo_insurance_deductible_pct: 15                     # §13.2 — franszyza (odsyłacz §31.6)
+        cargo_insurance_cap_pln_per_24h: 50000000              # §13.2 — limit 50M/24h
+        tranche_price_reference_window_min: 60                 # §13.2 — cena referencyjna z okna 60 min przed aktywacją (market_multiplier/market_plus_bonus)
+        escrow_topup_window_h: 24                              # §13.2 — okno dofinansowania kupującego (B2B_ESCROW_TOPUP); brak → missed (kara 5% + −6 pkt)
+        offer_expiry_days: 7                                   # §13.2 — expired po 7 dniach (także §21: oferta wygasa max po 7 dniach)
+        published_offers_limit_free: 5                         # §13.2 — równoczesne oferty published (odsyłacz §22.6)
+        published_offers_limit_vip: 15                         # §13.2
+        tranche_contracts_seller_limit_free: 2                 # §13.2 — kontrakty ratalne jako sprzedający
+        tranche_contracts_seller_limit_vip: 5                  # §13.2
+        b2b_reputation_score_min: 0                            # §13.2
+        b2b_reputation_score_max: 100                          # §13.2
+        # delta „+ przy settled" — wartość liczbowa niepodana w §13.2 (dokument: „delty w game_balance")
+        reputation_delta_refunded_seller_fault: -8             # §13.2
+        reputation_delta_missed_or_penal_cancel: -6            # §13.2
+        reputation_delta_cartel_sanction: -15                  # §13.2 (odsyłacz §26.3)
+        quality_score_min: 0                                   # §13.2 — jakość partii deterministyczna 0–100, jawna w ofercie
+        quality_score_max: 100                                 # §13.2
+        quality_threshold_1: 70                                # §13.2 — progi jakości 70/85/92
+        quality_threshold_2: 85                                # §13.2
+        quality_threshold_3: 92                                # §13.2
+        undisclosed_below_70_black_market_score_delta: 1       # §13.2 — sprzedaż <70 bez ujawnienia flagi
+        undisclosed_below_70_reputation_delta: -8              # §13.2 — przy uznanej reklamacji
+        gm_award_shortfall_obligation_h: 72                    # §13.2 — nadwyżka orzeczenia ponad escrow: zobowiązanie 72h strony przegrywającej (odsyłacz §17.1)
+        settle_garnish_phase1_pct: 50                          # §13.2 — przy Fazie 1 egzekucji 50% rozliczenia sprzedającego → SYS_TREASURY (B2B_SETTLE_GARNISH)
+        black_market_credibility_propagation_pct: 50           # §21 — wykrycie czarnego rynku: 50% Δ company_credibility propaguje na rating B2B (odsyłacz §2.2)
+      world_events:                                      # §25
+        types: [boom, pandemia, embargo, wojna_naftowa, kryzys_ekonomiczny, frontier_open]  # §25.1
+        max_active_global_events: 2                      # §25.2 — FIFO z kolejką; regionalne bez limitu
+        announcement_lead_min_h: 24                      # §25.3 — announced_at ≥ 24h przed startem (GM: natychmiast)
+        embargo_sabotage_risk_bonus_pct: 20              # §25.4 — embargo: +20% ryzyka sabotażu
+        # UWAGA: mnożniki cen/popytu i czasy trwania per typ (Boom/Pandemia/Embargo/Wojna) NIE są
+        # zdefiniowane liczbowo w §25 — trafiają do payload/game_balance (§25.1); nie uzupełniam.
+        crack_spread_crisis_pln_bbl: 25                  # §31.5 — kryzys (wydarzenia §25): spread ~25
+        crisis_class_ii_net_pln_h: -6100                 # §31.5 — strata ~−6,1 tys. PLN/h
+        crisis_class_iii_net_pln_h: -12000               # §31.5 — strata ~−12 tys. PLN/h
+        crack_spread_boom_pln_bbl_min: 120               # §31.5 — boom: spread 120–150
+        crack_spread_boom_pln_bbl_max: 150               # §31.5
+
+  banking:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§17"
+    params:
+      credit_score_formula:  # §17.1 kanon (K4)
+        range: [0, 115]
+        formula: 'clamp(0,115,round(0.35*credibility + 0.35*history + 0.20*solvency + 0.10*tenure + clean_bonus))'
+        history_no_record_pts: 40
+        clean_bonus_per_clean_month: 1.25
+        clean_bonus_cap: 15   # jedyne źródło 100–115 (§2)
+        caps: {bankruptcy_history: 40, bankruptcy_cap_days: 365, active_late_delta: -10, active_bailiff: 0}
+        recalculate_on: [loan_application, installment_settlement, bankruptcy_transition, late_transition]
+      banking:                                                 # §17
+        credit_score_min: 0                                    # §17.1
+        credit_score_max: 115                                  # §17.1 — nadwyżka >100 = bonus za nieskazitelną historię spłat
+        # credit_score = f(company_credibility, historia spłat, zadłużenie/aktywa) — formuła i wagi w game_balance (§17.1, wartości niepodane)
+        credit_tiers:                                          # §17.1
+          - score_min: 0                                       # §17.1 — 0–39: brak zdolności kredytowej
+            score_max: 39
+            max_loan_pln: 0
+          - score_min: 40                                      # §17.1
+            score_max: 59
+            max_loan_pln: 2000000
+            interest_pct_per_year: 12
+            max_term_days: 30
+          - score_min: 60                                      # §17.1
+            score_max: 79
+            max_loan_pln: 10000000
+            interest_pct_per_year: 8
+            max_term_days: 60
+          - score_min: 80                                      # §17.1
+            score_max: 99
+            max_loan_pln: 40000000
+            interest_pct_per_year: 5
+            max_term_days: 90
+          - score_min: 100                                     # §17.1
+            score_max: 115
+            max_loan_pln: 100000000
+            interest_pct_per_year: 3.5
+            max_term_days: 120
+        bank_trust_score_min: 0                                # §17.1 — pojedynczy wskaźnik 0–100
+        bank_trust_score_max: 100                              # §17.1
+        installment_interval_h: 24                             # §17.1 — raty automatycznie co 24h gry z PLN_BANK
+        late_interest_addon_pct_of_base: 150                   # §17.1 — odsetki karne +150% stopy bazowej
+        late_bank_trust_delta_per_week: -5                     # §17.1
+        late_to_bailiff_phase1_h: 72                           # §17.1 — 72h w late bez spłaty → Faza 1 komornika
+        early_repayment_credibility_delta: 6                   # §17.1 (odsyłacz §2)
+        ontime_installment_credibility_delta: 2                # §17.1
+        bailiff_phase1_garnish_pct: 50                         # §17.2 — 50% KAŻDEGO wpływu na PLN_BANK i PLN_CASH
+        bailiff_phase1_to_phase2_days: 7                       # §17.2 — bez zatwierdzonego planu spłaty
+        bailiff_phase2_oil_price_pct_of_market: 70             # §17.2 — licytacja ropy z magazynu głównego (wyłączone locked_in_escrow_bbl, reserved_bbl)
+        bailiff_phase3_start_price_pct_of_valuation: 60        # §17.2 — aukcja odwiertów od najmniej rentownego; cena wywoławcza 60% wyceny
+        bailiff_entry_credibility_delta: -20                   # §17.2 (odsyłacz §2)
+        bankruptcy_illiquidity_window_h: 48                    # §17.3 — majątek netto <0 ORAZ brak płynności na OPEX/pensje przez 48h
+        bankruptcy_credibility_delta: -25                      # §17.3
+        recovery_plan_duration_days: 7                         # §17.3 — plan naprawczy (recovery_mode); Kroplówka GBBL zablokowana
+        recovery_success_credibility_delta: 8                  # §17.3 — wyjście z recovery_mode
+        recovery_breach_credibility_delta: -10                 # §17.3 — złamanie planu → powrót do egzekucji Fazy 2/3
+        incidents:                                             # §17.4
+          bhp_risk_coefficient: 0.12                           # §17.4 — risk × (1 − 0.12 × bhp_level)
+          bhp_level_min: 1                                     # §17.4 (odsyłacz §11)
+          bhp_level_max: 5                                     # §17.4
+          procedure_integrity_mult_full: 1.0                   # §17.4 — (2 − procedure_integrity/100) = 1.0 przy 100%
+          procedure_integrity_mult_zero: 2.0                   # §17.4 — 2.0 przy 0% (zużyte procedury podwajają ryzyko)
+          skill_safety_risk_coefficient: 0.05                  # §17.4 — × (1 − 0.05 × skill_safety)
+          budget_bhp_mult_low: 1.5                             # §17.4 (odsyłacz §10)
+          budget_bhp_mult_standard: 1.0                        # §17.4
+          budget_bhp_mult_high: 0.7                            # §17.4
+          strike_risk_mult: 2.0                                # §17.4 — strike_multiplier przy strajku technicznym (odsyłacz §5.1)
+          condition_risk_threshold_pct: 20                     # §17.4 — base_risk rośnie przy condition <20% (tabela w game_balance — wartości niepodane)
+          eco_catastrophe_credibility_delta: -15               # §17.4 — katastrofa ekologiczna (odsyłacz §2)
+          repair_time_strike_mult: 1.4                         # §17.4 — czas naprawy przy strajku technicznym
+          external_repair_crew_cost_mult: 2.5                  # §17.4 — firma zewnętrzna (także §21 — wartość identyczna)
+          private_guard_cost_gbbl: 35                          # §17.4 — Prywatna Straż przy blowout (odsyłacz §22.3 — wartość identyczna)
+
+  economy:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§19, §21"
+    params:
+      world_events:  # §25.1 kanon (K1); kotwica: koszyk 336, kryzys spread ~25, boom ~128,6
+        draw_phase: 3
+        check_every_h: 6
+        min_gap_between_starts_h: 24
+        max_active_global: 2
+        overflow_queue: FIFO
+        combined_multiplier_clamp: [0.25, 2.20]
+        types:
+          boom: {oil: 1.30, npc: 1.25, products: 1.35, duration_h: [96, 168], announce_h: 48, weight: 12}
+          pandemia: {oil: 0.75, npc: 0.55, products: 0.70, duration_h: [120, 240], announce_h: 24, weight: 8}
+          embargo: {oil: 1.60, npc: 0.95, products: 1.50, duration_h: [72, 168], announce_h: 24, weight: 6, sabotage_risk_mult: 1.20}
+          wojna_naftowa: {oil: 1.80, npc: 1.10, products: 1.85, duration_h: [48, 120], announce_h: 24, weight: 4}
+          kryzys_ekonomiczny: {oil: 0.29, npc: 0.60, products: 0.29, duration_h: [96, 240], announce_h: 24, weight: 8, exclusive: true}
+          frontier_open: {oil: 1.00, npc: 1.15, products: 1.02, duration_h: [168, 336], announce_h: 48, weight: 10, scope: regional, unlock_region: true}
+      economy:                                                 # §19 (+§21)
+        depletion:                                             # §19.1
+          onset_extracted_pct: 70                              # §19.1 — po wydobyciu 70% zasobu
+          production_drop_pp_per_step: 1.5                     # §19.1 — addytywnie 1,5 p.p. bazowej produkcji (kanoniczny wzór §9.2)
+          step_bbl: 10000                                      # §19.1 — za każde kolejne 10 000 bbl
+        wealth_tax:                                            # §19.1 — podatek majątkowy progresywny
+          fixed_assets_taxable_pct: 70                         # §19.1 — 70% wyceny aktywów trwałych (odwierty, huby, rurociągi); NIE dotyczy rafinerii — wycena §31.7 JUŻ zawiera 70% (zakaz podwójnego dyskonta); baza: PLN_BANK + PLN_CASH + własny PLN_ESCROW
+          valuation_formula: 'CAPEX_ewidencjonowany × (stan/100); stan = condition (odwiert) | 100−wear_level (rura/hub)'  # §19.1 wycena systemowa
+          bailiff_starting_price_pct: 60            # §17.2 Faza 3 — cena wywoławcza 60% wyceny systemowej
+          depleted_well_valuation_mult: 0.10        # §19.1 — odwiert depleted jako złom
+          valuation_snapshot: 'asset_valuations @ 00:00 UTC z net_worth_snapshots'  # §19.1
+          brackets:                                            # §19.1 — stawki marginalne dobowe (faza 5 ticka co 24h → SYS_TAX)
+            - up_to_pln: 200000000                             # §19.1
+              rate_pct_per_day: 0
+            - from_pln: 200000000                              # §19.1 — od nadwyżki
+              up_to_pln: 500000000
+              rate_pct_per_day: 0.03
+            - from_pln: 500000000                              # §19.1
+              up_to_pln: 1000000000
+              rate_pct_per_day: 0.05
+            - above_pln: 1000000000                            # §19.1
+              rate_pct_per_day: 0.08
+          vwap_window_h: 24                                    # §19.1.1 — VWAP spot z ostatnich 24h (faza 4 sweepa)
+          oil_base_price_pln_per_bbl: 250                      # §19.1.1 — ropa bazowa (także §13.2 — wartość identyczna)
+          inventory_valuation_pct: 90                          # §19.1.1 — zapasy: 90% ceny referencyjnej × mnożnik jakości
+          receivable_valuation_pct: 90                         # §19.1.1 — wierzytelność B2B po receipt: 90% nominału (escrow kupującego wyłączony — jeden podatnik)
+          thresholds_valuation_pct: 100                        # §19.1.1 — zapasy w 100% do progów tarczy (§19.2) i Tieru (§22.6)
+          hub_buffer_exempt_pct: 10                            # §19.1.1 — minimum operacyjne wolne od podatku: line-pack + do 10% pojemności bufora huba
+        newbie_shield:                                         # §19.2 — tarcza startowa (dwukierunkowa)
+          duration_days: 7                                     # §19.2 — bezwzględny immunitet
+          net_worth_threshold_pln: 10000000                    # §19.2 — LUB do majątku netto 10M PLN z WYŁĄCZENIEM pakietu startowego
+          starter_value_excluded_pln: 4000000                  # §19.2 — 4M PLN gotówki wyłączone z progu (= 2M cash + 2M bank, §14.1)
+        offline_policy:                                        # §19.2
+          ultimatum_min_h: 48                                  # §19.2 — licznik ultimatum sporów pracowniczych min. 48h
+          mediator_trigger_absence_h: 72                       # §19.2 — brak logowania 72h w trakcie strajku → Zewnętrzny Mediator Rządowy
+          mediator_fee_pct_of_cash_reserve: 10                 # §19.2 — 10% rezerwy gotówkowej
+          mediator_fee_min_pln: 25000                          # §19.2 — minimum 25 000 PLN
+          mediator_debt_pln: 25000                             # §19.2 — brak środków: oprocentowane zobowiązanie mediator_debt (windykacja §17.1)
+          mediator_debt_interest_pct_per_year: 10              # §19.2
+          mediator_freeze_days: 7                              # §19.2 — zamrożenie konfliktu, strajk nie eskaluje
+          mediator_strike_effects_mult: 0.5                    # §19.2 — skutki z §5.1 złagodzone o połowę
+        vacation_mode:                                         # §19.2 — twarde warunki aktywacji (brak major/catastrophe, strajku, accepted/in_delivery, Fazy 1+)
+          min_h: 48                                            # §19.2
+          max_days: 30                                         # §19.2
+          reactivation_cooldown_days: 7                        # §19.2 — ponowna aktywacja po 7 dniach od powrotu
+        dormant_floor:                                         # §19.2 — przy PLN_CASH + PLN_BANK = 0 firma przechodzi w dormant
+          bankruptcy_min_days_dormant: 14                      # §19.2 — bankructwo najwcześniej po 14 dniach dormant
+        slippage:                                              # §19.3 — poślizg cenowy, model okna wolumenu
+          volume_window_min: 60                                # §19.3 — skumulowany wolumen sprzedaży w kroczącym oknie (dzielenie zleceń nie omija)
+          price_drop_min_pct: 3                                # §19.3 — spadek ceny skupu proporcjonalnie do Σwolumen_okna/pojemność_okna
+          price_drop_max_pct: 12                               # §19.3 — pojemność okna w game_balance (wartość niepodana)
+          recovery_pct_of_initial_drop_per_10min: 10           # §19.3 — powrót liniowo 10% PIERWOTNEGO spadku co 10 minut
+          recovery_full_min: 100                               # §19.3 — pełna regeneracja po dokładnie 100 min
+        frontier_basins:                                       # §19.4
+          open_interval_days: 90                               # §19.4 — co 90 dni nowy region (config)
+          base_rate_bonus_pct: 20                              # §19.4 — podwyższony base_rate dziewiczych złóż
+          drilling_cost_discount_pct: 25                       # §19.4 — obniżony koszt wiercenia
+          young_company_max_age_days: 90                       # §19.4 — pierwszeństwo losowania dla firm młodszych niż 90 dni
+          young_company_slots_pct: 70                          # §19.4
+          open_auction_slots_pct: 30                           # §19.4 — aukcja otwarta
+        licenses:                                              # §19.4
+          renewal_interval_days: 180                           # §19.4 — opłata odnowieniowa co 180 dni
+          renewal_fee_pct_of_region_valuation: 5               # §19.4
+          overdue_grace_days: 30                               # §19.4 — brak opłaty 30 dni od terminu → koncesja wraca do puli
+        abandoned_auctions:                                    # §19.4
+          dormant_auction_after_days: 90                       # §19.4 — aktywa firm dormant >90 dni na aukcję systemową
+          surplus_treasury_hold_days: 180                      # §19.4 — nadwyżka w SYS_TREASURY, potem przepada na rzecz skarbu
+          returner_pvp_protection_days: 7                      # §19.4 — ochrona powracających na zasadach Tarczy Startowej (dwukierunkowa)
+        logistics_edge_cases:                                  # §21 — magazyn zapełniony podczas przyjazdu cysterny
+          bay_queue_max_tankers: 5                             # §21 — kolejka max 5 cystern na hub; nadmiarowe przy wjeździe bez opłat
+          parking_fee_pln_per_h: 2000                          # §21 — opłata postojowa po 2h (identyczna §13.2); brak środków → narasta jako zobowiązanie
+          parking_grace_h: 2                                   # §21
+          towing_trigger_h: 48                                 # §21 — systemowy holownik do zajezdni (ładunek bezpieczny)
+          towing_cost_pln: 10000                               # §21
+
+  monetization:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§22"
+    params:
+      monetization:                                            # §22
+        gbbl_packages:                                         # §22.2 — ceny REALNE w PLN (P24/BLIK)
+          - gbbl: 100                                          # §22.2 — Pakiet Baryłka
+            price_pln: 19.99
+          - gbbl: 300                                          # §22.2 — Pakiet Zbiornik
+            price_pln: 49.99
+          - gbbl: 700                                          # §22.2 — Pakiet Cysterna
+            price_pln: 99.99
+          - gbbl: 1600                                         # §22.2 — Pakiet Rurociąg
+            price_pln: 199.99
+          - gbbl: 4500                                         # §22.2 — Pakiet Supertankowiec
+            price_pln: 499.99
+        vip_subscription:                                      # §22.3 — „Klub Prezesa VIP", odnawiany ręcznie (brak auto-pobrania)
+          price_gbbl: 150                                      # §22.3
+          duration_days: 30                                    # §22.3 (wygaśnięcie i cliff: §22.6)
+          tts_queue_vip: 5                                     # §22.3 — kolejka zadań technicznych TTS
+          tts_queue_free: 1                                    # §22.3
+          limit_orders_vip: 15                                 # §22.3 — zlecenia limit na giełdzie
+          limit_orders_free: 3                                 # §22.3 (także §21/§22.6 — cliff VIP: nadmiarowe >3 anulowane od NAJMŁODSZYCH ze zwrotem reserved_bbl; pętle cystern i TTS dokańczają rozpoczęte, brak cliffów w środku operacji)
+        boosts:                                                # §22.3
+          instant_certification_gbbl: 15                       # §22.3 — skraca czas trwającego szkolenia do zera; egzamin pozostaje losowy (§6)
+          geo_expertise_gbbl: 20                               # §22.3 — cena przykładowa („np. 20 GBBL")
+          geo_expertise_wait_skipped_h: 48                     # §22.3 — pominięcie czekania 48h na ekspertyzę złoża
+          private_guard_gbbl: 35                               # §22.3 — wyłącznie w trakcie AKTYWNEGO incydentu (identyczna §17.4)
+          headhunter_gbbl: 25                                  # §22.3 — Executive Headhunter
+          headhunter_max_uses_per_day: 1                       # §22.3
+        lifetime_caps:                                         # §22.6 — trwałe przewagi, limit dożywotni na konto
+          extra_license_slots_max: 2                           # §22.6
+          capacity_bonus_max_pct: 25                           # §22.6
+        orders:                                                # §22.5 — webhooki: sygnatura HMAC-SHA256, idempotencja gateway_event_id, stan docelowy (nie „+1")
+          unpaid_order_expiry_h: 2                             # §22.5 — zamówienie nieopłacone po 2h → expired
+      drip:                                                    # §22.3 Kroplówka Kapitałowa + §22.6/§22.6.1
+        rate_pln_per_gbbl: 1000                                # §22.3 — sztywny kurs 1 GBBL = 1000 PLN (FTS: SYS_TREASURY → PLN_CASH, §24.3)
+        max_conversions_per_24h: 1                             # §22.3, §22.6.1 — UNIQUE(company_id, conversion_date_utc) + idempotency_key; duplikat = no-op
+        max_pending_requests_per_company: 1                    # §22.6.1 — max 1 żądanie oczekujące na firmę
+        drip_window_days: 30                                   # §22.6.1 — drip_30d (suma DRIP_IN z 30 dni) odejmowany od tier_base; anty-snieżna-kula
+        snapshot_time_utc: "00:00"                             # §22.6.1 — jeden snapshot na dobę, faza 5 sweepa; UNIQUE(company_id, snapshot_date); zasila podatek (§19.1), tarczę (§19.2), Tier (§22.6)
+        tier_base_formula: "net_worth - starter_value - drip_30d" # §22.6.1
+        # Zmiana Tieru w dół obcina limit od NASTĘPNEGO dnia; recovery_mode / Faza 2+ egzekucji blokuje wymianę NATYCHMIAST (§22.3, §22.6.1)
+        tiers:                                                 # §22.6 — majątek netto z WYŁĄCZENIEM pakietu startowego
+          - tier: 1                                            # §22.6
+            net_worth_below_pln: 10000000
+            drip_daily_max_gbbl: 20                            # §22.6 — = 20 000 PLN/dobę
+            premium_license_slots: 0
+          - tier: 2                                            # §22.6
+            net_worth_from_pln: 10000000
+            net_worth_up_to_pln: 50000000
+            drip_daily_max_gbbl: 50
+            premium_license_slots: 1
+          - tier: 3                                            # §22.6
+            net_worth_from_pln: 50000000
+            net_worth_up_to_pln: 200000000
+            drip_daily_max_gbbl: 100
+            premium_license_slots: 1
+          - tier: 4                                            # §22.6
+            net_worth_from_pln: 200000000
+            net_worth_up_to_pln: 1000000000
+            drip_daily_max_gbbl: 200
+            premium_license_slots: 2
+          - tier: 5                                            # §22.6
+            net_worth_above_pln: 1000000000
+            drip_daily_max_gbbl: 400
+            premium_license_slots: 2
+
+  social:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§26"
+    params:
+      chat_cartels:                                      # §26
+        chat_flood_min_interval_s: 2                     # §26.2 — 1 msg/2 s
+        chat_flood_max_per_min: 20                       # §26.2
+        chat_log_retention_days: 30                      # §26.2 — dostęp tylko po fladze zgłoszenia (§29.4)
+        cartel_min_members: 2                            # §26.3
+        cartel_max_members: 5                            # §26.3
+        cartel_founding_cost_pln: 50000                  # §26.3 — + zgoda wszystkich członków
+        cartel_dissolution_grace_days: 7                 # §26.3 — karencja przy rozwiązaniu
+        cartel_sabotage_credibility_penalty_pts: -10     # §26.3 — pakt o nieagresji: wydalenie + −10 company_credibility
+        b2b_exchange_fee_pct: 1.5                        # §26.3 — prowizja giełdy (zwolniona wewnątrz kartelu do limitów)
+        cartel_b2b_exempt_volume_bbl_day_per_pair: 1500  # §26.3 — doba 00:00 UTC, na uporządkowaną parę
+        cartel_price_collar_min_mult: 0.8                # §26.3 — [0,8×; 1,2×] spot z chwili publikacji
+        cartel_price_collar_max_mult: 1.2                # §26.3
+        cartel_privilege_anchor_pln_day: 450000          # §26.3 — 1500 × 250 × 1,2
+        cartel_privilege_vs_tier_v_mult: 1.125           # §26.3 — ≈1,125× max legalnej Kroplówki Tier V
+        cartel_transport_cost_pln_bbl: 4                 # §26.3 — ~4 PLN/bbl fizycznego transportu
+        cartel_sanction_flagged_tx_count: 3              # §26.3 — 3 oflagowane transakcje pary
+        cartel_sanction_flag_window_days: 7              # §26.3 — w 7 dni
+        cartel_sanction_suspension_days: 30              # §26.3 — zawieszenie zwolnienia pary
+        cartel_sanction_credibility_penalty_pts: -15     # §26.3 — obu stronom
+        cartel_pair_concentration_flag_pct: 60           # §26.3 — para >60% obrotu B2B wewnątrz kartelu = flaga
+        cartel_max_server_production_pct: 40             # §26.4 — powyżej: blokada rekrutacji
+
+  onboarding:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§27"
+    params:
+      onboarding:                                        # §27
+        ftue_steps: 6                                    # §27.1
+        ftue_rewards_total_pln: 100000                   # §27.1 — ~100000, reason_code=tutorial
+        contextual_tooltips_days: 7                      # §27.1 — pierwsze 7 dni
+        learning_mode_h: 48                              # §27.1 — tryb nauki, pierwsze 48h
+        learning_mode_max_incident_severity: micro       # §27.1 (wartość opisowa)
+        starter_well:                                    # §27.1a
+          base_rate_bbl_h: 40                            # §27.1a — kanoniczne minimum
+          reserves_bbl: 7000                             # §27.1a
+          depletion_h: 175                               # §27.1a — ~175h bez krzywej deplecji
+          depletion_days: 7.3                            # §27.1a — ~7,3 doby
+          hub_buffer_prefill_bbl: 800                    # §27.1a
+          first_tanker_capacity_bbl: 500                 # §27.1a
+          included_pipeline_class_pln: 250000            # §27.1a — rurociąg dopływowy najtańszego tieru
+          decommission_refund_pct: 10                    # §27.1a — kasacja zwraca 10% kosztu wiercenia
+          property_tax_from_day: 8                       # §27.1a — od 8. doby podatek majątkowy
+        budget_chain:                                    # §27.1a — pakiet 2M gotówka + 2M bank
+          package_total_pln: 4000000                     # §27.1a
+          permit_p1_pln: 150000                      # §27.1a
+          geological_survey_pln: 150000                  # §27.1a
+          geological_survey_h: 48                        # §27.1a
+          drilling_shallow_pln: 800000                  # §27.1a — płytka warstwa
+          drilling_shallow_h_min: 6                      # §27.1a
+          drilling_shallow_h_max: 6                     # §27.1a
+          inflow_pipeline_min_pln: 250000                # §27.1a — min. z widełek §9.4
+          used_tankers_count: 2                          # §27.1a — do kalibracji
+          used_tanker_unit_pln: 120000                   # §27.1a
+          own_chain_total_pln: 1590000                   # §27.1a — razem łańcuch własny
+          week1_extraction_bbl: 6720                     # §27.1a
+          week1_extraction_opex_pln_bbl: 30              # §27.1a
+          week1_fixed_opex_pln_h: 720  # rura polowa 120 + miejsce hub NPC ~600 (§11A.2)                    # §27.1a
+          week1_fixed_opex_h: 168                        # §27.1a
+          week1_salaries_pln: 45000                      # §27.1a — ~45000
+          week1_fuel_pln_bbl: 4                          # §27.1a
+          week1_opex_total_pln: 394000                   # §27.1a — ~205000
+          second_line_total_pln: 1150000                 # §27.1a — ~1400000
+          second_line_permit_p1_pln: 150000             # §27.1a
+          second_line_survey_pln: 150000                 # §27.1a
+          second_line_drilling_pln: 600000               # §27.1a
+          second_line_pipeline_pln: 250000               # §27.1a
+          week1_obligations_total_pln: 3134000           # §27.1a — ~3845000 ≤ 4000000
+          cash_buffer_pln: 866000                        # §27.1a — ~155000
+          starter_well_revenue_pln: 1750000              # §27.1a — 7000 bbl × 250 w ~7 dni
+        achievements_count: 60                           # §27.3 — ~60 kamieni milowych, bez przewag liczbowych
+
+  admin:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§18"
+    params:
+      admin_gm:                                                # §18
+        # Role: admin > gm_support > gm_readonly; 2FA obowiązkowe dla wszystkich ról (§18.3/§14.3);
+        # powód akcji obowiązkowy dla gm_support, opcjonalny dla admin (§18.3) — każdy czyn w gm_action_log
+        # Polityka zatwierdzania balansu jest kontrolą dostępu z §29.7, egzekwowaną w kodzie, a nie edytowalną liczbą ekonomiczną.
+        admin_panel_ip_block_failed_attempts: 5                # §14.3 — blokada IP po 5 błędnych próbach (panel admina, 2FA)
+        # Próg „kwota >1M PLN → druga para oczu" NIE występuje w tekście §13–§22 — brak wartości, nie uzupełniono
+
+  refining:
+    enabled: true
+    premium: false
+    params_version: 1
+    source_sections: "§31"
+    params:
+      refinery:                                          # §31
+        white_tanker_adr_bbl_min: 350                    # §31.1 D1 — v1: cysterny drogowe ADR
+        white_tanker_adr_bbl_max: 500                    # §31.1 D1
+        quality_bands_pts:                               # §31.1 D2 — skala 0–100
+          substandard_max: 69.99                         # §31.1 D2 — <70: czarny rynek / olej opałowy
+          industrial_min: 70                             # §31.1 D2 — 70–84 standard przemysłowy
+          euro6_min: 85                                  # §31.1 D2 — 85–91 Euro 6
+          jet_a1_min: 92                                 # §31.1 D2 — 92–100 specyfikacja lotnicza
+        classes:                                         # §31.2
+          class_i_small_atmospheric:                     # §31.2 — Mała Rozdzielnia
+            capacity_bbl_h: 120                          # §31.2
+            capex_pln: 18000000                          # §31.2
+            build_hours_h: 72                            # §31.2
+            fixed_opex_pln_h: 2400                       # §31.2 — 57,6 tys./dobę; 1,75 mln/mies.
+            variable_opex_pln_bbl: 22                    # §31.2
+            crude_tank_bbl: 6000                         # §31.2 — ~2 doby wsadu
+            product_tank_each_bbl: 6000                  # §31.2 — ~5 dób na produkt
+            credibility_min: 60                          # §31.2
+            operators_min: 4                             # §31.2
+            chemists_min: 1                              # §31.2
+            total_cash_cost_pln_bbl: 42                  # §31.2 — kalibracja ~42
+            retail_margin_pln_bbl: 85.5                   # §31.5 — detal ×1,30; ~101
+            net_pln_h: 5200                              # §31.5 — ~7,1 tys. (169 tys./dobę)
+            capex_payback_days: 144                      # §31.5 — ~106 dni
+          class_ii_medium_cracking:                      # §31.2 — Średnia Rafineria
+            capacity_bbl_h: 400                          # §31.2
+            capex_pln: 75000000                          # §31.2
+            build_hours_h: 168                           # §31.2
+            fixed_opex_pln_h: 8500                       # §31.2 — 204 tys./dobę; 6,2 mln/mies.
+            variable_opex_pln_bbl: 19                    # §31.2
+            crude_tank_bbl: 20000                        # §31.2 — ~2 doby
+            product_tank_each_bbl: 16000                 # §31.2 — ~4 doby
+            credibility_min: 70                          # §31.2
+            operators_min: 10                            # §31.2
+            chemists_min: 3                              # §31.2
+            total_cash_cost_pln_bbl: 40                  # §31.2 — kalibracja ~40
+            wholesale_margin_pln_bbl: 86                 # §31.5
+            net_pln_h: 18300                             # §31.5 — ~18,3 tys. (440 tys./dobę)
+            capex_payback_days: 170                      # §31.5 — ~170 dni
+          class_iii_petrochemical_complex:               # §31.2 — Kompleks Petrochemiczny
+            capacity_bbl_h: 1000                         # §31.2
+            capex_pln: 240000000                         # §31.2
+            build_hours_h: 336                           # §31.2
+            fixed_opex_pln_h: 21000                      # §31.2 — 504 tys./dobę; 15,3 mln/mies.
+            variable_opex_pln_bbl: 16                    # §31.2
+            crude_tank_bbl: 50000                        # §31.2 — ~2 doby
+            product_tank_each_bbl: 40000                 # §31.2 — ~4 doby
+            credibility_min: 80                          # §31.2
+            operators_min: 24                            # §31.2
+            chemists_min: 8                              # §31.2
+            total_cash_cost_pln_bbl: 37                  # §31.2 — kalibracja ~37
+            mix_margin_pln_bbl: 96                       # §31.5 — ~96 (hurt/kontrakty/RARS)
+            net_pln_h: 59000                             # §31.5 — ~59,4 tys. (1,43 mln/dobę)
+            capex_payback_days: 170                      # §31.5 — ~168 dni
+        build_stages_count: 4                            # §31.2 — 4 atomowe etapy
+        build_stage_capex_share_pct: [5, 45, 40, 10]     # §31.2 — etapy 1–4
+        build_stage_time_share_pct: [10, 45, 35, 10]     # §31.2 — etapy 1–4
+        paused_supervision_opex_pct: 5                   # §31.2 — building_paused_funds: 5% godzinowego OPEX
+        mass_balance_precision_bbl: 0.0001               # §31.3 — żelazna zasada bilansu
+        recipes:                                         # §31.3 — na 100 bbl ropy
+          variant_a_atmospheric:                         # §31.3 — prosta destylacja
+            gasoline_bbl: 28                             # §31.3
+            gasoline_quality_pts: 75                     # §31.3
+            diesel_bbl: 26                               # §31.3
+            diesel_quality_pts: 75                       # §31.3
+            jet_a1_bbl: 6                                # §31.3
+            jet_a1_quality_pts: 65                       # §31.3
+            mazut_bbl: 32                                # §31.3
+            lpg_bbl: 4                                   # §31.3
+            process_losses_bbl: 4                        # §31.3
+          variant_b_cracking:                            # §31.3 — kraking + hydroodsiarczanie
+            gasoline_bbl: 42                             # §31.3
+            gasoline_quality_pts: 88                     # §31.3
+            diesel_bbl: 30                               # §31.3
+            diesel_quality_pts: 88                       # §31.3
+            jet_a1_bbl: 14                               # §31.3
+            jet_a1_quality_pts: 94                       # §31.3
+            mazut_bbl: 6                                 # §31.3
+            lpg_bbl: 4                                   # §31.3
+            process_losses_bbl: 4                        # §31.3
+          variant_c_hydrotreating:                      # §31.3 — Klasa II+, destylacja + hydrooczyszczanie
+            gasoline_bbl: 30                            # §31.3
+            gasoline_quality_pts: 88                    # §31.3
+            diesel_bbl: 34                              # §31.3
+            diesel_quality_pts: 88                      # §31.3
+            jet_a1_bbl: 22                              # §31.3
+            jet_a1_quality_pts: 94                      # §31.3
+            mazut_bbl: 6                                # §31.3
+            lpg_bbl: 4                                  # §31.3
+            process_losses_bbl: 4                       # §31.3
+            min_refinery_class: 2                       # §31.2 — brak w Klasie I
+            requires_unit: hydrotreater                 # §31.3
+            variable_opex_surcharge_pln_bbl: 8          # §31.5 — ponad OPEX zmienny klasy
+        catalyst:                                        # §31.3
+          regen_interval_bbl: 200000                     # §31.3 — processed_bbl_since_regen
+          regen_task_h: 48                               # §31.3 — zadanie TTS, REF_CATALYST
+          regen_cost_pln: 400000                         # §31.3
+          delay_efficiency_penalty_pct: 20               # §31.3 — zwlekanie obniża sprawność o 20%
+          delay_failure_risk_increase_pct: 150           # §31.3 — zwiększa ryzyko awarii o 150%
+        flare_max_h: 2                                   # §31.3 — potem idle_standby (zamiast ogólnych 12h polityki offline §19.2)
+        product_price_base_pln_bbl:                      # §31.5 — partia jakości 85+
+          gasoline_euro6: 355                            # §31.5 — premia ~+42% nad ropą
+          diesel_euro6: 370                              # §31.5
+          jet_a1: 395                                    # §31.5 — wymóg 92+
+          mazut: 205                                     # §31.5 — dyskonto ~−18% vs ropa
+          lpg: 210                                       # §31.5 — ~84% ceny ropy
+        quality_price_mult:                              # §31.5 — mnożniki jakości partii
+          spec_92_100: 1.00                              # §31.5 — Jet A-1; tylko te partie do kontraktów lotniczych i RARS
+          euro6_85_91: 1.00                              # §31.5
+          industrial_70_84: 0.92                         # §31.5
+          substandard_lt70_fuel_oil: 0.55                # §31.5 — kanały legalne zamknięte
+        crack_spread:                                    # §31.5
+          variant_b_basket_pln_bbl: 336                  # §31.5 — kosz produktów ~336/bbl wsadu
+          variant_b_margin_pln_bbl: 86                   # §31.5 — ~86 (~34% ceny ropy)
+          variant_a_basket_pln_bbl: 261                  # §31.5 — kosz ×0,92 ≈270
+          variant_a_margin_pln_bbl: 11                   # §31.5 — przerób nieopłacalny w hurcie
+          real_world_margin_normal_pct_min: 12           # §31.5 — kotwica realna
+          real_world_margin_normal_pct_max: 25           # §31.5
+          real_world_margin_peak_pct_min: 40             # §31.5
+          real_world_margin_peak_pct_max: 70             # §31.5
+        slippage_window_min: 60                          # §31.5 — kroczące okno 60 minut; chłonność odnawiana 00:00 UTC
+        retail_franchise:                                # §31.5
+          wholesale_price_mult: 1.30                     # §31.5 — marża konsumencka
+          daily_volume_cap_bbl_per_network: 3000         # §31.5 — konfigurowalne per region
+          class_i_daily_throughput_bbl: 2880             # §31.5
+          retail_margin_pln_bbl: 100                     # §31.5 — ~100
+          consecutive_failed_deliveries_to_lose: 3       # §31.5 — utrata franczyzy
+          new_contract_cooldown_days: 7                  # §31.5
+        seasonality:                                     # §31.5
+          summer_jet_demand_pct: 30                      # §31.5 — +30%
+          summer_gasoline_demand_pct: 20                 # §31.5 — +20%
+          summer_spot_price_increase_pct_min: 15         # §31.5 — ceny spot +15–25%
+          summer_spot_price_increase_pct_max: 25         # §31.5
+          winter_diesel_demand_pct: 35                   # §31.5 — +35%
+          winter_mazut_lpg_demand_pct: 50                # §31.5 — +50%
+          winter_jet_demand_pct: -20                     # §31.5 — spadek −20%
+        aviation_contracts:                              # §31.5 — Jet A-1, parytet z §13.1
+          quality_min_pts: 92                            # §31.5 — quality_score >= 92.00
+          deposit_pct: 10                                # §31.5 — kaucja na PLN_ESCROW (REF_FUEL_DEPOSIT)
+          missed_tranche_penalty_pct: 5                  # §31.5 — REF_FUEL_PENALTY
+          missed_tranche_reputation_pts: -6              # §31.5 — contract_reputation
+          missed_tranches_to_cancel: 3                   # §31.5 — zerwanie + przepadek kaucji
+          deposit_forfeit_pct: 100                       # §31.5 — przepadek całej kaucji 10%
+          tender_block_days: 7                           # §31.5
+        rars_strategic_reserves:                         # §31.5
+          price_premium_pct: 20                          # §31.5 — +20% powyżej średniej spot
+          quality_min_pts: 90                            # §31.5 — quality_score >= 90.00
+          rejected_batch_deposit_forfeit_pct: 15         # §31.5
+          rejection_credibility_pts: -10                 # §31.5 — wiarygodność państwowa
+        black_market_products:                           # §31.5 — REF_BLACK_SALE → PLN_CASH
+          quality_max_pts: 70                            # §31.5 — quality_score < 70 (wartość wyłączna)
+          detection_credibility_pts: -12                 # §31.5
+          detection_fine_pct_of_market_value: 200        # §31.5 — REF_TAX_PENALTY 200% wartości
+        insurance:                                       # §31.6 (§24.2 — wartości zgodne)
+          pool_initial_capital_pln: 100000000            # §31.6 — SYS_INSURANCE_POOL z SYS_TREASURY
+          payout_daily_limit_pln_24h: 50000000           # §31.6 — per korporacja
+          deductible_pct: 15                             # §31.6 — franszyza redukcyjna
+          pool_reserve_floor_pln: 20000000               # §31.6 — poniżej: pożyczka Skarbu
+          crisis_premium_increase_pct: 20                # §31.6 — do odzyskania płynności
+          malus_premium_increase_pct: 50                 # §31.6 — po każdej wypłacie
+          malus_duration_days: 30                        # §31.6
+          refusal_integrity_pct_below: 30                # §31.6 — integrity_pct < 30 w chwili awarii
+        hr_training:                                     # §31.7
+          skill_refining_scale_min: 1                    # §31.7 — szósty sub-skill, skala 1–10
+          skill_refining_scale_max: 10                   # §31.7
+          course_level_i_cost_pln: 20000                 # §31.7 — Przerób Ropy I
+          course_level_i_h: 24                           # §31.7
+          course_level_ii_cost_pln: 50000                # §31.7 — Przerób Ropy II
+          course_level_ii_h: 48                          # §31.7
+          course_level_iii_cost_pln: 100000              # §31.7 — Przerób Ropy III
+          course_level_iii_h: 72                         # §31.7
+          course_pass_threshold_pct: 70                  # §31.7 — wszystkie poziomy
+          per_skill_point_throughput_bonus_pct: 1        # §31.7 — +1% przepustowości wieży na pkt
+          per_skill_point_failure_risk_reduction_pct: 2  # §31.7 — −2% ryzyka awarii na pkt
+        valuation:                                       # §31.7
+          net_worth_formula: "capex_pln * (1 - wear_level/100) * 0.70"  # §31.7
+          net_worth_mult: 0.70                           # §31.7 — 70% wartości odtworzeniowej po zużyciu
+          bailiff_auction_start_pct: 60                  # §31.7 — 60% wyceny netto (Faza 3 §17.2)
+          shield_limit_pln: 10000000                     # §31.7 — limit wygaśnięcia tarczy (§19.2)
+        sweeper_refinery_interval_min: 5                 # §31.9 — sweeper co 5 min sprawdza instalacje nieaktywnych
+        restart_incident_after_strike_rolls: 1           # §31.7 — dokładnie jeden deterministyczny rzut (mikro/minor)
+      refinery_epc:                                      # §31.2.3
+        plot_auctions:                                   # §31.2
+          start_price_min_pln: 5000000                   # §31.2 — cena wywoławcza od 5M (wg klasy terenu)
+          bid_deposit_pct: 10                            # §31.2 — REF_PLOT_AUCTION_BID; przegrani: zwrot 100%
+          auction_duration_h: 24                         # §31.2 — aukcja angielska
+          plots_per_region_min: 2                        # §31.1 D4 — twardy limit 2–3 działek na region
+          plots_per_region_max: 3                        # §31.1 D4
+        build_stages_count: 4                            # §31.2.3 — etap opłacany z góry, atomowo
+        stage_capex_share_pct: [5, 45, 40, 10]           # §31.2.3 — koszt etapu = CAPEX × udział × mnożnik oferty
+        stage_time_share_pct: [10, 45, 35, 10]           # §31.2.3 — czas etapu = godziny × udział × mnożnik czasu
+        archetypes:                                      # §31.2.3 — wartości archetypów A–F
+          a_local_cheap:                                 # §31.2.3
+            capex_mult: 0.80                             # §31.2.3
+            time_mult: 1.35                              # §31.2.3
+            integrity_pct: 80                            # §31.2.3
+            defect_risk_14d_pct: 30                      # §31.2.3 — wada w 14 dni
+            warranty_days: 0                             # §31.2.3
+            credibility_min: 40                          # §31.2.3
+          b_stable_public:                               # §31.2.3
+            capex_mult: 1.00                             # §31.2.3
+            time_mult: 1.00                              # §31.2.3
+            integrity_pct: 92                            # §31.2.3
+            defect_risk_14d_pct: 10                      # §31.2.3
+            warranty_days: 14                            # §31.2.3
+            credibility_min: 60                          # §31.2.3
+          c_private_leader:                              # §31.2.3
+            capex_mult: 1.10                             # §31.2.3
+            time_mult: 0.85                              # §31.2.3
+            integrity_pct: 95                            # §31.2.3
+            defect_risk_14d_pct: 6                       # §31.2.3
+            warranty_days: 21                            # §31.2.3
+            credibility_min: 70                          # §31.2.3
+          d_western_consortium:                          # §31.2.3
+            capex_mult: 1.30                             # §31.2.3
+            time_mult: 0.75                              # §31.2.3
+            integrity_pct: 99                            # §31.2.3
+            defect_risk_14d_pct: 2                       # §31.2.3
+            warranty_days: 30                            # §31.2.3
+            credibility_min: 80                          # §31.2.3
+          e_asian_consortium:                            # §31.2.3
+            capex_mult: 0.90                             # §31.2.3
+            time_mult: 0.65                              # §31.2.3
+            integrity_pct: 88                            # §31.2.3
+            defect_risk_14d_pct: 18                      # §31.2.3
+            warranty_days: 7                             # §31.2.3
+            credibility_min: 65                          # §31.2.3
+          f_grey_zone:                                   # §31.2.3
+            capex_mult: 0.65                             # §31.2.3
+            time_mult: 1.10                              # §31.2.3
+            integrity_pct: 72                            # §31.2.3
+            defect_risk_14d_pct: 45                      # §31.2.3
+            warranty_days: 0                             # §31.2.3
+            credibility_min: 0                           # §31.2.3
+            black_market_score_pts: 5                    # §31.2.3 — podpisanie F: +5 pkt
+            tranche_cash_share_pct: 25                   # §31.2.3 — REF_EPC_CASH_STAGE z PLN_CASH
+            tranche_bank_share_pct: 75                   # §31.2.3 — REF_BUILD_STAGE z PLN_BANK
+        catalog_contractors_count: 24                    # §31.2.3 — stały katalog firm
+        jitter:                                          # §31.2.3 — trwałe odchylenia konkretnej firmy (HMAC)
+          cost_time_relative_pct: 5                      # §31.2.3 — koszt i czas ±5% względnie
+          integrity_pp: 2                                # §31.2.3 — ±2 punkty procentowe
+          defect_risk_pp: 2                              # §31.2.3 — ryzyko wady ±2 pkt
+          catalog_cost_mult_floor: 0.60                  # §31.2.3 — F: koszt co najmniej 0,60×
+          catalog_integrity_floor_pct: 70                # §31.2.3 — integralność co najmniej 70%
+          catalog_defect_risk_ceiling_pct: 50            # §31.2.3 — ryzyko wady najwyżej 50%
+        incidents:                                       # §31.2.3
+          incident_slot_due_at_stage_time_pct: 50        # §31.2.3 — slot należny po połowie efektywnego czasu etapu
+          disaster_prob_pct_by_archetype:                # §31.2.3 — prawdopodobieństwa katastrofy na etap
+            a: 3                                         # §31.2.3
+            b: 1                                         # §31.2.3
+            c: 0.5                                       # §31.2.3
+            d: 0.5                                       # §31.2.3
+            e: 2                                         # §31.2.3
+            f: 8                                         # §31.2.3
+          disaster_max_per_build: 1                      # §31.2.3 — najwyżej jedna na całą budowę
+          disaster_time_extension_pct_of_stage: 25       # §31.2.3 — +25% czasu danego etapu
+          disaster_repair_cost_pct_of_base_capex: 4      # §31.2.3 — REF_EPC_SITE_REPAIR; brak polisy placu budowy
+          delivery_delay_options_h: [12, 24]             # §31.2.3 — jeśli włączone w game_balance
+          delay_penalty_pct_of_stage_price: 5            # §31.2.3 — wyłącznie przy winie wykonawcy (REF_EPC_DELAY_COMP)
+          delay_comp_max_per_stage: 1                    # §31.2.3 — najwyżej raz na etap
+          strike_archetypes: [a, f]                      # §31.2.3 — strajk podwykonawcy
+          strike_standstill_h: 48                        # §31.2.3 — jednorazowy wynik na etap
+          f_inspection_prob_pct_per_stage: 15            # §31.2.3 — jeden rzut kontroli na etap
+          f_inspection_standstill_h: 48                  # §31.2.3 — wykrycie: postój
+          f_inspection_penalty_pct_of_stage_price: 5     # §31.2.3 — REF_TAX_PENALTY
+          f_inspection_credibility_pts: -12              # §31.2.3 — brak wykrycia: bez zmian
+        latent_defect:                                   # §31.2.3
+          roll_window_days_after_operational: 14         # §31.2.3 — jeden deterministyczny rzut w pierwszych 14 dobach
+          rolls: 1                                       # §31.2.3 — wynik przypisany z góry; zgłoszenie tylko odsłania
+          repair_cost_pct_of_base_capex: 4               # §31.2.3 — REF_EPC_DEFECT_REPAIR (0 PLN w gwarancji)
+          repair_duration_h: 24                          # §31.2.3 — jednostka nie produkuje
+        paused_supervision_opex_pct: 5                   # §31.2.3 — building_paused_funds: 5% godzinowego OPEX klasy
+        obligation_deadline_h: 72                        # §31.2.3 — brak środków: zobowiązanie 72h → §17
+        concurrent_builds_limit: 2                    # §31.2.3 — limit 2 równoległych budów na korporację (kanon w dokumencie, licząc building_paused_funds)
+
+# === RAPORT: parametry do kalibracji (null w dokumencie) ===
+#   - core.params.finance_dept.department_budgets.hr_numeric_effects
+#   - core.params.finance_dept.department_budgets.bhp_numeric_effects
+#   - staff.params.morale.salary_satisfaction.min_market_salary_pln
+#   - incidents.params.technical_dept.bhp_risk_reduction_per_level_pct
+#   - incidents.params.technical_dept.procedure_integrity.threshold_pct
+#   - incidents.params.technical_dept.procedure_integrity.wear_rate_per_h
+#   - incidents.params.technical_dept.procedure_integrity.calibration_cost_pln
+#   - incidents.params.technical_dept.procedure_integrity.calibration_effect
+#   - incidents.params.technical_dept.tts_task_queue.task_durations_s
+#   - incidents.params.technical_dept.tts_task_queue.material_costs_pln
+#   - logistics.params.logistics.protection.options.escort_basic.cost_pln
+#   - logistics.params.logistics.protection.options.escort_basic.duration_min
+#   - logistics.params.logistics.protection.options.armed_convoy.cost_pln
+#   - logistics.params.logistics.protection.options.armed_convoy.duration_min
+#   - logistics.params.logistics.protection.options.drone_patrol.cost_pln
+#   - logistics.params.logistics.protection.options.drone_patrol.duration_min
+#   - logistics.params.logistics.protection.options.hub_security.cost_pln
+#   - logistics.params.logistics.protection.options.hub_security.duration_min
+#   - logistics.params.logistics.protection.options.pipeline_monitor.cost_pln
+#   - logistics.params.logistics.protection.options.pipeline_monitor.duration_min
+#   - market.params.market.slippage.volume_thresholds_pct_of_absorption
+#   - market.params.market.slippage.discount_pct_ranges
+#   - market.params.market.slippage.regeneration_pct_per_10min
+#   - market.params.market.limit_offers.offers_free_max
+#   - market.params.market.limit_offers.offers_vip_max
+#   - market.params.market.black_market.oil_price_premium_pct
+# Razem parametrów (liści): 1419; do kalibracji: 26

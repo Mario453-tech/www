@@ -1,0 +1,29 @@
+# Sześć blokerów domenowych — scalenie trzech propozycji (GPT / DeepSeek / Qwen)
+
+**Data:** 2026-11-11 · **Tryb:** przyspieszony (prompt 21 KB zamiast 60 KB, DeepSeek/Qwen na medium, limit 250 linii odpowiedzi) — GPT odpowiedział w ~3 min, całość w ~9 min.
+**Źródła:** `OILEMPIRE_6BLOKEROW_PROPOZYCJA_GPT.md` (111 linii), `..._DEEPSEEK.md` (324), `..._QWEN.md` (136).
+
+## Co wklejono do specyfikacji (wszystkie bloki Qwen + uzupełnienia GPT)
+
+| Zadanie | Nowa sekcja | Kluczowe liczby | Dlaczego ten wariant |
+|---|---|---|---|
+| 1. Baza podatku majątkowego | **§19.1.1** | Zapasy ropy/produktów: 90% ceny referencyjnej (VWAP spot 24h); minimum operacyjne wolne (line-pack + 10% bufora huba); wierzytelności B2B 90% nominału; **progi tarczy i Tieru liczą zapasy w 100%** (dyskont nie jest drugą furtką); ucieczka gotówka→ropa daje oszczędność 0,008%/dzień < dobowa zmienność ceny = nieopłacalna | Qwen jedyny policzył bilans ucieczki i rozdzielił dyskont podatkowy od progów; GPT dostał dopisek „zasada jednego podatnika" |
+| 2. Wzór morale | **§4.3** | `morale_target` = 0,45·płaca + 0,15·przeciążenie + 0,10·świeżość podwyżki + 0,10·bezpieczeństwo + 0,10·budżet HR + 0,10·uznanie − kary zdarzeń; wygładzanie **−12/+6 pkt na dobę** (spada szybko, odrasta wolno); zdarzenia §4.2 natychmiast; dział = 0,7·śr. działu + 0,3·śr. firmy; próg sporu <35 bez zmian | Wszystkie wejścia już istnieją w grze; asymetryczne tempo lepsze niż ±3/dobę GPT (za wolne) i ±3/tick DS (za szybkie) |
+| 3. Cennik ochrony | **§7.2** | Eskorta 2% kursu (min 2 500); konwój 5% (min 8 000, dyr. prawny ≥3, degradacja przy jego utracie); drony 35 000/aktywum/7 dni (max 10); hub_security 60 000/hub/7 dni; budżet BHP: high −10% / low +15% ceny; kody `PROTECT_*` → SYS_TREASURY | Kotwiczone do ekonomii ataku (§7.1): eskorta musi być tańsza niż oczekiwana strata z zasadzki, inaczej nikt nie kupi. + reguła GPT: ochrona nie działa wstecz |
+| 4. Zezwolenia i łapówki | **§7.3** | P1: 150 tys./72h, P2: 500 tys./7 dni; szansa zatwierdzenia sterowana wiarygodnością; odmowa = 50% opłaty przepada; odwołanie +skill_law. Łapówki (tylko gotówka, +2 black_market_score): przyspieszenie pozwolenia 40% opłaty (ryzyko 22%), złagodzenie mandatu ×0,5 (18%), ostrzeżenie o kontroli 25 tys. (12%); ryzyko rośnie z historią (+10 p.p. po wpadce, +15 p.p. „pod lupą"); wpadka = −18 wiarygodności + 250 tys. + proces + blokada menu 30 dni; 1 łapówka/24h | **Odrzucone z DS:** łapówka „odblokowanie zajętego odwiertu" i „czyszczenie black_market_score" — rozmontowywałyby egzekucję §17 i system śladu czarnorynkowego. Ograniczony katalog GPT (tylko przyspieszenie) za ubogi |
+| 5. Starter kit / FTUE | **§27.1a** | **Wszyscy trzej jednomyślnie: prezbudowany odwiert szkoleniowy.** Parametry Qwen: base_rate 40 bbl/h (kanoniczne minimum), zasobność 7 000 bbl (~7,3 doby), rurociąg polowy w pakiecie, **bufor wstępnie wypełniony 800 bbl → pierwszy kurs cysterną w 1. minucie, sprzedaż w ~30 min**; niezbywalny (anty-farmienie kont); wyłączony z Tieru/tarczy; budżet startowy spina się: łańcuch własny 2,24 mln + OPEX tyg. 205 tys. + druga nitka 1,4 mln = 3,845 mln ≤ 4 mln, a przychód ze szkoleniowego (1,75 mln) finansuje drugą nitkę | GPT miał base_rate 20 (w 30 min powstaje 10 bbl — nie da się sprzedać sensownie); DS 35 z rezerwą 4 000. Qwen jedyny rozwiązał problem „cysterna nie ma czego zabrać" buforem 800 bbl |
+| 6. Snapshot Tieru Kroplówki | **§22.6.1** | Jedna tabela `net_worth_snapshots` (00:00 UTC) zasila **trzech konsumentów**: podatek §19.1, tarczę §19.2, Tier §22.6 — zero rozjazdów; `tier_base = majątek − pakiet startowy − drip_30d` (suma konwersji GBBL z 30 dni, zwykły indeks na FTS); zakup GBBL dziś NIE podnosi limitu jutro (anty-śnieżna-kula); spadek/wzrost majątku działa od następnego snapshotu; wyjątek: recovery_mode/Faza 2 blokuje wymianę NATYCHMIAST; max 1 żądanie oczekujące, UNIQUE(firma, data) | Qwen: 30-dniowe okno z FTS bez znaczników na każdym groszu — prostsze niż attribution-ledger GPT i odporniejsze niż mutowalne pole z agingiem DS |
+
+## Decyzje podjęte za właściciela gry
+1. Dyskont podatkowy zapasów 90% (nie 80% jak GPT/DS) — przy progach tarczy/Tieru zawsze 100%.
+2. Łapówki: katalog 3 celów; NIE można kupować: zajęcia komorniczego, odblokowania odwiertu, wiarygodności, kasowania logów, egzaminów, bezkarności PvP (dziedziczenie §22.6).
+3. Pieniądze z łapówek: `PLN_CASH → SYS_MARKET_MAKER` (charakter „paserstwa"), mandaty → `SYS_TREASURY`.
+4. Odwiert szkoleniowy: niezbywalny, od 8. doby opodatkowany na zasadach ogólnych, kasacja zwraca 10% kosztu wiercenia.
+5. Ochrona: brak auto-odnowienia (poza flagą w pętli cystern), subskrypcje bezzwrotne, kursowe ze zwrotem 100% przed wyjazdem; firma pod Tarczą Startową nie kupuje ochrony (tarcza i tak blokuje ataki).
+6. Podatek majątkowy to JEDYNE opodatkowanie ropy (brak royalty od wydobycia) — brak podwójnego opodatkowania.
+
+## Status blokerów z `OILEMPIRE_WERYFIKACJA_3_MODELI.md`
+ZAMKNIĘTE: a2 (wycena aktywów do podatku), a5 (model morale), a7-pozostałość (fallback raty — był w §24.5), a8 (zakup ochrony), a9 (pozwolenia/łapówki), a10 (starter kit FTUE), Kroplówka Tier snapshot (z listy mikro-fixów).
+Wcześniejsze: a4/a7/B3 (węzeł B2B) — zamknięte rano.
+**Pozostało z listy final-review:** a12 resztka (globalny porządek blokad między typami zasobów — do spisania przy implementacji), a14 (partycjonowanie MySQL vs `idempotency_key` — osobna niepartycjonowana tabela kluczy), a11 resztka (generator kontraktów systemowych NPC), mikrozapis §7.1 (rozdzielenie kolumn powodzenie/wykrycie/szkoda — częściowo załatwione w §7.2), bonus 2FA jako osobny modyfikator wyświetlanej wiarygodności.
+**Proces:** `game_balance` v1 (zebranie wszystkich liczb), symulator headless jako pierwszy deliverable, P3-8 (rename pliku — decyzja właściciela), testy R7–R14 do §31.10, kalibracja rabatu szarej strefy EPC po pomiarach.
