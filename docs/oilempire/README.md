@@ -6,6 +6,7 @@ Ten katalog zawiera specyfikację nowego silnika gry oraz materiały, z których
 
 - [Architektura i zasady gry](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) — główna specyfikacja.
 - [Panel administracyjny](OILEMPIRE_PANEL_ADMINA_SPECYFIKACJA.md) — kanoniczny załącznik dotyczący Filamenta.
+- [API gry i aplikacji mobilnej](OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md) — projekt kontraktu HTTP dla wspólnego silnika.
 - [Balans gry](OILEMPIRE_GAME_BALANCE_V1.yaml) — parametry ekonomii, czytane przez symulator.
 - [Symulator balansu](OILEMPIRE_SYMULATOR_BALANSU.py) — automatyczna kontrola parametrów.
 - [Lista poprawek](OILEMPIRE_MASTER_LISTA_POPRAWEK.md) i [audyt końcowy](OILEMPIRE_AUDYT_FINAL_SYNTEZA.md) — historia decyzji i ich uzasadnienie.
