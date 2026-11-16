@@ -52,9 +52,9 @@ provider: Modules\Training\Providers\TrainingServiceProvider
 label_key: training.module.name
 requires:
   all:
-    - { module: identity, contract: identity.access, version: "^1.0" }
-    - { module: hr, contract: hr.employees, version: "^1.0" }
-    - { module: finance, contract: finance.posting, version: "^1.0" }
+    - { module: core, contract: core.access, version: "^1.0" }
+    - { module: staff, contract: staff.employees, version: "^1.0" }
+    - { module: core, contract: core.ledger, version: "^1.0" }
 provides:
   - { contract: training.courses, version: "1.0.0" }
 balance_schema: Schemas/balance.schema.json
@@ -71,7 +71,7 @@ panel:
   resources: [TrainingCourseResource]
 ```
 
-Klucze identity/hr/finance należy uzgodnić z rejestrem istniejących modułów przed implementacją; przykład nie zmienia nazw w game_balance. Pola panel mają pełny kontrakt w specyfikacji panelu §4.
+Kontrakty core.access, staff.employees i core.ledger są docelowymi interfejsami. Training jest podmodułem Staff: przykład zależności należy zwinąć do właściciela Staff, usuwając zależność do samego siebie. Nie tworzymy osobnego korzenia training w game_balance. Pola panel mają pełny kontrakt w specyfikacji panelu §4.
 
 Enabled, premium i params_version pochodzą z zatwierdzonego snapshotu balansu, a nie z edytowanego manifestu produkcyjnego. Manifest rejestruje możliwości kodu; runtime przechowuje stan wykonania. Brak węzła balansu dla modułu ekonomicznego blokuje aktywację.
 
