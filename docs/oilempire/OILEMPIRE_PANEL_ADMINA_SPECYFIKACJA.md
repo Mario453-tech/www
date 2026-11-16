@@ -156,6 +156,8 @@ Zasady nawigacji: grupa widoczna tylko przy choć jednym zasobie dostępnym dla 
 
 Panel jest SKŁADANY z manifestów modułów — rdzeń panelu nie zawiera wiedzy o żadnym module gry. Nowy moduł (także premium) dokłada swoją część panelu przez drop-in, bez zmian w rdzeniu.
 
+Obowiązuje [standard modułu i wdrażania](OILEMPIRE_STANDARD_MODULU_WDROZENIE.md). Manifest ma ścieżkę `Modules/<Name>/manifest.yaml`; panel pokazuje stany runtime, zależności i blokery. Wyłączenie rozpoczyna `draining`, a istniejące procesy są nadal rozliczane. Kod modułu jest dostarczany przez wydanie, nie upload ZIP w panelu.
+
 ### 4.1. Co moduł wnosi do panelu (sekcja `panel` manifestu)
 
 ```yaml
