@@ -8,14 +8,14 @@
 #   1) Ceny/czasy ochrony: §11A.7 (75k/500k/50k-h/120k/30k-h) vs §7.2 (2%/5%/35k/60k)
 #      -> KANON §7.2 (kalibrowany do ekonomii ataku); w logistics.protection zostały
 #         wyłącznie mnożniki ryzyka, pola cen wyzerowane do null.
-#   2) Eskorta: −40% ryzyka kradzieży (§7) vs partial_theft ×0.5 (§11A.7)
-#      -> do uzgodnienia przy implementacji (oznaczone komentarzem).
+#   2) PL: Eskorta: ustalony mnoznik ryzyka kradziezy wynosi 0.6.
+#      EN: Escort: the settled theft risk multiplier is 0.6.
 # WARTOŚCI null = parametr wspomniany w dokumencie BEZ liczby — lista na końcu pliku.
 # =====================================================================
 meta:
   balance_version: 1
   generated_at: "2026-11-13"
-  source_document: "OILCORP_LARAVEL_ARCHITEKTURA_SYSTEMOWA.md"
+  source_document: "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md"
   source_lines: 2077
   currency: "PLN (nazwa per locale; zapis BIGINT grosze — §24.1)"
 
