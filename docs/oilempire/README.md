@@ -17,6 +17,10 @@ Pozostałe pliki `OILEMPIRE_*` to propozycje, recenzje, syntezy i wcześniejsze 
 
 [Kontrakt bezpieczeństwa i niezawodności](OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md) jest obowiązującym załącznikiem do architektury i API. Opisuje wykonanie zabezpieczeń oraz testy odbioru modułów.
 
+## Standard programowania modułów
+
+[Standard modułu i proces wdrożenia](OILEMPIRE_STANDARD_MODULU_WDROZENIE.md) określa strukturę, manifest, wersje, zależności, stany runtime, przykład Training oraz zadania M01–M10.
+
 ## Wprowadzanie zmian
 
 W GitHubie otwórz plik i wybierz **Edit this file**. Zmieniaj główną specyfikację oraz odpowiedni załącznik lub YAML razem, jeśli decyzja wpływa na kilka miejsc. Przed przyjęciem zmian balansu uruchom symulator na tym samym YAML:
