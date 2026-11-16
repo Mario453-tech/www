@@ -2,6 +2,8 @@
 
 ## 1. Wprowadzenie i Założenia Systemowe
 
+Plan implementacji wszystkich obszarów: [OILEMPIRE_PLAN_PROGRAMOWANIA.md](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Błędy i otwarte decyzje przed kodowaniem: [OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md](OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md). Status zapisów projektowych nie oznacza wdrożenia; kartę pakietu i jego blokery sprawdza się przed programowaniem.
+
 Projekt stanowi kompleksową, nowoczesną implementację strategicznej gry korporacyjno-naftowej **OilEmpire (oilempire.pl)** w architekturze **Modular Monolith** z frontendem **SPA (Single Page Application)**:
 - **Backend:** Laravel 13 (PHP 8.3+) z silnym typowaniem i architekturą zdarzeniową (Domain-Driven Events).
 - **Frontend Gracza:** Vue 3 (Composition API, `<script setup>`) + Inertia.js + Tailwind CSS.
@@ -420,10 +422,10 @@ Odmowa: 50% opłaty przepada (koszt rozpatrzenia), ponowny wniosek po 72h. **Odw
 
 ## 8. Modułowa Architektura w Laravel 13 i Integracja z Filament v5
 
-Każda domena biznesowa tworzy w pełni samodzielny moduł (`modules/`):
+Każda domena biznesowa tworzy w pełni samodzielny moduł (`Modules/`):
 
 ```
-modules/
+Modules/
 ├── Core/               # Użytkownicy, Finanse FTS, Portfel, Czat Reverb, Layouty
 ├── Extraction/         # Odwierty, Warstwy geologiczne, Tiers sprzętu, Degradacja
 ├── Logistics/          # Huby pośrednie, Rurociągi inbound/outbound, Cysterny, Porty
@@ -441,7 +443,7 @@ modules/
 ### 8.0a. Zasoby interfejsu, CSS i komentarze kodu
 
 - **Wszystkie ikony gry i panelu są plikami SVG** przechowywanymi lokalnie w repozytorium i wersjonowanymi. Dotyczy to nawigacji, akcji, statusów, przycisków, komunikatów, alertów i powiadomień. Nie używamy emoji, fontów ikonowych, bitmap ani zewnętrznych bibliotek pobierających ikony w czasie działania. Ikony wspólne (np. sukces, błąd, ostrzeżenie, informacja, zamknięcie) mają jeden katalog w zasobach wspólnych; ikony właściwe dla mechaniki gry należą do modułu. SVG nie zawiera osadzonych bitmap, skryptów ani treści od użytkownika. Wybór ikony następuje z zatwierdzonej mapy kodu zdarzenia/statusu, nie z dowolnej ścieżki przesłanej przez użytkownika.
-- **CSS jest podzielony według właściciela.** Wspólny katalog `resources/css` zawiera wyłącznie tokeny marki, typografię, reset, dostępne prymitywy i wspólne komponenty (w tym komunikaty §27.2a). Styl funkcji należy do `modules/<Nazwa>/resources/css` i jest ładowany przez Vite tylko tam, gdzie moduł jest używany. Panel Filament ma osobny punkt wejścia motywu w module Admin, korzystający z tych samych tokenów; zasoby Filament dostarczane przez inne moduły mogą mieć własny CSS. Zakazane są jeden globalny arkusz z regułami wszystkich modułów, style inline w Blade/Vue oraz wzajemne nadpisywanie prywatnych klas innych modułów.
+- **CSS jest podzielony według właściciela.** Wspólny katalog `resources/css` zawiera wyłącznie tokeny marki, typografię, reset, dostępne prymitywy i wspólne komponenty (w tym komunikaty §27.2a). Styl funkcji należy do `Modules/<Nazwa>/Resources/css` i jest ładowany przez Vite tylko tam, gdzie moduł jest używany. Panel Filament ma osobny punkt wejścia motywu w module Admin, korzystający z tych samych tokenów; zasoby Filament dostarczane przez inne moduły mogą mieć własny CSS. Zakazane są jeden globalny arkusz z regułami wszystkich modułów, style inline w Blade/Vue oraz wzajemne nadpisywanie prywatnych klas innych modułów.
 - **Komentarze w kodzie**, jeśli są potrzebne, zapisujemy dwujęzycznie: linia `PL:` po polsku bez polskich znaków diakrytycznych oraz linia `EN:` po angielsku, z tą samą treścią. Pliki kodu, SVG, CSS i dokumentacji zapisujemy jako UTF-8 bez BOM. Nazwy identyfikatorów pozostają po angielsku; tekst widoczny dla gracza zachowuje poprawną polszczyznę z diakrytykami i tłumaczenia PL/EN/DE. Komentarze opisują powód lub nieoczywisty kontrakt, nie powtarzają oczywistego kodu.
 
 ### 8.1. Integracja Panelu Filament v5 (Dla Admina i GM):
@@ -1232,7 +1234,7 @@ Każde wykonanie akcji GM: wpis do `gm_action_log` (kto, co, stan przed/po, `swe
 
 ### 18.4. Konwencje Modułów i Bezpieczne Ukrywanie
 
-- **Auto-discovery namespace:** każdy moduł rejestruje zasoby z `modules/<Moduł>/src/Filament/` przez własny ServiceProvider (konwencja `{Vendor}\Modules\{Moduł}\Filament`) — panel Admin nie ma sztywnych namespace'ów globalnych.
+- **Auto-discovery namespace:** każdy moduł rejestruje zasoby z `Modules/<Moduł>/Filament/` przez własny ServiceProvider (konwencja `{Vendor}\Modules\{Moduł}\Filament`) — panel Admin nie ma sztywnych namespace'ów globalnych.
 - **`is_active` menu (§18.2) ukrywa WYŁĄCZNIE nawigację** — trasy i procesy modułu działają dalej (deep-linki, procesy w toku). Ukrycie modułu z aktywnymi procesami krytycznymi (negocjacje strajku, egzekucja, dostawa `in_transit`) jest blokowane z komunikatem dla GM.
 - **GM „Reset stanu" jest transakcyjny:** jedna transakcja DB wygasza WSZYSTKIE procesy zależne (raty, licytacje, ultimatum, zadania TTS, przypisania, oferty) razem ze zmianą flag — brak osieroconych jobów odtwarzających stary stan; całość z wpisem do `gm_action_log` i audytem FTS.
 
@@ -1286,7 +1288,7 @@ Aby gospodarka nie zbankrutowała ani nie uległa dewaluacji po 2 latach ciągł
 
 ### 19.1.1. Zapasy rzeczowe i wierzytelności w podstawie podatku majątkowego
 
-- **Cena referencyjna:** VWAP spot z ostatnich 24h (liczony w fazie 4 sweepa) per rodzaj surowca (ropa bazowa 250 PLN/bbl, produkty wg tabel §31), parametr `wealth_tax_price_source` w `game_balance`.
+- **Cena referencyjna:** VWAP spot z ostatnich 24h (liczony w globalnej fazie 3 sweepa, przed konsumentami fazy 4 i snapshotem podatkowym) per rodzaj surowca (ropa bazowa 250 PLN/bbl, produkty wg tabel §31), parametr `wealth_tax_price_source` w `game_balance`.
 - **Wycena:** 90% ceny referencyjnej × mnożnik jakości (produkty). Opodatkowane: magazyny, bufory hubów/rurociągów (powyżej minimum operacyjnego) oraz ropa w tranzycie (cysterny, tankowce, rurociągi — wg właściciela w `oil_movements` na moment snapshotu).
 - **Minimum operacyjne wolne od podatku:** line-pack rurociągów i do 10% pojemności bufora huba (fizycznie niezbędne do przepływu); limity w `game_balance`.
 - **Brak podwójnego opodatkowania:** podatek majątkowy jest JEDYNYM opodatkowaniem ropy — nie ma royalty od wydobycia; każdy bbl płaci raz dziennie jako stan w snapshotcie.
@@ -1824,9 +1826,9 @@ Bufor gotówkowy ~866 000 + przychód z odwiertu szkoleniowego (7 000 bbl × 250
 #### 29.4a Tabela kluczy idempotencji FTS (`fts_idempotency_keys`)
 Partycjonowana RANGE po `created_at` tabela `financial_transaction_service` NIE może mieć globalnego UNIQUE na `idempotency_key` (MySQL wymaga kolumny partycjonującej w każdym UNIQUE) — deduplikacja żyje w osobnej, **niepartycjonowanej** tabeli InnoDB:
 
-* Kolumny: `id` BIGINT UNSIGNED AI PK; `idem_key` VARBINARY(16) — BLAKE2b-128 z `reason_code:entity_id:due_slot:request_uuid`; `company_id`; `fts_id` BIGINT UNSIGNED NULL; `fts_created_at DATETIME(3) NULL` (wskazuje partycję wpisu, bez klucza obcego); `request_hash` BINARY(32); `status` VARCHAR(16): `pending|committed|failed` (BackedEnum PHP 8.3); `created_at DATETIME(3)`; `expires_at DATETIME(3)`; `UNIQUE(idem_key)`; `INDEX(expires_at)`.
-* **Przebieg w transakcji:** (1) `INSERT status='pending', expires_at=NOW()+24h` PRZED księgowaniem; (2) duplikat 1062 → `SELECT`: `committed` i `request_hash` zgodny → zwróć zapisany `fts_id` (odpowiedź idempotentna, brak ponownego księgowania); hash różny → błąd konfliktu 409; `pending` <60 s → 409 retry-later; `pending` >60 s lub `failed` → przejęcie warunkowe `UPDATE ... SET status='pending', created_at=NOW(3) WHERE idem_key=? AND (status='failed' OR created_at < NOW(3)−60s)` — tylko gdy `affected_rows=1` (przegrywający cofa transakcję i ponawia z backoffem §23.5a); (3) `INSERT` FTS + `UPDATE status='committed', fts_id, fts_created_at` w TEJ SAMEJ transakcji (rollback usuwa też `pending`). Żadnych nieodwracalnych działań poza bazą przed commitem.
-* **Retencja (zero-wipe):** klucze zdarzeń domenowych (sweepy, transze kontraktów, raty, zobowiązania, `B2B_GM_AWARD`) zachowywane **TRWALE** — seed `HMAC(entity:due_slot)` naturalnie deduplikuje rozliczenie po awarii; klucze jednorazowych żądań HTTP: `committed` usuwane po **30 dniach**, `failed` po 24 h (dzienny sweeper `DELETE WHERE expires_at < NOW(3) AND status != 'pending'`). Skala: ~1 000 graczy × ~50 zapisów/dobę ≈ 1,5 mln wierszy/30 dni ≈ 250 MB — bez wpływu na partycje FTS.
+* Kolumny: `id` BIGINT UNSIGNED AI PK; `idem_key` VARBINARY(16) — BLAKE2b-128 z `reason_code:entity_id:due_slot:request_uuid`; `company_id`; `fts_id` BIGINT UNSIGNED NULL; `fts_created_at DATETIME(3) NULL` (wskazuje partycję wpisu, bez klucza obcego); `request_hash` BINARY(32); `status` VARCHAR(16): `pending|committed|failed` (BackedEnum PHP 8.3); `created_at DATETIME(3)`; `expires_at DATETIME(3) NULL`; `committed_at DATETIME(3) NULL`; `UNIQUE(idem_key)`; `INDEX(expires_at)`.
+* **Przebieg w transakcji:** (1) `INSERT status='pending', expires_at=NULL` PRZED księgowaniem; (2) duplikat 1062 → `SELECT`: `committed` i `request_hash` zgodny → zwróć zapisany `fts_id` (odpowiedź idempotentna, brak ponownego księgowania); hash różny → błąd konfliktu 409; `pending` <60 s → 409 retry-later; `pending` >60 s lub `failed` → przejęcie warunkowe `UPDATE ... SET status='pending', created_at=NOW(3) WHERE idem_key=? AND (status='failed' OR created_at < NOW(3)−60s)` — tylko gdy `affected_rows=1` (przegrywający cofa transakcję i ponawia z backoffem §23.5a); (3) `INSERT` FTS + `UPDATE status='committed', fts_id, fts_created_at, committed_at` oraz ustawienie expires_at według polityki retencji w TEJ SAMEJ transakcji (rollback usuwa też `pending`). Żadnych nieodwracalnych działań poza bazą przed commitem.
+* **Retencja (zero-wipe):** klucze zdarzeń domenowych (sweepy, transze, raty, zobowiązania, B2B_GM_AWARD) zachowywane TRWALE z `expires_at=NULL`. Klucze żądań HTTP: `committed` mają `expires_at=committed_at+30 dni`, `failed` = czas porażki +24 h. `pending` ma `expires_at=NULL`; czas próby jest oddzielny od terminu usunięcia. Sprzątanie usuwa wyłącznie rekordy z `expires_at IS NOT NULL AND expires_at < NOW(3) AND status != 'pending'`. Seed RNG nie zastępuje trwałego klucza deduplikacji. Retencja odpowiedzi HTTP nie pozwala odtworzyć skutku po usunięciu klucza: legalny stan domenowy nadal musi wykluczać powtórną wypłatę.
 * Dzienna kontrola spójności: każdy `committed` musi mieć odpowiednik w FTS/archiwum — brak = alarm (§29.2).
 
 ### 29.5. Wersjonowanie Balansu
@@ -1859,7 +1861,7 @@ modules:
 
 **1. Manifest modułu (rejestr).** Kanoniczna struktura to `Modules/<Name>/manifest.yaml`, namespace `Modules\\` i rejestr ładowany z artefaktu wydania. Manifest deklaruje kontrakty, zależności, providera, trasy, fazy rozliczeń i zasoby panelu. Stan `enabled`, `premium` oraz wersje parametrów pochodzą z zatwierdzonego snapshotu i runtime. Pełny schemat, struktura plików, wersjonowanie, komendy do zaprogramowania i backlog M01–M10: [Standard modułu i wdrażania](OILEMPIRE_STANDARD_MODULU_WDROZENIE.md).
 
-**2. Dodanie nowego modułu = drop-in.** Nowy katalog w `modules/`, wpis w rejestrze, własne poddrzewo `params` + schemat, migracje rozszerzające (§29.1). Zero edycji rdzenia i innych modułów; integracja wyłącznie przez kontrakty już istniejące: FTS (reason_code + konta §24.2), `oil_movements`/`product_movements`, `SettlementService` (fazy + CAS §23), Reverb (kanały §28), Filament (auto-discovery). Nowe kody reason_code i konta systemowe moduł rejestruje w swoim manifeście — walidator sprawdza kolizje nazw przy aktywacji wersji.
+**2. Dodanie nowego modułu = drop-in.** Nowy katalog w `Modules/`, wpis w rejestrze, własne poddrzewo `params` + schemat, migracje rozszerzające (§29.1). Zero edycji rdzenia i innych modułów; integracja wyłącznie przez kontrakty już istniejące: FTS (reason_code + konta §24.2), `oil_movements`/`product_movements`, `SettlementService` (fazy + CAS §23), Reverb (kanały §28), Filament (auto-discovery). Nowe kody reason_code i konta systemowe moduł rejestruje w swoim manifeście — walidator sprawdza kolizje nazw przy aktywacji wersji.
 
 **3. Moduł premium (`premium: true`).** Ten sam mechanizm co moduł zwykły + bramka uprawnień:
 - Uprawnienie sprawdzane **w chwili decyzji** (time-gate §23.7), nigdy z wyprzedzeniem — wygaśnięcie VIP nie cofa rozpoczętych procesów (cliff tylko dla NOWYCH: §22.6).
