@@ -21,6 +21,10 @@ Projekt stanowi kompleksową, nowoczesną implementację strategicznej gry korpo
 - **Języki i wydanie:** interfejs aplikacji obsługuje PL/EN/DE oraz ten sam kanon treści i ikon SVG co web. Klient mobilny powstaje we Flutterze dla Androida i iOS. Wybrany transport push to FCM (na iOS przez APNs), ale podłączenie zewnętrznej usługi wymaga osobnej akceptacji właściciela; szczegóły sesji i limitów API są w `OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md` §10.
 - **Odbiór:** testujemy parytet wyników web/mobile dla tych samych akcji i czasu, ponowienie żądania, utratę i powrót sieci, wygasłą sesję, zduplikowany push, dostępność i układ małego ekranu oraz pełną krytyczną ścieżkę na Androidzie i iOS.
 
+### 1.0c. Kontrakt bezpieczeństwa i niezawodności
+
+Obowiązuje załącznik [OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md](OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md): wspólna autoryzacja, maszyny stanów, atomowy przebieg operacji, niezmienniki, outbox, revokacja sesji, zabezpieczenia HTTP/WS oraz scenariusze S01–S18. Każdy moduł musi spełnić właściwe wymagania przed aktywacją. Dokument stanowi specyfikację do implementacji; nie potwierdza istnienia zabezpieczeń w kodzie.
+
 ### 1.0b. Wspólny start aplikacji i kanały wykonania (Laravel)
 
 - Gra webowa, panel Filament, API mobilne, polecenia Artisan, scheduler i workery kolejek korzystają ze wspólnej aplikacji Laravel, kontenera zależności, konfiguracji i serwisów domenowych. Konfigurację startu aplikacji określa `bootstrap/app.php`; nie tworzymy odrębnego rdzenia ani własnego bootstrapu API.
