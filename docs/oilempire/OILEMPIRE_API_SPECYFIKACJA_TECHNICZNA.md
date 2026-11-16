@@ -25,10 +25,11 @@ Odpowiedź sukcesu: `data` (obiekt lub lista), opcjonalne `meta` (paginacja, cza
 
 ## 3. Uwierzytelnianie i sesje
 
-- **Mobile:** krótkotrwały token dostępu `Bearer` plus rotowany token odświeżania przypisany do urządzenia. W bazie przechowywany jest wyłącznie hash tokenu odświeżania; dostęp i rotacja są audytowane. Wyciek/ponowne użycie starego tokenu unieważnia daną rodzinę sesji. Implementacja może użyć Laravel Sanctum dla tokenu dostępu, ale kontrakt rotacji, urządzeń i revokacji musi być jawnie dodany — samo Sanctum nie definiuje całego procesu.
+- **Mobile:** token dostępu `Bearer` ważny **15 minut** plus rotowany token odświeżania przypisany do urządzenia. Token odświeżania wygasa po **30 dniach bez użycia** (okno przesuwne) i bezwzględnie po **90 dniach od zalogowania**; po tym czasie wymagane jest ponowne logowanie. W bazie przechowywany jest wyłącznie hash tokenu odświeżania; dostęp i rotacja są audytowane. Ponowne użycie starego tokenu unieważnia daną rodzinę sesji. Laravel Sanctum jest wyborem dla tokenu dostępu; rotacja refresh, limit absolutny, rodzina sesji i revokacja wymagają osobnej implementacji — samo Sanctum nie definiuje tego procesu.
 - **Web:** sesja cookie z ochroną CSRF. Przeglądarka nie zapisuje tokenu Bearer w `localStorage`. Ten sam użytkownik może mieć sesję webową i mobilną, ale każda sesja ma własny identyfikator i możliwość zdalnego wylogowania (§14).
 - Token mobilny trafia do bezpiecznego magazynu systemowego. Sekretu nie umieszcza się w URL, logach, analityce, payloadzie Reverb ani push. Po stronie serwera obowiązują polityki per zasób i per akcja; `company_id` z żądania nie daje dostępu do cudzej firmy.
-- Logowanie, reset hasła i 2FA muszą respektować §14. Reset hasła lub wylogowanie wszystkich urządzeń unieważnia również sesje API. Pełne endpointy uwierzytelniania są wdrażane po ustaleniu mechanizmu 2FA i czasów życia tokenów; nie wolno wystawić prowizorycznego logowania bez tych kontroli.
+- **2FA:** istniejąca decyzja §14 jest wiążąca: TOTP z aplikacji uwierzytelniającej, opcjonalny dla gracza i obowiązkowy dla każdej roli GM. Jednorazowe kody odzyskiwania są przechowywane jako hashe i zużywane atomowo. Wyzwanie po poprawnym haśle jest ważne **5 minut**, dopuszcza **5 prób** i nie wydaje tokenu dostępu przed zakończeniem. Endpoint mobilny i webowy używają tej samej polityki; nie traktujemy biometrii telefonu ani samego push jako drugiego składnika. Operacje wrażliwe wymagają ponownego potwierdzenia w ostatnich **15 minutach**, zgodnie z §14.5.
+- Logowanie, reset hasła i 2FA muszą respektować §14. Reset hasła lub wylogowanie wszystkich urządzeń unieważnia również sesje API. Nie wolno wystawić prowizorycznego logowania bez tych kontroli.
 
 | Metoda i ścieżka | Cel |
 |---|---|
@@ -87,7 +88,7 @@ Odczyty kolekcji używają paginacji kursorowej, stabilnego sortowania oraz limi
 
 - `400` niepoprawny format; `401` brak/wygaśnięcie sesji; `403` brak uprawnienia; `404` brak dostępnego zasobu; `409` konflikt stanu, quote lub idempotencji; `422` walidacja pól; `429` limit żądań; `503` chwilowa niedostępność. Błąd `500` nie ujawnia stack trace ani danych wrażliwych.
 - `code` jest stabilny i lokalizowany przez klienta; `message` pochodzi z języka żądania i nadaje się do wyświetlenia. `details.fields` może zawierać błędy pól. UI dobiera własną ikonę SVG i komponent zgodnie z §27.2a; API nie przekazuje HTML ani zewnętrznego URL ikony.
-- Rate limiting jest osobny dla logowania/2FA/resetu, odczytów, mutacji gospodarczych, czatu i wyszukiwania. Limity chronią przed bruteforce i kosztownym rozliczaniem na żądanie; `429` zawiera `Retry-After`. Limiter nie zastępuje idempotencji.
+- Rate limiting jest osobny dla logowania/2FA/resetu, odczytów, mutacji gospodarczych, czatu i wyszukiwania. Limity chronią przed bruteforce i kosztownym rozliczaniem na żądanie; `429` zawiera `Retry-After`. Limiter nie zastępuje idempotencji. Konkretne wartości startowe i klucze są w §10.
 - Każda odpowiedź ma `X-Request-Id`; logi przechowują kod operacji, identyfikator aktora i czas, ale nie hasła, tokeny, pełny payload ani treść prywatnych wiadomości. Metryki rozdzielają web/mobile, typ akcji, czas `SettlementService`, konflikty i błędy.
 
 ## 8. Realtime i push
@@ -102,4 +103,41 @@ Odczyty kolekcji używają paginacji kursorowej, stabilnego sortowania oraz limi
 3. Testy: odmowa dostępu do cudzego zasobu; 401/403/404/409/422/429; ten sam klucz dwa razy i z innym payloadem; retry po timeout; konflikt `If-Match`; HTTP/job/sweeper dla jednego `due_at`; zgodność wyników web/mobile; precision pieniędzy i bbl; PL/EN/DE; token po logout/reset; reconnect Reverb/push. Integracyjne testy transakcji i blokad uruchamiać na MySQL.
 4. Przed wydaniem aplikacji mobilnej sprawdzić obsługę starych wersji klienta, czas życia tokenów, kompatybilność endpointów, polityki sklepów i plan wycofania wadliwej wersji API. Wyłączenie `/api/v1` wymaga wcześniejszego okresu migracji klientów.
 
-**Otwarte decyzje techniczne:** framework aplikacji mobilnej, konkretne czasy życia tokenów i metoda 2FA, dostawca push, limity rate limit per grupa oraz pierwszy zestaw pól OpenAPI. Te decyzje nie zmieniają zasad ekonomii ani wymogu wspólnego `SettlementService`.
+## 10. Ustalone decyzje techniczne i wartości startowe
+
+| Obszar | Decyzja | Uzasadnienie / granica |
+|---|---|---|
+| Aplikacja mobilna | **Flutter**, jeden kod klienta dla Androida i iOS; serwer Laravel i API v1 pozostają jedynym źródłem stanu. | Mobilny UI, bez osadzania całej gry w WebView. Publikacja iOS wymaga środowiska macOS/Xcode. |
+| Uwierzytelnianie mobilne | Laravel Sanctum dla 15-minutowych tokenów dostępu; własny, hashowany i rotowany refresh: 30 dni bezczynności, maksimum 90 dni od logowania. | Jawne unieważnienie per urządzenie; odświeżenie jest atomowe. Czasy są polityką aplikacji, nie domyślnymi ustawieniami Sanctum. |
+| Drugi składnik | TOTP + kody odzyskiwania. Gracz: opcjonalnie. GM: obowiązkowo, przez panel webowy. Wyzwanie 5 minut/5 prób; step-up 15 minut. | Zachowuje §14; biometria systemowa może odblokować lokalny magazyn tokenów, ale nie zastępuje TOTP na serwerze. |
+| Push | **Firebase Cloud Messaging (FCM)** jako transport dla Flutter/Android; dla iOS FCM przekazuje wiadomości przez **APNs**. Własny adapter `PushTransport`, kolejka i trwałe centrum powiadomień w Laravel. | Dostawca jest wymienny. Włączenie zewnętrznej usługi, konta Firebase/APNs i przekazanie tokenów urządzeń wymaga osobnej akceptacji właściciela przed integracją. |
+| Zawartość push | Wersja domyślna: ogólny tytuł „OilEmpire” i kod/deep link zdarzenia, bez sald, nazw firm, wiadomości czatu i innych danych prywatnych. | System operacyjny może pokazać powiadomienie na ekranie blokady; wewnątrz aplikacji komunikaty używają komponentów i SVG z §27.2a, bez systemowych dialogów. |
+
+### 10.1. Limity API v1
+
+Wartości poniżej są **wartościami startowymi**, konfigurowanymi poza `game_balance` i obserwowanymi w telemetrii. Okna są kroczące lub o równoważnym zachowaniu; przekroczenie zwraca `429` i `Retry-After`. Limity per konto nie są zastępowane samym IP, aby wspólna sieć/NAT nie blokowała wszystkich graczy.
+
+| Grupa | Limit i klucz |
+|---|---|
+| Logowanie | istniejące §14.5: **5 błędnych prób/konto → 60 s**, **10 → 15 min**; miękki limit **50 prób/IP/godz.** z ostrzeżeniem, bez pełnej blokady IP graczy |
+| Wyzwanie TOTP | **5 prób/wyzwanie/5 min**; po wyczerpaniu nowe logowanie, dodatkowo limit logowania per konto |
+| Reset hasła | istniejące §14.4: **3 prośby/godz. na konto i 3/IP/godz.**, neutralna odpowiedź bez enumeracji |
+| Refresh tokenu | **6 żądań/min/sesję**; równoległe odświeżenia jednej sesji są serializowane, a ponowienie z tym samym kluczem idempotencji zwraca ten sam wynik |
+| Zwykły odczyt | **120 żądań/min/gracza**; kolekcje mają niezależny limit rozmiaru strony |
+| Snapshot z rozliczeniem | **30 żądań/min/gracza**, niezależnie od zwykłych odczytów; bezpieczne odświeżenie po mutacji jest częścią jej odpowiedzi |
+| Mutacje ekonomiczne | **20 żądań/min/gracza**; osobno limity domenowe i idempotencja, bez ponownego wykonania po `429` |
+| Czat | **30 wiadomości/min/gracza**; dodatkowe limity antyspamowe per wątek |
+| Publiczne wyszukiwanie/rynek | **60 żądań/min/IP** jako limit ochronny, z osobnym limitem per konto po zalogowaniu; nie obejmuje prywatnego snapshotu |
+
+Limity mają wspólny, atomowy magazyn dla wszystkich instancji aplikacji (docelowo Redis). Klucze są namespaced według środowiska, grupy, konta/sesji lub znormalizowanego IP; dane osobowe nie trafiają do klucza jawnie. Zmianę limitów poprzedzają pomiary p95, liczby `429` i obciążenia `SettlementService`; alerty bezpieczeństwa nie znoszą autoryzacji ani idempotencji.
+
+### 10.2. Otwarte przed implementacją
+
+Do ustalenia pozostają: konta i zgoda na integrację FCM/APNs, konfiguracja środowiska macOS dla wydania iOS, dokładne schematy pierwszych endpointów w OpenAPI oraz pomiar limitów po uruchomieniu testowego obciążenia. Wartości z §10.1 można dostroić na podstawie pomiarów bez zmiany ekonomii gry.
+
+### 10.3. Źródła techniczne
+
+- [Flutter — platformy docelowe](https://docs.flutter.dev/install) i [wydanie iOS](https://docs.flutter.dev/deployment/ios).
+- [Laravel Sanctum — tokeny i wygasanie](https://laravel.com/framework/docs/sanctum) oraz [Laravel Routing — limitowanie tras](https://laravel.com/framework/docs/routing).
+- [Firebase Cloud Messaging dla Fluttera](https://firebase.google.com/docs/cloud-messaging/flutter/get-started) i [architektura FCM/APNs](https://firebase.google.com/docs/cloud-messaging/fcm-architecture).
+- [NIST SP 800-63B — uwierzytelnianie i ograniczenia OTP](https://pages.nist.gov/800-63-4/sp800-63b.html).
