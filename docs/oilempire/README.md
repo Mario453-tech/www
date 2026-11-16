@@ -13,6 +13,10 @@ Ten katalog zawiera specyfikację nowego silnika gry oraz materiały, z których
 
 Pozostałe pliki `OILEMPIRE_*` to propozycje, recenzje, syntezy i wcześniejsze wersje analiz. Zachowujemy je jako źródła historyczne; w razie rozbieżności pierwszeństwo mają dokumenty obowiązujące wymienione wyżej.
 
+## Bezpieczeństwo silnika
+
+[Kontrakt bezpieczeństwa i niezawodności](OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md) jest obowiązującym załącznikiem do architektury i API. Opisuje wykonanie zabezpieczeń oraz testy odbioru modułów.
+
 ## Wprowadzanie zmian
 
 W GitHubie otwórz plik i wybierz **Edit this file**. Zmieniaj główną specyfikację oraz odpowiedni załącznik lub YAML razem, jeśli decyzja wpływa na kilka miejsc. Przed przyjęciem zmian balansu uruchom symulator na tym samym YAML:
