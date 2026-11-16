@@ -2,6 +2,8 @@
 
 **Status:** projekt kontraktu do implementacji. Założenia domenowe i liczby pozostają w `OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md` oraz `OILEMPIRE_GAME_BALANCE_V1.yaml`. Ten dokument opisuje wejście HTTP dla aplikacji mobilnej i klientów webowych; nie oznacza, że endpointy już istnieją.
 
+Obowiązuje również [kontrakt bezpieczeństwa silnika](OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md), w szczególności wspólna autoryzacja, transakcje, outbox, rotacja/revokacja sesji i testy S01–S18.
+
 ## 1. Cel i granice
 
 - Publiczne API gracza ma prefiks `/api/v1`. Jedno konto i jeden trwały świat są wspólne dla aplikacji Android/iOS i przeglądarki. Oba kanały wywołują te same akcje domenowe Laravel; API nie implementuje osobnej ekonomii.
