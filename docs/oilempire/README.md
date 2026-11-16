@@ -21,6 +21,12 @@ Pozostałe pliki `OILEMPIRE_*` to propozycje, recenzje, syntezy i wcześniejsze 
 
 [Standard modułu i proces wdrożenia](OILEMPIRE_STANDARD_MODULU_WDROZENIE.md) określa strukturę, manifest, wersje, zależności, stany runtime, przykład Training oraz zadania M01–M10.
 
+## Programowanie od początku i audyt
+
+- [Plan wszystkich pakietów P01–P25](OILEMPIRE_PLAN_PROGRAMOWANIA.md): zakres, dane, kontrakty, zależności i kryteria odbioru.
+- [Audyt gotowości](OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md): poprawki i otwarte blokery.
+- [Weryfikator dokumentacji](OILEMPIRE_WERYFIKATOR_DOKUMENTACJI.py): uruchom `python OILEMPIRE_WERYFIKATOR_DOKUMENTACJI.py` w tym katalogu (wymaga PyYAML).
+
 ## Wprowadzanie zmian
 
 W GitHubie otwórz plik i wybierz **Edit this file**. Zmieniaj główną specyfikację oraz odpowiedni załącznik lub YAML razem, jeśli decyzja wpływa na kilka miejsc. Przed przyjęciem zmian balansu uruchom symulator na tym samym YAML:
