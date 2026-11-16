@@ -21,6 +21,17 @@ Projekt stanowi kompleksową, nowoczesną implementację strategicznej gry korpo
 - **Języki i wydanie:** interfejs aplikacji obsługuje PL/EN/DE oraz ten sam kanon treści i ikon SVG co web. Klient mobilny powstaje we Flutterze dla Androida i iOS. Wybrany transport push to FCM (na iOS przez APNs), ale podłączenie zewnętrznej usługi wymaga osobnej akceptacji właściciela; szczegóły sesji i limitów API są w `OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md` §10.
 - **Odbiór:** testujemy parytet wyników web/mobile dla tych samych akcji i czasu, ponowienie żądania, utratę i powrót sieci, wygasłą sesję, zduplikowany push, dostępność i układ małego ekranu oraz pełną krytyczną ścieżkę na Androidzie i iOS.
 
+### 1.0b. Wspólny start aplikacji i kanały wykonania (Laravel)
+
+- Gra webowa, panel Filament, API mobilne, polecenia Artisan, scheduler i workery kolejek korzystają ze wspólnej aplikacji Laravel, kontenera zależności, konfiguracji i serwisów domenowych. Konfigurację startu aplikacji określa `bootstrap/app.php`; nie tworzymy odrębnego rdzenia ani własnego bootstrapu API.
+- Żądania HTTP przechodzą przez `public/index.php`. Web gracza, panel administratora i API rozdzielają trasy oraz middleware: sesja i CSRF dla kanałów webowych, uwierzytelnianie Bearer i stateless middleware dla mobilnego API. Sesyjne API przeglądarkowe, jeżeli używane, zachowuje ochronę CSRF. Nie dodajemy globalnego `session_start()` ani sesji WWW do mobilnego API i CLI.
+- Polecenia konsolowe uruchamia `artisan`; cron wywołuje scheduler Laravela, a workery wykonują zadania kolejkowe. Te kanały nie wymagają żądania HTTP ani sesji przeglądarki. Tożsamość aktora i zakres uprawnień zadania są określone jawnie; brak sesji nie daje uprawnień administratora.
+- Klasy aplikacji ładuje Composer przez PSR-4 (`vendor/autoload.php`). Nie dodajemy pojedynczych `require_once` dla klas domenowych. Standardowe pliki wejściowe frameworka zachowują swoje ładowanie autoloadera i aplikacji.
+- Ścieżki wewnątrz aplikacji wyznaczają `base_path()`, `app_path()`, `storage_path()` i `public_path()`; nie wprowadzamy własnej stałej `ROOT_PATH`. Standardowe wejścia frameworka mogą używać `__DIR__` i `dirname(__DIR__)` do załadowania plików startowych.
+- Web, API, Filament, job i sweeper wywołują wspólne akcje aplikacyjne oraz `SettlementService` zgodnie z §23. Autoryzacja, walidacja, transakcje, globalny porządek blokad i idempotencja obowiązują niezależnie od kanału.
+- Providery rejestrują zależności i konfigurację. Ich start nie wykonuje rozliczenia gry, zapytań zależnych od zalogowanego gracza ani wysyłki powiadomień. Kosztowne operacje uruchamia konkretna akcja lub zadanie.
+- Weryfikacja wdrożenia obejmuje start HTTP web/API i Artisan, brak sesji WWW w mobilnym API/CLI, poprawną autoryzację każdego kanału oraz identyczny wynik wspólnej akcji domenowej. Ten zapis zastępuje zalecenie osobnego „lżejszego bootstrapu” dla API ze starego silnika PHP.
+
 ### 1.1. Układ Interfejsu Gracza i Nawigacji (Wzorzec Wizualny OILEMPIRE)
 
 Interfejs gracza opiera się na ściśle zorganizowanej, dwupoziomowej belce nawigacyjnej oraz modularnym pulpicie dowodzenia (Strona Główna):
