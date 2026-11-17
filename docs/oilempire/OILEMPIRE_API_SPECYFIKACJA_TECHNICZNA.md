@@ -1,5 +1,8 @@
 # OilEmpire — specyfikacja techniczna API v1
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Transport HTTP, sesje mobilne i kontrakty API dla wspólnych akcji domenowych. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 **Status:** projekt kontraktu do implementacji. Założenia domenowe i liczby pozostają w `OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md` oraz `OILEMPIRE_GAME_BALANCE_V1.yaml`. Ten dokument opisuje wejście HTTP dla aplikacji mobilnej i klientów webowych; nie oznacza, że endpointy już istnieją.
 
 Obowiązuje również [kontrakt bezpieczeństwa silnika](OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md), w szczególności wspólna autoryzacja, transakcje, outbox, rotacja/revokacja sesji i testy S01–S18.
