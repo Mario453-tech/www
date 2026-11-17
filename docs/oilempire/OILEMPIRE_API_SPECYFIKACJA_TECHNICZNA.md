@@ -155,3 +155,7 @@ Do ustalenia pozostają: konta i zgoda na integrację FCM/APNs, konfiguracja śr
 ### 10.4. Zakupy mobile — zatwierdzony kanał (OPEN07)
 
 Android: Google Play Billing; iOS: Apple In-App Purchase; web: operator płatności przez adapter. Wszystkie zakupy wpadają do jednego procesu zamówienia i księgi GBBL. Potwierdzenie telefonu nie nadaje waluty: serwer weryfikuje transakcję z operatorem, produkt i przypisanie do konta. UNIQUE(provider, provider_transaction_id) wyklucza ponowne przyznanie na innym urządzeniu/koncie. Refund i chargeback mają idempotentne skutki zgodne z §22.5; katalog produktów mapuje SKU kanałów na jeden produkt gry. Konfiguracja kont sklepowych jest zadaniem wydania; ceny, podatki operatora i prowizje nie zmieniają salda przyznanego produktu po stronie gry.
+
+## 11. Powiązanie domeny P06–P13
+
+[31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) rozwija wejścia i wyniki dla firmy, Staff/Training, Legal, Extraction, Logistics i Incidents. [Wycinek OpenAPI](OILEMPIRE_KONTRAKTY_P06_P13.yaml) formalizuje8wejść i przypisuje operacje do kart oraz warunków gotowości. Prefiks wszystkich ścieżek to /api/v1; Logistics pozostaje w /api/v1/logistics. Wewnętrzne kontrakty nie są automatycznie publicznymi endpointami. Polityki DOM01–DOM16 wymagają decyzji przed aktywacją wskazanych procesów; odpowiedź kontrolowana nie zastępuje obowiązku ich domknięcia przed wydaniem.
