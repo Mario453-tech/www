@@ -486,6 +486,21 @@ Wszystkie moduły automatycznie rejestrują swoje zasoby w Filament v5:
 
 ---
 
+### 8.3. Agencja pracy — przyszły moduł opcjonalny
+
+**Status: planowane rozszerzenie, poza bazowym zakresem wdrożenia.** Proponowany moduł `Modules/WorkforceAgency/`, klucz `workforce_agency`. Pełny opis: [Specyfikacja Agencji pracy](OILEMPIRE_AGENCJA_PRACY_SPECYFIKACJA.md), powiązana z [rozszerzeniem Kadr](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md).
+
+Agencja NPC oferuje trzy zakresy: kompletowanie załogi, utrzymanie obsady i pełną obsługę kadrową. Analizuje potrzeby instalacji, prowadzi rekrutację, organizuje zastępstwa, grafiki, szkolenia i negocjacje w granicach zatwierdzonego przez gracza mandatu oraz budżetów. Nie jest tym samym co pojedynczy kanał rekrutacji „agencja rekrutacyjna”.
+
+- Kadry działają samodzielnie bez wykupienia usługi. Zależność jest jednokierunkowa: Agencja korzysta z publicznych kontraktów Staff, Core, Finance/Ledger i Simulation; Staff nie wymaga Agencji.
+- Obowiązują te same oferty, ukryte cechy, kwalifikacje, czasy i ograniczenia co przy działaniach ręcznych. Agencja nie zna nieujawnionych cech i nie tworzy idealnych pracowników.
+- Gracz określa zakres działań, priorytety, limity jednorazowe i cykliczne. Zwolnienie i odprawa wymagają osobnego zatwierdzenia w pierwszej wersji. Agencja nie zwiększa sama swoich uprawnień ani budżetu.
+- Abonament, prowizja za skuteczne zatrudnienie oraz koszty pracowników są rozdzielone i audytowane, bez podwójnych opłat. Konkretne taryfy i forma monetyzacji wymagają odrębnej kalibracji; brak domyślnego powiązania z płatnością realnymi pieniędzmi.
+- Pauza lub rezygnacja zatrzymuje nowe automatyczne zobowiązania. Pracownicy, umowy, pensje i rozpoczęte procesy pozostają w Kadrach; usługa przekazuje je do ręcznej obsługi i rozlicza własne należności.
+- Interfejs korzysta z istniejącego planu wizualizacji Kadr; panel GM z Filament. Etapy: rekomendacje → kontrolowana rekrutacja i zastępstwa → szersza automatyzacja.
+
+Ten wpis nie dodaje aktywnego korzenia do YAML v1, nie zmienia pakietów P01–P25 i nie deklaruje gotowego kodu. Przed wdrożeniem wymagane są bramki AG-CFG01/02, AG-CONTRACT01, AG-ECON01 i AG-RELEASE01 ze specyfikacji, zatwierdzony kandydat balansu oraz testy modułu. Powiązania wykonawcze: P07–P09, P16, P24 i P25.
+
 ## 9. Wydobycie (Extraction) — Odwierty, Geologia i Degradacja
 
 Moduł `Extraction` opisuje pełny cykl życia odwiertu: koncesję, badania geologiczne, wiercenie, eksploatację, zużycie i wyczerpanie złoża.
