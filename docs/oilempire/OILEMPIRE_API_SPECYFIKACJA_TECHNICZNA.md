@@ -30,11 +30,13 @@ Odpowiedź sukcesu: `data` (obiekt lub lista), opcjonalne `meta` (paginacja, cza
 
 ## 3. Uwierzytelnianie i sesje
 
-- **Mobile:** token dostępu `Bearer` ważny **15 minut** plus rotowany token odświeżania przypisany do urządzenia. Token odświeżania wygasa po **30 dniach bez użycia** (okno przesuwne) i bezwzględnie po **90 dniach od zalogowania**; po tym czasie wymagane jest ponowne logowanie. W bazie przechowywany jest wyłącznie hash tokenu odświeżania; dostęp i rotacja są audytowane. Ponowne użycie starego tokenu unieważnia daną rodzinę sesji. Laravel Sanctum jest wyborem dla tokenu dostępu; rotacja refresh, limit absolutny, rodzina sesji i revokacja wymagają osobnej implementacji — samo Sanctum nie definiuje tego procesu.
+- **Mobile:** token dostępu `Bearer` ważny **15 minut** plus rotowany token odświeżania przypisany do urządzenia. Token odświeżania wygasa po **30 dniach bez użycia** (okno przesuwne) i bezwzględnie po **90 dniach od zalogowania**; po tym czasie wymagane jest ponowne logowanie. Trwały rejestr tokenów przechowuje wyłącznie hash; wyjątkiem jest szyfrowana odpowiedź odzyskiwania opisana poniżej; dostęp i rotacja są audytowane. Ponowne użycie starego tokenu unieważnia daną rodzinę sesji. Laravel Sanctum jest wyborem dla tokenu dostępu; rotacja refresh, limit absolutny, rodzina sesji i revokacja wymagają osobnej implementacji — samo Sanctum nie definiuje tego procesu.
 - **Web:** sesja cookie z ochroną CSRF. Przeglądarka nie zapisuje tokenu Bearer w `localStorage`. Ten sam użytkownik może mieć sesję webową i mobilną, ale każda sesja ma własny identyfikator i możliwość zdalnego wylogowania (§14).
 - Token mobilny trafia do bezpiecznego magazynu systemowego. Sekretu nie umieszcza się w URL, logach, analityce, payloadzie Reverb ani push. Po stronie serwera obowiązują polityki per zasób i per akcja; `company_id` z żądania nie daje dostępu do cudzej firmy.
 - **2FA:** istniejąca decyzja §14 jest wiążąca: TOTP z aplikacji uwierzytelniającej, opcjonalny dla gracza i obowiązkowy dla każdej roli GM. Jednorazowe kody odzyskiwania są przechowywane jako hashe i zużywane atomowo. Wyzwanie po poprawnym haśle jest ważne **5 minut**, dopuszcza **5 prób** i nie wydaje tokenu dostępu przed zakończeniem. Endpoint mobilny i webowy używają tej samej polityki; nie traktujemy biometrii telefonu ani samego push jako drugiego składnika. Operacje wrażliwe wymagają ponownego potwierdzenia w ostatnich **15 minutach**, zgodnie z §14.5.
 - Logowanie, reset hasła i 2FA muszą respektować §14. Reset hasła lub wylogowanie wszystkich urządzeń unieważnia również sesje API. Nie wolno wystawić prowizorycznego logowania bez tych kontroli.
+
+**OPEN05:** refresh wymaga Idempotency-Key; klient wykonuje jedno odświeżenie naraz. Rotacja i szyfrowany wynik odpowiedzi są zapisane atomowo w bazie w tej samej transakcji; wynik jest dostępny przez 2 minuty, związany z sesją, zużytym tokenem i request_hash. Ten sam request odtwarza wynik, inny request ze zużytym tokenem unieważnia rodzinę. Po upływie okna wymagane może być ponowne logowanie. Klucz szyfrowania wersjonowany, poza bazą; tokeny nigdy nie trafiają do zwykłego cache/logów. Karta P02 określa kolumny i purge.
 
 | Metoda i ścieżka | Cel |
 |---|---|
@@ -54,7 +56,8 @@ Odpowiedź sukcesu: `data` (obiekt lub lista), opcjonalne `meta` (paginacja, cza
 
 ## 5. Mutacje i idempotencja
 
-- Każda mutacja gospodarcza używa `Idempotency-Key` (UUID/ULID generowany przez klienta dla jednej intencji). Unikalność jest ograniczona do aktora, operacji i klucza; serwer zapisuje hash kanonicznego żądania, wynik oraz status. Ten sam klucz i identyczny payload zwracają poprzedni wynik; ten sam klucz z innym payloadem zwraca `409 IDEMPOTENCY_KEY_REUSED`.
+- Każda mutacja gospodarcza używa `Idempotency-Key` (UUID/ULID generowany przez klienta dla jednej intencji). Unikalność HTTP obejmuje actor_id, company_id, operation i client_key; serwer zapisuje hash kanonicznego żądania, wynik oraz status. Ten sam klucz i identyczny payload zwracają poprzedni wynik; ten sam klucz z innym payloadem zwraca `409 IDEMPOTENCY_KEY_REUSED`.
+- Zdarzenie domenowe ma klucz event_type + entity_id + durable_slot_id bez aktora/wyzwalacza, więc HTTP, job i sweeper trafiają na ten sam wynik. Długie próby używają osobnej dzierżawy; krótkie operacje nie przejmują starego pending (§29.4a).
 - Klucz jest rejestrowany w trwałej tabeli przed blokowaniem kont (§23.5a). Rozliczenie, rezerwacja, FTS, zmiana stanu i wynik idempotencji są atomowe. Odpowiedź utracona przez sieć nie może spowodować ponownego pobrania pieniędzy przy retry.
 - Mutacja może wymagać `If-Match` z `state_version`. Nieaktualna wersja daje `409 STATE_CHANGED` ze wskazaniem odświeżenia, bez częściowego wykonania.
 - Dla nowej operacji serwer wylicza cenę, koszt, limit i terminy z aktywnej `balance_version`; kontynuacja procesu używa utrwalonej wersji startowej zgodnie z §29.5; wartości przesłane przez klienta są co najwyżej oczekiwanym quote. Przy zmianie quote serwer zwraca konflikt i nową ofertę do świadomego potwierdzenia.
@@ -146,3 +149,7 @@ Do ustalenia pozostają: konta i zgoda na integrację FCM/APNs, konfiguracja śr
 - [Laravel Sanctum — tokeny i wygasanie](https://laravel.com/framework/docs/sanctum) oraz [Laravel Routing — limitowanie tras](https://laravel.com/framework/docs/routing).
 - [Firebase Cloud Messaging dla Fluttera](https://firebase.google.com/docs/cloud-messaging/flutter/get-started) i [architektura FCM/APNs](https://firebase.google.com/docs/cloud-messaging/fcm-architecture).
 - [NIST SP 800-63B — uwierzytelnianie i ograniczenia OTP](https://pages.nist.gov/800-63-4/sp800-63b.html).
+
+### 10.4. Zakupy mobile — zatwierdzony kanał (OPEN07)
+
+Android: Google Play Billing; iOS: Apple In-App Purchase; web: operator płatności przez adapter. Wszystkie zakupy wpadają do jednego procesu zamówienia i księgi GBBL. Potwierdzenie telefonu nie nadaje waluty: serwer weryfikuje transakcję z operatorem, produkt i przypisanie do konta. UNIQUE(provider, provider_transaction_id) wyklucza ponowne przyznanie na innym urządzeniu/koncie. Refund i chargeback mają idempotentne skutki zgodne z §22.5; katalog produktów mapuje SKU kanałów na jeden produkt gry. Konfiguracja kont sklepowych jest zadaniem wydania; ceny, podatki operatora i prowizje nie zmieniają salda przyznanego produktu po stronie gry.
