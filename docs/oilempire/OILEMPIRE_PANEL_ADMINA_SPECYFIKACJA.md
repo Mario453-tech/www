@@ -443,3 +443,112 @@ Zasady wspólne: wykonanie = jedna transakcja domenowa + `gm_action_log` + (dla 
 ## Kadry — pełna konfiguracja polityk urlopowych
 
 Źródło reguł i zakres edytora: [Kadry §4.2](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Filament udostępnia Kadry → Polityki urlopowe: typy, pule, naliczanie, dostępność, wnioski, zatwierdzanie, płatność, przenoszenie, anulowanie, kolizje, ekwiwalenty, morale i powiadomienia. Parametry są wersjonowane; preview skutków i jawne przejście dla istniejących praw/wniosków. Korekty pracownika są audytowanymi zdarzeniami, nie nadpisaniem salda. Główny administrator nie musi wpisywać komentarza ani uzasadnienia tekstowego. Obowiązują serwerowe capability, istniejące zatwierdzanie balansu, idempotencja i ochrona historii. To specyfikacja do implementacji, nie działający ekran.
+
+
+### Kadry w Filament — ekrany i funkcje do programowania
+
+Status: specyfikacja administracyjna, nie implementacja. Reguły domenowe w rozdziale Kadr i HR-PAY-01; nie tworzymy drugiego silnika w panelu. Vue3 jest interfejsem gracza, Filament interfejsem personelu administracyjnego.
+
+#### A. Nawigacja i granice
+
+Menu Kadry: Przegląd, Pracownicy, Rekrutacja, Umowy i płace, Grafiki i obsada, Nieobecności, Polityki urlopowe, Szkolenia i kwalifikacje, Morale i spory, Automatyzacja, Historia i audyt.
+Agencja pracy to przyszła pozycja warunkowa według dostępności modułu; nie pokazujemy pozornie działających akcji przed wdrożeniem.
+Każdy ekran ma filtr świata/firmy, wyszukiwanie i paginację serwerową. Brak wybranej firmy oznacza jawny przekrojowy widok GM, nie dorozumiane prawo do masowej edycji.
+
+#### B. Przegląd Kadr
+
+Wskaźniki z as_of: zatrudnione osoby, etaty i kontrakty B2B osobno; koszt prognozowany/naliczony/zapłacony/zaległy; braki obsady; nieobecności; wnioski; wygasające umowy/uprawnienia; otwarte spory.
+Każdy wskaźnik prowadzi do odpowiednio przefiltrowanej listy. Nie sumować kwot prognozowanych jako rzeczywistych zobowiązań.
+Lista problemów: firma, rodzaj, ważność, logical_at, właściciel procesu, ostatnia próba i dostępne działanie. Przycisk odświeżenia nie losuje ani nie nalicza nowego skutku poza wspólnym Settlement.
+
+#### C. Pracownicy i profil360
+
+Lista: identyfikator, firma, imię/nazwisko NPC, rola, dział, status zatrudnienia, forma umowy, wymiar/dostępność, morale, ostatnia aktywność zawodowa.
+Filtry: firma, dział, rola, status, forma umowy, nieobecność, kwalifikacje i znane oceny HR. Ukrytych cech nie ujawnia filtr użytkownikowi bez capability.
+Zakładki profilu: Dane i kompetencje; Umowy/aneksy; Grafik/przydziały; Nieobecności/pula urlopu; Szkolenia/uprawnienia; Morale/obserwacje HR; Rozliczenia; Historia.
+Akcje: podgląd, przygotowanie zmiany warunków, przydział, wycena zakończenia, korekta uprawnionego stanu. Brak twardego DELETE pracownika z historią.
+Rzeczywisty ukryty profil tylko dla osobnego uprawnienia GM, z audytem odczytu; zwykła moderacja widzi tylko ocenę dostępną firmie.
+
+#### D. Rekrutacja
+
+Katalog kanałów: kod, tłumaczenia, zasięg/regiony, role, dostępność, koszty, czas, wagi profili, limity, ważność ofert i wersja parametrów.
+Kampanie: firma, kanał, warunki, status, terminy, koszt, oferty, wersja balansu i blokery.
+Akcje: podgląd, podgląd historii generatora bez ujawniania sekretu RNG, anulowanie według domeny, kontrolowane ponowienie techniczne tego samego procesu.
+Nie ma przycisku „losuj ponownie”, który podmienia zaakceptowany profil lub omija koszt. Cennik/skuteczność niezatwierdzone → wariant niedostępny z powodem.
+
+#### E. Umowy i płace
+
+Lista umów z wersjami, formą, wymiarem, podstawą brutto/netto usługi, terminami, policy_version i statusem.
+Formularz aneksu: nowe warunki, future effective_from, porównanie przed/po, prognoza kosztu, wpływ na odprawę i zakres zastosowania. Walidacja granic, konfliktów i rozliczonej historii.
+Rozliczenia: składnik, okres, naliczone, zapłacone, pozostały dług, źródło i Ledger reference. Korekty przez kompensację, nigdy edycję wpisu FTS.
+Zakończenie: serwerowy quote, przyczyna strukturalna, work_release_at, employment_ended_at, pozycje końcowe, terminy, prognoza obsady i potwierdzenie aktualnej wersji.
+Konfiguracja płac/odpraw korzysta z kandydatów polityk HR-PAY-01. Brakujące taryfy nie stają się zerową pensją lub odprawą.
+
+#### F. Grafiki i obsada
+
+Widok tygodnia/dnia oraz agenda mobilna. Filtry firma/dział/obiekt/rola; oznaczenia pracy, szkolenia, odpoczynku, absencji i luk.
+Przyciski: Ułóż propozycję, Sprawdź zgodność, Pokaż koszt, Opublikuj wersję, Przypnij wpis, Porównaj wersje.
+Walidacja: przecięcia, umowy, kwalifikacje, ograniczenia czasu, odpoczynek, obsada krytyczna, dojazd i zadania nieprzerywalne. Błędny plan nie publikuje się mimo uprawnień do edycji.
+Przeciąganie jest pomocnicze; pełna obsługa formularzem i klawiaturą. Zmiany przeszłe przez historię/korektę, nie przeciągnięcie starej zmiany.
+
+#### G. Nieobecności i wnioski
+
+Lista: pracownik/firma, typ, start/koniec, godziny grafiku objęte nieobecnością, status, wpływ na wynagrodzenie, zastępstwo i wersja polityki.
+Akcje: szczegóły, zatwierdzenie, odmowa, propozycja terminu, anulowanie, korekta zgodna z uprawnieniami. Chorobowe generowane przez silnik nie jest zwykłym wnioskiem urlopowym wymagającym akceptacji gracza.
+Szczegóły pokazują kolizje i skutki przed zatwierdzeniem. Przy niegotowej polityce choroby/kursu/długiej trasy akcja wymagająca tej decyzji jest zablokowana, z identyfikatorem brakującej reguły.
+Ekran zastępstwa pokazuje legalnych kandydatów, kwalifikacje, dostępność i pełny koszt. Nie wysyła osoby równocześnie do dwóch wyłącznych zadań.
+
+#### H. Polityki urlopowe — kompletny edytor
+
+Tabela: nazwa/kod, rodzaj urlopu, zakres świata/regionu/umowy, wersja, status, effective_from, liczba objętych osób/wniosków, hash i osoba zatwierdzająca.
+Akcje listy: Podgląd, Klonuj do nowej wersji, Edytuj szkic, Waliduj, Symuluj wpływ, Przekaż do zatwierdzenia, Zaplanuj aktywację, Historia. Aktywnej wersji nie edytujemy w miejscu.
+
+Formularz składa się z sekcji:
+1. Tożsamość: stabilny kod, nazwy/opisy PL/EN/DE, typ, zakres i priorytet dopasowania.
+2. Nabywanie: roczna/okresowa pula godzin, wariant zależności od etatu i stażu, częstotliwość naliczenia, rok rozliczeniowy, zaokrąglenia/reszty, początek prawa, okres oczekiwania.
+3. Zaliczki i ograniczenia: czy dopuszczone, limit, sposób rozliczenia przy odejściu, granice dostępnej puli.
+4. Wniosek: minimalne wyprzedzenie, długość, jednostka składania, limity otwartych wniosków i terminy.
+5. Akceptacja: tryb ręczny/automatyczny, wymagane pokrycie obsady, limity nieobecności, zgoda na zastępstwo i jego budżet.
+6. Płatność: procent podstawy, zatwierdzona strategia wyceny, profil obciążeń, terminy; jawne jednostki godzin/PLN/procentów.
+7. Roczniki: przenoszenie, cap, termin ważności, kolejność zużycia i przypomnienia.
+8. Zmiana/anulowanie: kto może wykonać, terminy, warunek zgody, zwrot rezerwacji i rekompensata, jeżeli przewidziana.
+9. Kolizje: macierz choroba/urlop/szkolenie/wypowiedzenie/pauza firmy; losów godzin i kosztów nie określa kolejność workerów.
+10. Ekwiwalent: kwalifikowalność, podstawa, limit, moment naliczenia i płatność.
+11. Morale: nazwane zdarzenia, parametry wpływu i limity; bez tworzenia drugiego modelu morale.
+12. Komunikacja: zdarzenie, odbiorcy, kanały, szablony PL/EN/DE, ikona SVG z allowlisty i harmonogram przypomnienia.
+13. Zastosowanie: data skutku, nowe/istniejące zatrudnienia, plan przejścia i ochrona zatwierdzonych wniosków.
+
+Walidacja blokuje: sprzeczne progi, złą jednostkę, nieznaną strategię, ujemne limity, niedozwolone procenty, równie szczegółowe nakładające się polityki, brak tłumaczeń wymaganych do publikacji i niepełny plan przejścia. Dopuszczalne zakresy liczb określa wersjonowany schemat; nie kod formularza jako drugie źródło.
+Nie dopuszczamy wykonywalnego PHP/JS ani niekontrolowanej formuły tekstowej. Administrator wybiera strategię i jej parametry.
+Preview: liczba dotkniętych osób, zmiana nabywania, obecnej puli, rezerwacji, płatności, ekwiwalentów, konflikty i brakujące dane. Możliwość przefiltrowania szczegółów, bez zapisów ekonomicznych.
+Zmiana danych po preview unieważnia jego zatwierdzenie. Wdrożenie polityki używa istniejącej bramki balansu, a zmiana indywidualnych praw osobnego audytowanego procesu gospodarczego.
+
+#### I. Korekty indywidualne i masowe
+
+Przyznanie/skorygowanie godzin: osoba, typ, rocznik, delta godzin, data skutku, opcjonalny komentarz według roli. Podgląd salda przed/po i wpływu na rezerwacje.
+Główny administrator nie musi wpisywać komentarza ani uzasadnienia tekstowego. Typ operacji i audyt zapisuje system.
+Masowe akcje: najpierw snapshot zbioru i podgląd, potem potwierdzenie; identyfikowalny wynik per osoba (wykonane/konflikt/odmowa). Zmiana filtra po zatwierdzeniu nie zmienia zakresu joba.
+Nie oferujemy masowej mutacji bez osobnej capability. Retry wznawia nieukończone pozycje, nie przyznaje godzin drugi raz.
+
+#### J. Pozostałe obszary Kadr
+
+Szkolenia: katalog wersji kursów, koszt/czas/próg, wymagania, zapisy, próby, certyfikaty i odnowienia. Zakończenie kursu tylko przez właściwą akcję domenową z audytem.
+Morale/spory: stan bieżący i źródła zmian, populacja działu, żądania płacowe, negocjacje, mediator i skutki strajku. Narzędzia GM nie usuwają historii i nie pobierają drugi raz kosztu mediacji.
+Automatyzacja: zakres, daty, limity, dozwolone akcje, propozycje, zawieszenie/revokacja i historia. Szersza Agencja według odrębnej specyfikacji; brak możliwości zwiększenia mandatu przez automat.
+
+#### K. Uprawnienia, transakcje i UX
+
+Proponowany rejestr capability do mapowania na istniejące role:
+hr.view, hr.hidden_traits.view, hr.contracts.manage, hr.roster.manage, hr.absences.decide, hr.leave_policy.draft, hr.leave_policy.activate, hr.leave_balance.adjust, hr.bulk.manage, hr.audit.view.
+To nazwy do rejestracji, nie przyznane dziś uprawnienia. Moderator nie otrzymuje automatycznie praw finansowych/ukrytych profili. Każda akcja sprawdza aktora, zakres świata/firmy i stan procesu na serwerze.
+Akcje Filament wywołują te same publiczne Actions/Contracts co API; kontroler/resource nie przelicza pensji lub urlopu. CAS i Idempotency-Key/operation_id dla mutacji; outbox po commicie.
+Stany każdego ekranu: loading, empty, success, validation error,403, stale409, unavailable503, zerwane połączenie. Po timeout odczyt stanu operacji zamiast ponowienia z nowym kluczem.
+Modale/powiadomienia własne z lokalnym SVG; zakaz alert/confirm/prompt. PL/EN/DE, semantic HTML, mobile320px, cele44px, focus trap/powrót fokusu, reduced-motion.
+Eksport podlega capability i redakcji ukrytych cech. Paginacja i eksport nie omijają filtra firmy. Nie logujemy całych formularzy/profili do diagnostyki.
+
+#### L. Odbiór panelu
+
+Obowiązkowe przypadki: zapis szkicu/klonowanie, odmowa edycji aktywnej wersji, konflikt zakresów, preview bez mutacji, polityka na przyszłą datę, ochrona starych wniosków, korekta i retry, masowy częściowy wynik, brak komentarza głównego administratora, odmowa moderatora, izolacja firmy, brak ukrytych cech w zwykłym DTO/eksporcie, brak podwójnego odjęcia urlopu, stale quote, offline/timeout i odzyskanie.
+Testy UI: formularz i potwierdzenie na320/360/390/768/1024/1440px, klawiatura, SVG, trzy języki, animacje z reduced-motion.
+Testy backendu: uprawnienia pozytywne/negatywne, współbieżność MySQL, kontrakty, księgowania, audyt i outbox. To plan testów, nie raport PASS.
+Kolejność implementacji: odczyt/profile → katalogi i szkice → wnioski/pule → preview i aktywacja → korekty → masowe operacje → automatyzacja. Blokery ekonomiczne HR-CFG pozostają widoczne; ekran nie uruchamia niezatwierdzonej reguły.
