@@ -66,5 +66,19 @@ chapters = files[:-1] + ["OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md"]
 check("D11 every chapter links to shared specification index", all("](README.md)" in (BASE / f).read_text(encoding="utf-8") for f in chapters))
 check("D12 index links every canonical chapter", all(f"]({f})" in index for f in chapters))
 
+
+standard = (BASE / "OILEMPIRE_STANDARD_MODULU_WDROZENIE.md").read_text(encoding="utf-8")
+manifest_text = standard.split("```yaml" + chr(10), 1)[1].split("```", 1)[0]
+manifest = yaml.load(manifest_text, Loader=UniqueLoader)
+check("D13 sample manifest belongs to Staff without self dependency", manifest.get("key") == "staff" and all(d["module"] != "staff" for d in manifest.get("requires", {}).get("all", [])))
+panel = (BASE / "OILEMPIRE_PANEL_ADMINA_SPECYFIKACJA.md").read_text(encoding="utf-8")
+check("D14 panel exposes draining runtime", "runtime draining" in panel and "stan i dane identyczne jak przed wyłączeniem" not in panel)
+api = (BASE / "OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md").read_text(encoding="utf-8")
+check("D15 API preserves process balance version", "kontynuacja procesu używa utrwalonej wersji startowej" in api)
+architecture = (BASE / "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md").read_text(encoding="utf-8")
+check("D16 idempotency reclaim excludes committed status", "(status='failed' OR (status='pending' AND created_at < NOW(3)−60s))" in architecture)
+check("D17 rejected balance cannot activate", "Rejected jest końcowy" in architecture)
+check("D18 money serialization is uniform", 'dziesiętny string' in api and 'wszystkie kwoty w najmniejszej jednostce są dziesiętnymi stringami' in security)
+
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
