@@ -1,5 +1,8 @@
 # OilEmpire — audyt gotowości do programowania
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Dowody weryfikacji i rejestr otwartych problemów; nie zastępuje wymagań rozdziałów źródłowych. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 Data: 2026-11-17. Zakres: pełny odczyt kanonicznej architektury, panelu, API, bezpieczeństwa, standardu modułu, YAML i symulatora; przekrojowe sprawdzenie zależności i nowego planu P01–P25. Historyczne recenzje nie zostały ponownie w całości audytowane. Audyt jest statyczny plus wykonanie testów Python; nie obejmuje testów nieistniejącej implementacji Laravel.
 
 ## 1. Wynik
