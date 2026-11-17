@@ -4,6 +4,8 @@
 
 Status: projekt wykonawczy do programowania. Nie potwierdza gotowego kodu. Zakres obejmuje fundament P01–P05; pozostałe pakiety zachowują własne karty do wykonania. Liczby domenowe i approval pozostają zgodne z główną architekturą i zaakceptowanymi OPEN01–OPEN12.
 
+Maszynowo czytelny wycinek OpenAPI i kontraktów danych: [OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml](OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml). Obejmuje odpowiedź wyzwania 2FA, wejścia verify/refresh, powiązania sekwencji i indeksy trzech tabel kontrolnych. Jest kontraktem struktury tych elementów; nie stanowi pełnego OpenAPI ani testu SQL/runtime.
+
 ## 1. Konwencje wspólne
 
 Właściciel karty = moduł odpowiedzialny za dane i akcję. ID publiczne: ULID CHAR(26), ASCII binary; referencje mają ten sam typ. Przy wewnętrznym BIGINT istniejącego szkieletu należy zachować osobny public_id UNIQUE i mapowanie; nie zmieniać istniejącej migracji. Poniższe ID oznacza identyfikator logiczny, a karta migracji wskazuje wybrany wariant dla faktycznego schematu.
@@ -69,9 +71,11 @@ HTTP przez public/index.php, CLI przez artisan, wspólne bootstrap/app.php. Reje
 
 **Dane:** users: id/public_id, email_normalized UNIQUE, password nullable dla kont bez hasła, email_verified_at nullable, status, auth_epoch BIGINT UNSIGNED default 0, locale; personel przez jawny rejestr ról. Email nie jest publicznym ID.
 
+**personal_access_tokens (Sanctum):** rozszerzenie o api_session_id FK do api_sessions, auth_epoch_at_issue, expires_at (15 min); hash tokenu przechowuje Sanctum. Każdy Bearer request sprawdza token oraz sesję: revoked_at IS NULL, termin bezczynności i absolutny, zgodność auth_epoch użytkownika/sesji/tokenu. Niezgodność = 401 przed akcją. Logout/reset revokuje sesję i tokeny, a mechanizm revokacji kanałów odłącza WS; cache autoryzacji musi być unieważniony. Nie wystarcza kontrola przy refresh.
+
 **api_sessions:** id, user_id FK, device_label VARCHAR(100), created_at, last_used_at, idle_expires_at, absolute_expires_at, revoked_at nullable, auth_epoch_at_issue; INDEX(user_id, revoked_at). Web sesje obsługiwane driverem Laravela; mapa do user/session dla zdalnej revokacji.
 
-**POST /api/v1/auth/login:** email, password, device_label; 200 z access_token, expires_in=900, refresh_token, session_id albo 202 z challenge_id, expires_at, next_step=totp. Neutralny 401 INVALID_CREDENTIALS. Zakaz wydania pełnego tokenu przed 2FA, jeśli wymagane. Hasła i tokeny wyłączone z logowania HTTP.
+**POST /api/v1/auth/login:** email, password, device_label; 200 z access_token, expires_in=900, refresh_token, session_id albo 202 z challenge_id, challenge_secret, expires_at, next_step=totp. Neutralny 401 INVALID_CREDENTIALS. Zakaz wydania pełnego tokenu przed 2FA, jeśli wymagane. Hasła i tokeny wyłączone z logowania HTTP.
 
 **Akcje:** AuthenticateCredentials, StartLoginChallenge, IssueSession. Po weryfikacji credentials ponowne sprawdzenie statusu/auth_epoch przed wydaniem; regeneracja sesji web. Hasła wg §14, limit per konto/IP; 2FA obowiązkowe dla wszystkich GM.
 
@@ -84,7 +88,7 @@ HTTP przez public/index.php, CLI przez artisan, wspólne bootstrap/app.php. Reje
 **auth_challenges:** id, user_id, purpose, secret_hash BINARY(32), attempts UNSIGNED SMALLINT, expires_at, consumed_at nullable, context_hash; INDEX(expires_at).
 **recovery_codes:** id, user_id, code_hash BINARY(32) UNIQUE, consumed_at nullable.
 
-**POST /auth/2fa/verify:** challenge_id, challenge_secret, code; 200 sesja albo 401 INVALID_CHALLENGE/INVALID_CODE, 429 dla limitu. Wyzwanie 5 min, 5 prób; kody i wyzwanie zużywane atomowo. Kod TOTP nie jest ponownie akceptowany w tym samym kroku, last_accepted_step pod blokadą. Zegary synchronizowane; konkretna tolerancja kroków jako jawna konfiguracja bezpieczeństwa pod testem, bez zmiany czasów sesji.
+**POST /auth/2fa/verify:** challenge_id, challenge_secret, code; 200 sesja albo 401 INVALID_CHALLENGE/INVALID_CODE, 429 dla limitu. challenge_secret jest losowy, zwracany tylko w 202 po poprawnych credentials; w bazie secret_hash, powiązanie purpose/user/device context. Wyzwanie 5 min, 5 prób; kody i wyzwanie zużywane atomowo. Kod TOTP nie jest ponownie akceptowany w tym samym kroku, last_accepted_step pod blokadą. Zegary synchronizowane; konkretna tolerancja kroków jako jawna konfiguracja bezpieczeństwa pod testem, bez zmiany czasów sesji.
 
 **Reset hasła:** standardowy jednorazowy link 60 min, neutralna odpowiedź i limity §14.4. Sukces zwiększa auth_epoch, unieważnia web/API/refresh i prywatne WS. Zmiana 2FA/hasła/e-maila wymaga step-up z ostatnich 15 min. Ręczne odzyskanie 2FA ma odrębny audit i weryfikację tożsamości; personel nie wyłącza jej samą znajomością e-maila.
 
@@ -97,9 +101,9 @@ HTTP przez public/index.php, CLI przez artisan, wspólne bootstrap/app.php. Reje
 
 Tokeny losowe o wysokiej entropii; trwały rejestr wyłącznie hashe. Wyjątek: wynik odpowiedzi szyfrowany na 2 minuty.
 
-**POST /auth/refresh:** refresh_token i Idempotency-Key. Transakcja blokuje sesję i credential, sprawdza auth_epoch, revokację, 30 dni bezczynności/90 dni absolutne. Identyczny request z zużytym tokenem sprawdza replay result i zwraca ten sam wynik. Inny request zużytego tokenu revokuje rodzinę. Nowa rotacja zapisuje consumed/replaced_by, nowy token i zaszyfrowany wynik atomowo.
+**POST /auth/refresh:** refresh_token i Idempotency-Key. Transakcja blokuje sesję i credential, sprawdza auth_epoch, revokację, 30 dni bezczynności/90 dni absolutne. Kolejność: (1) sesja i epoch muszą być ważne; (2) tylko identyczne session_id/request_key/used_token_hash/request_hash w oknie 2 min odtwarza wynik; (3) każde inne użycie zużytego tokenu revokuje rodzinę i daje 401 REFRESH_REUSE, także zmieniony payload pod tym samym kluczem; (4) konflikt klucza z niewykorzystanym tokenem daje 409 bez rotacji. Replay nie odnawia 2-minutowego okna. Nowa rotacja zapisuje consumed/replaced_by, nowy token i zaszyfrowany wynik atomowo.
 
-**Błędy:** 401 SESSION_EXPIRED/SESSION_REVOKED/REFRESH_REUSE; 409 IDEMPOTENCY_KEY_REUSED przy innym payloadzie tego samego request_key; 429 limiter. Po wygaśnięciu replay klient może wymagać login. Job usuwa wygasłe encrypted_result; nie usuwa wcześniej dowodu zużycia tokenu.
+**Błędy:** 401 SESSION_EXPIRED/SESSION_REVOKED/REFRESH_REUSE; 409 IDEMPOTENCY_KEY_REUSED wyłącznie przy konflikcie klucza z niewykorzystanym tokenem, po sprawdzeniu reuse; 429 limiter. Po wygaśnięciu replay klient może wymagać login. Job usuwa wygasłe encrypted_result; nie usuwa wcześniej dowodu zużycia tokenu.
 
 **Odbiór:** utrata odpowiedzi i retry; dwa równoległe refresh; purge po 2 min; rotacja klucza szyfrowania; brak jawnych tokenów w logach. Klient serializuje refresh, nie tworzy nowego request_key dla retry.
 
@@ -124,19 +128,21 @@ Google: weryfikacja state/nonce i tożsamości na serwerze; brak automatycznego 
 
 **financial_transaction_service:** logiczny niezmienny transfer: id, created_at, from_account_id, to_account_id, amount_minor BIGINT >0, reason_code, actor_type/id, company_id, operation_id, idem_key, sweep_no nullable, balance_version_id. INDEX obu kont po czasie, company/time, operation_id. Jeśli tabela partycjonowana: PK zawiera created_at; globalna deduplikacja w osobnej tabeli niepartycjonowanej. Ograniczenia FK/partycjonowania w docelowym MySQL trzeba sprawdzić przed DDL; nie deklarujemy niemożliwych FK do partycjonowanej księgi.
 
-**PostTransfer:** from/to, amount, reason, actor, balance_version, operation context. Zakaz zero, ujemnej kwoty, from=to i niedozwolonego debetu. Blokady kont rosnąco wg account_id w rank 20. Zapis jednej pary transferu i dwóch aktualizacji salda w transakcji właściciela. BalanceState z CAS; żadnego publicznego endpointu „ustaw saldo”.
+**PostTransfer:** from/to, amount, reason, actor, balance_version, operation context. Zakaz zero, ujemnej kwoty, from=to i niedozwolonego debetu. Blokady kont rosnąco wg account_id w rank 20. Zwykły transfer wymaga amount_minor <= available_minor, gdzie available_minor = balance_minor − suma aktywnych rezerwacji. Sprawdzenie i zmiana pod blokadą konta rank 20, potem jego rezerwacji rank 21; każda akcja tworząca/zwalniająca rezerwację bierze te same blokady. Capture fundamentu wymaga reservation_id i amount równego pełnej kwocie tej aktywnej rezerwacji; atomowo zużywa ją w całości i transferuje, bez ponownego odjęcia jej od available. Zapis jednej pary transferu i dwóch aktualizacji salda w transakcji właściciela. BalanceState z CAS; żadnego publicznego endpointu „ustaw saldo”.
 
-**Odbiór:** suma sald transferu zachowana; dozwolony wyjątek długu GBBL tylko w określonej kompensacji; dwa równoległe obciążenia całego salda → jedno. Kwota powyżej safe integer JS wraca jako string bez straty.
+**Odbiór:** suma sald transferu zachowana; dozwolony wyjątek długu GBBL tylko w określonej kompensacji; dwa równoległe obciążenia całego salda → jedno. Saldo 100/rezerwacja 80/zwykły transfer 30 jest odrzucony; capture 80 i transfer 20 mogą łącznie zużyć 100, nigdy więcej. Test współbieżności capture/release/transfer. Kwota powyżej safe integer JS wraca jako string bez straty.
 
 ### P03-F02 — rezerwacje i idempotencja
 
-**fund_reservations:** id, account_id FK, operation_id, amount_minor>0, state active/captured/released, expires_at nullable, state_version; UNIQUE(operation_id, account_id, reservation_kind); INDEX(account_id, state).
+**fund_reservations:** id, account_id FK, operation_id, reservation_kind VARCHAR(32) NOT NULL, amount_minor>0, state active/captured/released, expires_at nullable, state_version; UNIQUE(operation_id, account_id, reservation_kind); INDEX(account_id, state).
 **operation_idempotency:** idem_key BINARY(32) PK (SHA-256 kanonicznego kodowania scope), scope_type, actor_id nullable, company_id nullable, operation, client_key nullable, entity_ref nullable, durable_slot_id nullable, payload_hash BINARY(32), status, result_ref, result_json nullable, created_at, committed_at nullable, expires_at nullable. Rejestr API/operacji może obsługiwać wiele wpisów FTS, nie zakładamy 1 request=1 transfer.
 **fts_idempotency_keys:** trwały klucz pojedynczego skutku księgowego z operation_id i numerem/nazwą skutku; UNIQUE(effect_key). Rozdzielenie chroni wielotransferowe operacje i jest mapowane na logiczny kontrakt §29.4a.
 
 HTTP scope: konto+firma+operacja+client_key; domena: event_type+entity_id+durable_slot_id. Scope kanonizowany z typem/długością pól, payload_hash osobno. Jeden klucz nie obejmuje dowolnych komend. HTTP wynik 30 dni; domenowe skutki trwale. DB pending i efekt w tej samej transakcji: brak przejęcia niewidocznego pending. Duplikat committed odtwarza wynik; inny payload 409. Timeout/deadlock cofa próbę i podlega limitowi §23.5a.
 
-**Reserve/Capture/Release:** rezerwacja ma jawny model: pozostaje w saldzie konta, ale zmniejsza available=balance−active_reservations. Capture zamienia rezerwację na transfer i finalizuje ją atomowo; release nie tworzy nowego pieniądza. Nigdy jednocześnie rezerwacja i osobne obciążenie za ten sam koszt. Escrow po P15 to realny transfer do konta depozytu, nie druga rezerwacja tej samej kwoty.
+reservation_kind jest stabilnym kodem rejestrowanym przez właściciela operacji (np. order_funds); nie jest dowolnym stringiem klienta. Dla danej pary operation/account/kind dopuszczamy jeden rekord; dodatkowa rezerwacja wymaga innej jawnej operacji.
+
+**Reserve/Capture/Release:** rezerwacja ma jawny model: pozostaje w saldzie konta, ale zmniejsza available=balance−active_reservations. Capture zużywa wskazaną rezerwację i wykonuje transfer atomowo; karta fundamentu dopuszcza wyłącznie pełny capture (amount=amount rezerwacji), częściowe capture wymaga odrębnego modelu pozostałej kwoty przed wdrożeniem; release nie tworzy nowego pieniądza. Nigdy jednocześnie rezerwacja i osobne obciążenie za ten sam koszt. Escrow po P15 to realny transfer do konta depozytu, nie druga rezerwacja tej samej kwoty.
 
 **Odbiór:** release dwa razy no-op; konkurencja nie robi available<0; 1 request z kilkoma FTS odtwarza całą odpowiedź; retry po commicie nie powtarza efektów.
 
@@ -166,7 +172,9 @@ Plan zasobów obejmuje settlement i komendę; globalny porządek §23.5a, bez od
 ### P04-F02 — due-events i długie próby
 
 **due_events:** id, event_type, entity_type/id, owner_company_id, durable_slot_id, due_at, expected_state_version, balance_version_id, payload_version, status scheduled/processed/cancelled, processed_at nullable; UNIQUE(event_type, entity_type, entity_id, durable_slot_id), INDEX(status,due_at).
-**operation_attempts:** id, operation_id, attempt_no, lease_until, fencing_token BIGINT UNSIGNED, status, last_error_code; UNIQUE(operation_id, attempt_no), INDEX(status, lease_until). Fencing token aktualizowany monotonicznie przez CAS na rekordzie operacji.
+**operations:** operation_id PK, current_attempt_no BIGINT UNSIGNED, fencing_token BIGINT UNSIGNED, lease_owner VARCHAR(128) nullable, lease_until nullable, state_version BIGINT UNSIGNED, status ready/running/completed/failed; INDEX(status,lease_until). Jeden rekord kontrolny na operację długą. Acquire/reclaim: blokada operations, sprawdzenie statusu i wygasania, atomowe zwiększenie fencing_token/attempt_no/state_version oraz INSERT próby; commit. Dwa workery nie mogą otrzymać tego samego nowego tokenu. Transakcja skutku po idempotencji rank 1 blokuje operations rank 5 i sprawdza owner/token/lease; nieważny token lub wygasła dzierżawa = brak skutku. Reclaim nie może wejść między kontrolę a commit efektu. Odnowienie lease to CAS owner/token/state_version; completed nie podlega reclaim.
+
+**operation_attempts:** id, operation_id, attempt_no, lease_until, fencing_token BIGINT UNSIGNED, status, last_error_code; UNIQUE(operation_id, attempt_no), INDEX(status, lease_until). FK operation_id do operations; historyczny token próby jest niezmienny. Bieżący fencing_token wyznacza wyłącznie operations, nigdy MAX(token) bez blokady.
 
 Utworzenie terminu w transakcji domeny + outbox; opóźniony job jest przyspieszeniem. Job niesie event_id, a nie nowe due_at/kwotę. Handler blokuje rekord/encje w zaplanowanym porządku, sprawdza termin, wersję stanu i utrwalony balans. Wczesny job bez skutku; spóźniony działa według logicznego due_at. HTTP/job/sweeper używają jednego klucza domenowego.
 
@@ -203,6 +211,8 @@ Wszystkie role GM TOTP, step-up dla wrażliwych działań, polityki capability. 
 **balance_versions:** id, candidate_id UNIQUE, params_json, canonical_yaml, yaml_hash BINARY(32), INDEX(yaml_hash), schema_bundle_hash, release_sha, created_by, created_at. Snapshot niezmienny; identyczny hash treści jest dozwolony dla nowej wersji/rollbacku, lecz candidate_id pozostaje UNIQUE. Approval wiąże version_id, hash i release, nie sam hash.
 **balance_test_runs:** id, version_id, yaml_hash, release_sha, harness_version, status, fail_count, report_json, finished_at; INDEX(version_id,status).
 **balance_version_events:** id, version_id, event_type, actor_id, approval_mode nullable, reason nullable, request_id, occurred_at; append-only.
+**balance_current:** singleton world_id PK (dla jednego świata world_id=1, ograniczenie CHECK world_id=1), active_version_id nullable FK balance_versions, state_version BIGINT UNSIGNED. Tworzony migracją; SELECT FOR UPDATE tego rekordu jest nośnikiem activation_gate. Activation CAS porównuje active_version_id i state_version, atomowo zmienia wskaźnik, projekcje i historię. UNIQUE(version_id) w projekcji nie zastępuje singletonu.
+
 **balance_activation_state:** version_id UNIQUE, status, state_version, scheduled_at nullable, activated_at nullable, sweep_id nullable.
 
 ProposeBalance zapisuje draft. SubmitBalance waliduje wszystkie schematy, materializuje pełny snapshot, oblicza hash kanonicznego YAML i blokuje edycję zgłoszonej treści. Zmiana po submit to nowy draft. RunBalanceChecks działa na dokładnym YAML/release/schema hash; raport starego hasha nie uprawnia do aktywacji. Bazowy symulator v1 nie jest kompletnym harness kandydujących wersji — przed produkcyjną edycją balansu trzeba wdrożyć testy niezmienników i wersjonowane cele wg §29.5.
@@ -215,9 +225,9 @@ ProposeBalance zapisuje draft. SubmitBalance waliduje wszystkie schematy, materi
 
 ReviewBalance wymaga uprawnionego admina i TOTP; liczba aktywnych uprawnionych administratorów sprawdzona atomowo z decyzją. Przy co najmniej dwóch: autor nie zatwierdza własnej. Jedyny owner_admin: zwykła wersja, 2FA, typed-confirm i 0 FAIL, approval_mode=single_owner. Emergency zawsze dwóch adminów i audit, zgodnie z §29.7; wyjątek single_owner nie działa. owner nie musi powodu.
 
-Jedna blokada activation_gate serializuje decyzje dotyczące stanu globalnej aktywacji; jej miejsce w planie transakcji konfiguracji jest przed odczytem listy administratorów i runtime. Nie łączymy tego z długą transakcją gospodarczą. Aktywacja sprawdza base_version: nieaktualna kandydatura wymaga nowego przeliczenia/diff, nie cichego nadpisania cudzych zmian.
+Jedna blokada activation_gate serializuje decyzje dotyczące stanu globalnej aktywacji; porządek transakcji konfiguracji to balance_current → users/role assignments po user_id → candidate/version/activation rows po ID → module_runtime_states po key → append audit/outbox. Wszystkie zmiany statusu konta GM, ról i aktywności 2FA wymagające zmiany liczby uprawnionych adminów biorą ten sam gate jako pierwszy. Nie mieszamy tego porządku z transakcją gospodarczą; scheduler kończy aktywację konfiguracji przed rozliczeniami. Nie łączymy tego z długą transakcją gospodarczą. Aktywacja sprawdza base_version: nieaktualna kandydatura wymaga nowego przeliczenia/diff, nie cichego nadpisania cudzych zmian.
 
-ActivateApprovedBalance: na granicy sweepa, jeden aktywny globalny snapshot, CAS aktywnej wersji i zapis zdarzenia; procesy w toku zachowują wersję startową. Instancje web/worker potwierdzają obsługę release/schema przed aktywacją. Emitowany outbox balance.activated po commicie.
+ActivateApprovedBalance: na granicy sweepa, jeden aktywny globalny snapshot, CAS aktywnej wersji i zapis zdarzenia; procesy w toku zachowują wersję startową. Instancje web/worker potwierdzają obsługę release/schema przed aktywacją. Rekord outbox balance.activated zapisany w tej samej transakcji co CAS balance_current, projekcje i historia; wyłącznie publikacja po commicie.
 
 RollbackBalance tworzy nową kandydaturę z treści wersji historycznej; ta sama bramka, brak UPDATE starego snapshotu. Rejected nie przechodzi do active. Draining modułu jest skutkiem zatwierdzonego enabled=false i korzysta z P01, bez wyłączenia handlerów istniejących zobowiązań.
 
