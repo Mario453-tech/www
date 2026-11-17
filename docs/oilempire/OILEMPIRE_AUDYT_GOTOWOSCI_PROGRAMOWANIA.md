@@ -103,3 +103,38 @@ Kontrola po wprowadzeniu zatwierdzonych decyzji: dokumentacja 23 PASS/0 FAIL; sy
 Dodano [16 kart fundamentu](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md): P01 3, P02 4, P03 3, P04 3, P05 3. Karty określają dane, indeksy, kontrakty, transakcje, odmowy i testy. Uzgodniono jedną transakcję settlement+mutacja oraz możliwość nowej wersji balansu z identycznym hashem treści podczas rollbacku. Blokada activation_gate obejmuje również zmiany ról, aby liczba administratorów nie ścigała się z approval.
 
 Wyniki kontroli: dokumentacja 28 PASS/0 FAIL, symulator 73 PASS/0 FAIL. Kontrole są strukturalne i regresyjne; nie wykonano jeszcze kodu SQL/HTTP kart. Karty P06–P25 oraz pełne wykonywalne migracje/OpenAPI pozostają pracą następnych etapów. Migracje wymagają porównania ze szkieletem i docelowym MySQL; brak twierdzenia o wdrożeniu fundamentu.
+
+## 10. Przegląd zespołowy kart P01–P05 — 2026-11-17
+
+**Werdykt: zgodność częściowa; fundament nie jest jeszcze gotowy do literalnej implementacji bez korekt poniżej.** Dwa niezależne przeglądy agentów zakończone: API/panel/testy i transakcje/bezpieczeństwo. Agent architektury nie ukończył porównania; nie przypisujemy mu niezależnego potwierdzenia. Dodatkowe porównanie architektury wykonał agent główny. Przeglądy nie edytowały źródeł wymagań; ta runda zapisuje ustalenia, nie udaje ich naprawienia.
+
+Snapshot źródeł: karty `357bd84dcca496dbb61009631b653236f6b89d02`; architektura `94e34f16d5da6a14dc8e0e0e2072846318bc5ad8`; API `554780d6a175b2c081b79df1bfa9276c4fdd7b74`; panel `7d3ab01b0b75f1100c08f14f714db165c66bf9c6`; standard `53d13b582bcc49e00bcd95e9ac2309e075a7cdfd`; bezpieczeństwo `ee090a5723624fe0a0f9e7903cf06df2d6211392`; weryfikator `e55409e673d1b8c2678f7130bcf407b8881e3577`.
+
+P1 = blokujący brak kontraktu/sprzeczność przed kodowaniem danego zakresu; P2 = konkretny błąd lub niejednoznaczność do poprawy. To uwagi do projektu, nie wykryte podatności istniejącego silnika.
+
+| ID | Waga | Miejsce | Dowód / problem | Wymagana korekta i odbiór |
+|---|---|---|---|---|
+| TEAM01 | P1 | Karty P02-F01 l.74 / P02-F02 l.84–87 | Login 202 nie wydaje challenge_secret wymaganego przez verify. | Dodać secret do odpowiedzi i hash do wyzwania; test całej ścieżki login→verify. |
+| TEAM02 | P1 | Karty P02-F01/F03/F04 l.72–108 | Brak relacji tokenów Sanctum z api_sessions oraz sprawdzenia revokacji/auth_epoch w każdym Bearer request. | Zdefiniować relację personal_access_tokens.api_session_id i kontrolę sesji/epoch; test natychmiastowej odmowy po logout. |
+| TEAM03 | P2 | Karty P02-F03 l.100–102 / API §3 | Zużyty token z tym samym kluczem i innym payloadem może dawać 409 albo revokację/401. | Ustalić kolejność: identyczny replay dozwolony; inne użycie zużytego refresh revokuje rodzinę. Test macierzy przypadków. |
+| TEAM04 | P1 | Karty P04-F02 l.169–173 | CAS wymaga bieżącego rekordu operacji, ale zdefiniowano tylko próby. | Dodać operations z aktualnym lease/fencing/state_version i transakcyjny acquire/reclaim; test dwóch przejęć i starego workera. |
+| TEAM05 | P1 | Karty P05-F02/F03 l.206–220 | Brak globalnego rekordu aktywnej wersji; UNIQUE(version_id) nie gwarantuje jednego active ani nośnika activation_gate. | Dodać singleton balance_current z active_version_id/state_version i zdefiniować blokadę bramki. |
+| TEAM06 | P1 | Karty P03/P04 vs architektura §23.5a | Nowe rekordy settlement, due-events, rezerwacji i lease nie mają miejsca w kanonicznym porządku blokad. | Rozszerzyć tabelę rank/podkolejności; test HTTP/job/sweeper i capture/release na MySQL. |
+| TEAM07 | P2 | Karty P03-F02 l.133 | UNIQUE(operation_id,account_id,reservation_kind) używa nieopisanej kolumny reservation_kind. | Dodać kolumnę i słownik albo świadomie zmienić UNIQUE; test DDL. |
+| TEAM08 | P1 | Karty P03-F01/F02 l.127–139 | PostTransfer nie precyzuje obciążania salda dostępnego po rezerwacjach. Saldo100/rezerwacja80/transfer30 łamie available≥0 bez debetu. | Wymagać amount≤available, capture wskazuje rezerwację i zużywa ją raz; wspólna blokada i test konkurencji. |
+| TEAM09 | P2 | Karty P05-F03 l.220 | Sformułowanie outbox po commicie może sugerować opóźniony INSERT. | Zapisać jednoznacznie INSERT outbox z aktywacją w transakcji; dopiero publikacja po commicie. |
+| TEAM10 | P1 | Architektura §23.7 l.1597 vs OPEN01 §23.3 | Tabela zastrzega slippage wyłącznie dla sweepera, lecz zaakceptowany spot HTTP wymaga wspólnego stanu slippage/płynności. | Oddzielić publikowanie ceny/matching od atomowej aktualizacji okna sprzedaży podczas spot. |
+| TEAM11 | P1 | Architektura §19.2 l.1311 vs §19.1/§1/OPEN02 | Stary wzór tarczy nadal dyskontuje aktywa ×0.70 i nazywa pojemność magazynu nierozstrzygniętą. | Ujednolicić do 100% wyceny aktywów dla progów i już ustalonego pustego magazynu; nie zmieniać zatwierdzonych kwot. |
+| TEAM12 | P2 | Weryfikator D22, D24–D28 | D22 łączy company_wealth_state z niezwiązanym client_key; pozostałe testy głównie liczą nagłówki i szukają tekstu. | Nazwać kontrole strukturalnymi, poprawić D22 i dodać maszynowe schematy sekwencji API/DDL. Nie traktować PASS jako dowodu semantyki. |
+
+### Pokrycie potwierdzone
+
+Czasy 15 min/30 dni/90 dni, challenge 5 min/5 prób, replay refresh 2 min są zgodne między kartami i API. Właściciel bez wymaganego wolnego powodu, single_owner i emergency z dwoma administratorami są zgodne z panelem. Wspólny Settlement i transakcja rozliczenie+komenda mają właściwy kierunek. Jawnie odłożonych migracji wykonywalnych i pełnego OpenAPI pozostałych modułów nie liczymy jako nowych błędów.
+
+### Kontrole i granice dowodu
+
+Ponowiono istniejące narzędzia w kopii roboczej: dokumentacja 28 PASS/0 FAIL, symulator 73 PASS/0 FAIL. Wynik strukturalny nie wykrywa powyższych sprzeczności kontraktowych; nie może być bramką samodzielnie potwierdzającą gotowość do kodowania. Nie wykonano testów implementacyjnych SQL/HTTP/MySQL ani pełnego przeglądu każdego paragrafu i każdej liczby. TEAM01–TEAM12 mają status **otwarte po przeglądzie zespołowym**. Zatwierdzone decyzje produktowe OPEN01–OPEN12 pozostają zatwierdzone; nowe uwagi dotyczą ich niepełnego lub sprzecznego odwzorowania.
+
+### Kolejność korekt
+
+Najpierw TEAM01/02/03 (sesje), TEAM04/05/06 (rekordy kontrolne i blokady), TEAM07/08 (rezerwacje), następnie TEAM09/10/11 (spójność źródeł) i TEAM12 (zakres testów). Po poprawkach wymagany ponowny przegląd tych kontraktów, a po kodowaniu testy procesowe i konkurencyjne na MySQL.
