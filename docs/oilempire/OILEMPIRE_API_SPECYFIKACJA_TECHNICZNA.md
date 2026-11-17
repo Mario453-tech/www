@@ -1,5 +1,8 @@
 # OilEmpire — specyfikacja techniczna API v1
 
+> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+
+
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Transport HTTP, sesje mobilne i kontrakty API dla wspólnych akcji domenowych. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
 
 
