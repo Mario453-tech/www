@@ -190,7 +190,7 @@ Panel: oldest_age, lag, kod błędu, audytowany retry bez edycji payloadu.
 
 ### P05-F01 — role i audit
 
-**staff_role_assignments:** user_id, role, granted_by, granted_at, revoked_at nullable. Jedyny owner_admin zabezpieczony osobnym singletonem ownership, nie tylko kontrolą formularza. Zmiana pod blokadą; nie można usunąć/degradować właściciela.
+**staff_role_assignments:** user_id, role, granted_by, granted_at, revoked_at nullable. Jedyny owner_admin zabezpieczony osobnym singletonem ownership, nie tylko kontrolą formularza. Zmiana pod wspólną blokadą activation_gate używaną również przez ReviewBalance; nie można usunąć/degradować właściciela. Dzięki temu odebranie/nadanie roli nie ściga się z liczeniem aktywnych administratorów.
 **gm_action_log:** id, actor_id, role_snapshot, action_code, target_ref, request_id, before_json/after_json redacted, reason nullable, approval_ref nullable, occurred_at. Append-only, INDEX(actor_id,occurred_at), INDEX(target_type,target_id,occurred_at).
 
 Wszystkie role GM TOTP, step-up dla wrażliwych działań, polityki capability. owner_admin nie musi wpisywać wolnego komentarza/powodu; wymagane merytoryczne dane operacji pozostają. gm_support podaje powód każdej mutacji. Audit i skutek tej samej transakcji; niedozwolona akcja bez skutku.
@@ -200,7 +200,7 @@ Wszystkie role GM TOTP, step-up dla wrażliwych działań, polityki capability. 
 ### P05-F02 — kandydatura i testy balansu
 
 **balance_candidates:** id, base_version_id, revision BIGINT, draft_json, proposed_by, state draft/submitted, submitted_at nullable; UPDATE tylko draft z CAS revision.
-**balance_versions:** id, candidate_id UNIQUE, params_json, canonical_yaml, yaml_hash BINARY(32) UNIQUE, schema_bundle_hash, release_sha, created_by, created_at. Snapshot niezmienny; identyczny hash może wskazywać istniejący snapshot zamiast duplikowania.
+**balance_versions:** id, candidate_id UNIQUE, params_json, canonical_yaml, yaml_hash BINARY(32), INDEX(yaml_hash), schema_bundle_hash, release_sha, created_by, created_at. Snapshot niezmienny; identyczny hash treści jest dozwolony dla nowej wersji/rollbacku, lecz candidate_id pozostaje UNIQUE. Approval wiąże version_id, hash i release, nie sam hash.
 **balance_test_runs:** id, version_id, yaml_hash, release_sha, harness_version, status, fail_count, report_json, finished_at; INDEX(version_id,status).
 **balance_version_events:** id, version_id, event_type, actor_id, approval_mode nullable, reason nullable, request_id, occurred_at; append-only.
 **balance_activation_state:** version_id UNIQUE, status, state_version, scheduled_at nullable, activated_at nullable, sweep_id nullable.
