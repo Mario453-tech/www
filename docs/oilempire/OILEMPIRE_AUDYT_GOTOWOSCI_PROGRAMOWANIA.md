@@ -106,6 +106,8 @@ Wyniki kontroli: dokumentacja 28 PASS/0 FAIL, symulator 73 PASS/0 FAIL. Kontrole
 
 ## 10. Przegląd zespołowy kart P01–P05 — 2026-11-17
 
+**Aktualizacja:** poniższe ustalenia opisują stan PRZED korektą. Ich zamknięcie na poziomie dokumentacji i wyniki ponownego przeglądu są w §11.
+
 **Werdykt: zgodność częściowa; fundament nie jest jeszcze gotowy do literalnej implementacji bez korekt poniżej.** Dwa niezależne przeglądy agentów zakończone: API/panel/testy i transakcje/bezpieczeństwo. Agent architektury nie ukończył porównania; nie przypisujemy mu niezależnego potwierdzenia. Dodatkowe porównanie architektury wykonał agent główny. Przeglądy nie edytowały źródeł wymagań; ta runda zapisuje ustalenia, nie udaje ich naprawienia.
 
 Snapshot źródeł: karty `357bd84dcca496dbb61009631b653236f6b89d02`; architektura `94e34f16d5da6a14dc8e0e0e2072846318bc5ad8`; API `554780d6a175b2c081b79df1bfa9276c4fdd7b74`; panel `7d3ab01b0b75f1100c08f14f714db165c66bf9c6`; standard `53d13b582bcc49e00bcd95e9ac2309e075a7cdfd`; bezpieczeństwo `ee090a5723624fe0a0f9e7903cf06df2d6211392`; weryfikator `e55409e673d1b8c2678f7130bcf407b8881e3577`.
@@ -138,3 +140,28 @@ Ponowiono istniejące narzędzia w kopii roboczej: dokumentacja 28 PASS/0 FAIL, 
 ### Kolejność korekt
 
 Najpierw TEAM01/02/03 (sesje), TEAM04/05/06 (rekordy kontrolne i blokady), TEAM07/08 (rezerwacje), następnie TEAM09/10/11 (spójność źródeł) i TEAM12 (zakres testów). Po poprawkach wymagany ponowny przegląd tych kontraktów, a po kodowaniu testy procesowe i konkurencyjne na MySQL.
+
+## 11. Korekty po przeglądzie zespołowym
+
+Status TEAM01–TEAM12: **poprawione w dokumentacji**, w zakresie opisanym poniżej. Nie oznacza to zaliczenia przyszłych testów runtime.
+
+| ID | Korekta | Dowód kontroli |
+|---|---|---|
+| TEAM01 | login 202 wydaje challenge_secret, verify go wymaga; sekret hashowany | D29/D40, agent API |
+| TEAM02 | Sanctum api_session_id/epoch, kontrola sesji każdego Bearer, revokacja i WS | D30, agent API |
+| TEAM03 | identyczny replay; inne użycie zużytego tokenu 401/revokacja przed 409 | D31/D42, agent API |
+| TEAM04 | singleton operations, acquire/reclaim i walidacja fencing w transakcji skutku | D32, agent transakcji |
+| TEAM05 | balance_current world_id=1, CAS i fizyczny nośnik activation_gate | D33, agent transakcji |
+| TEAM06 | rank 1/5/10/11/12/20/21 oraz append140; osobny porządek konfiguracji | D34, agent transakcji |
+| TEAM07 | reservation_kind NOT NULL, kontrolowany słownik i zgodny UNIQUE | D35/D41, agent transakcji |
+| TEAM08 | amount<=available; pełny capture wskazanej rezerwacji, test100/80/30 | D36, agent transakcji |
+| TEAM09 | INSERT outbox z CAS aktywacji w jednej transakcji, dispatch po commicie | D37, agent transakcji |
+| TEAM10 | oddzielono publikację ceny/matching od okna slippage spot | D38, porównanie źródeł |
+| TEAM11 | tarcza:100% systemowej wyceny do progów, pusty magazyn startowy | D39, porównanie §1/§19.1/§19.2 |
+| TEAM12 | naprawiono D22; dodano parsowany kontrakt sekwencji/kluczy i testy negatywne | D40–42, testy mutacji |
+
+Po korekcie: **42 PASS/0 FAIL** weryfikatora dokumentacji, **73 PASS/0 FAIL** symulatora balansu. Testy weryfikatora wykryły **15/15 celowych mutacji** i odtworzyły pliki. Pierwszy przebieg D34 ujawnił wadliwą ekstrakcję tabeli rank w nowym teście; zastąpiono ją parsowaniem kolumn, potem powtórzono cały przebieg.
+
+TEAM12 ma ograniczony, jawny zakres: OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml jest wycinkiem OpenAPI3.1 plus schematami storage/polityki. D40 porównuje wymagane pola/typy producenta wyzwania i odbiorcy verify; D41 sprawdza istnienie kolumn użytych w kluczach; D42 kolejność reguł refresh. To nie jest pełna walidacja OpenAPI wszystkich funkcji, wykonanie DDL ani dowód współbieżności MySQL. D22 jest kontrolą zgodności określonych zapisów, nie modelem ekonomii.
+
+Agent API potwierdził TEAM01–03; agent transakcji potwierdził TEAM04–09. Obaj zaznaczyli granicę dowodu dokumentacyjnego. Pełne testy sesji, SQL, blokad i dostarczania pozostają wymagane po implementacji; nie przywracamy fikcyjnej deklaracji „PASS = gotowy silnik”.
