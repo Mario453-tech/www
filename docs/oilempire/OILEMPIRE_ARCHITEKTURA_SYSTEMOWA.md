@@ -464,13 +464,13 @@ Wszystkie moduły automatycznie rejestrują swoje zasoby w Filament v5:
 |---|---|---|---|
 | Core | `/dashboard`, `/profile`, `/help`, czat | Gracze, Logi, Alerty, Czat | `users`, `sessions`, `trusted_devices`, `financial_transaction_service` |
 | Extraction | `/map` | Odwierty | `wells`, `well_buffers`, `strata`, `licenses` |
-| Logistics | `/logistics` | Transport i porty, Huby, Rurociągi, Monitoring strat | `hubs`, `pipelines`, `trucks`, `transport_runs` |
+| Logistics | `/logistics` | Transport i porty, Huby, Rurociągi, Monitoring strat | `hubs`, `pipelines`, `trucks`, `trips` |
 | Incidents | (w `/technical`, `/map`) | Incydenty | `incidents`, `incident_repairs` |
 | Market | `/market` | Rynek ropy, Czarny Rynek, Balans gry | `market_offers`, `price_history`, `black_market_trades` |
 | Banking | `/bank` | Bank/Kredyty, Bank – konta, Kryzys finansowy, Wiarygodność | `loans`, `bailiff_proceedings`, `company_credibility_log` |
 | Staff | `/hr`, `/boardroom` | Dział kadr, Sala Zarządu, System szkoleń | `employees`, `employee_raise_requests`, `strikes`, `training_programs`, `training_certificates`, `employee_dialogue_templates` |
 | Legal | `/legal`, `/sabotage` | Zezwolenia, Łapówki, Sabotaże, Ochrona | `permits`, `sabotage_operations`, `protections` |
-| Contracts (Market/B2B) | `/contracts` | Kontrakty długoterminowe | `system_contracts`, `b2b_offers`, `b2b_escrow_lock` |
+| Contracts (Market/B2B) | `/contracts` | Kontrakty długoterminowe | `system_contracts`, `b2b_offers`, `escrow_accounts` |
 | Finance | `/finance` | Dział finansowy | `player_finance_decisions`, `department_budgets` |
 | Monetization | `/shop` | FINANSE & SKLEP (§22.4) | `payment_orders`, `payment_transactions`, `gbbl_ledger`, `promo_codes` |
 | Cms | `/p/{slug}` | TREŚCI, Nawigacja (§18.2) | `static_pages`, `navigation_items`, `site_settings` |
@@ -902,7 +902,7 @@ resolved_refunded`, `refunded`. `delivered` obejmuje wariant `partial_unload`.
 
 **Rezerwacja dwustronna:** `published` zakłada `locked_in_escrow_bbl` na ropie
 sprzedającego (blokada spot/limit/inny kontrakt, §12); `accepted` atomowo blokuje
-dodatkowo 100% wartości po stronie kupującego (`b2b_escrow_lock`, PLN_ESCROW per
+dodatkowo 100% wartości po stronie kupującego (`escrow_accounts`, PLN_ESCROW per
 transakcja; źródło: PLN_BANK, niedobór z PLN_CASH). Brak środków = odrzucenie
 `accepted` w tej samej transakcji.
 
@@ -1285,9 +1285,11 @@ Aby gospodarka nie zbankrutowała ani nie uległa dewaluacji po 2 latach ciągł
      * `CAPEX_ewidencjonowany` = suma FAKTYCZNYCH wydatków FTS na aktywo (odwiert: pozwolenie P1 + badanie + wiercenie; hub: budowa; rurociąg: zakup + montaż). Aktywa z czarnego rynku wyceniane są naturalnie niżej — ich CAPEX to zapłacone 30–40% ceny nowego (§11A.3); bez indeksacji i bez przeszacowań rynkowych.
      * `stan` = `condition` odwiertu (0–100) albo `100 − wear_level` rurociągu/huba.
      * Odwiert `depleted` wchodzi do wyceny jako **złom: ×0,10** (`depleted_well_valuation_mult`) — martwe aktywo nie generuje obciążenia podatkowego pełną wartością.
-     Jedna wycena, czterech konsumentów: (1) podstawa podatku = **70% wyceny** (pkt wyżej); (2) cena wywoławcza licytacji komorniczej = **60% wyceny** (§17.2 Faza 3); (3) licytacja majątku `dormant` (§19.4); (4) snapshot majątku netto (§22.6.1 — progi tarczy i Tieru liczą wycenę w 100%). Wycena materializowana RAZ na dobę w snapshocie 00:00 UTC (wiersze `asset_valuations` przy `net_worth_snapshots`) — brak śróddziennych przeliczeń; współczynniki 70%/60%/10% w `game_balance`.
+     Jedna wycena, czterech konsumentów: (1) podstawa podatku = **70% wyceny** (pkt wyżej); (2) cena wywoławcza licytacji komorniczej = **60% wyceny** (§17.2 Faza 3); (3) licytacja majątku `dormant` (§19.4); (4) snapshot majątku netto (§22.6.1 — progi tarczy i Tieru liczą wycenę w 100%). Wycena PODATKOWA materializowana raz na dobę o 00:00 UTC i pozostaje niezmienna; bieżący majątek tarczy/Tieru jest przeliczany po zmianie stanu i przed decyzją przez ten sam serwis wyceny, z jawną wersją cen referencyjnych; współczynniki 70%/60%/10% w `game_balance`.
    - **Stawki marginalne (dobowe, naliczane w fazie 5 ticka co 24h, wpływy na `SYS_TAX`):** do 200M PLN — 0%; 200–500M — 0,03%/dzień od nadwyżki; 500M–1B — 0,05%/dzień; powyżej 1B — 0,08%/dzień (progi i stawki w `game_balance`).
    - Podatek motywuje do reinwestowania kapitału w infrastrukturę, kontrakty B2B lub ryzykowny czarny rynek zamiast chomikowania pustego pieniądza.
+
+**OPEN03 — koszt wspólnego pozwolenia:** koszt P1 jest zapisany raz w puli koncesji/regionu. `capex_allocations` przypisuje równe części do odwiertów objętych pozwoleniem; dodanie odwiertu przelicza wyłącznie alokacje. Suma w groszach zawsze równa się kosztowi źródłowemu; resztę zaokrąglenia dostaje deterministycznie ostatni odwiert po stabilnym ID. Nieprzypisany koszt jest częścią koncesji, nigdy jednocześnie odwiertu. Przeniesiona część CAPEX podąża za aktywem, nie jest dublowana przy zmianie właściciela. Historyczny snapshot podatku nie jest przeliczany.
 
 ### 19.1.1. Zapasy rzeczowe i wierzytelności w podstawie podatku majątkowego
 
@@ -1388,12 +1390,15 @@ Dla zachowania 100% spójności pomiędzy wszystkimi modułami i programistami:
 | **Freeze sporu B2B a twardy limit escrow** | `Contracts` $\leftrightarrow$ `Market` | Freeze ≤72h nigdy nie przekracza 168h od `accepted`; o przekroczeniu limitu autorozstrzygnięcie przerywa WSZYSTKIE zegary, a późniejsza decyzja GM idzie poza escrow przez `B2B_GM_AWARD` (zasada #5, §13.2). |
 | **Sankcja kartelowa a dwie skale reputacji** | `Social` $\leftrightarrow$ `Contracts` | 3 oflagowane transakcje w 7 dni: −15 `company_credibility` ORAZ −15 `b2b_reputation_score` obu stronom + zawieszenie zwolnienia z prowizji 30 dni (§26.3) — jeden trigger, dwie skale. |
 | **Sabotaż rurociągu a ropa w tranzycie** | `PvP` $\leftrightarrow$ `Logistics` | Wybuch/`route_block` uderza WYŁĄCZNIE w wolumen w tranzycie (właściciel wg `oil_movements`), nigdy w magazyn (§11A.7); zasadzka drogowa = przejęcie do 30% ładunku (§7.1) — lekcja z legacy (utrata 5% magazynu) wyeliminowana. |
-| **Snapshot 00:00 UTC a Kroplówka GBBL** | `Economy` $\leftrightarrow$ `Monetization` | Jeden rekord `net_worth_snapshots` zasila podatek, tarczę i Tier (§22.6.1); konwersje GBBL z 30 dni (`drip_30d` z księgi `gbbl_conversions`, nie z FTS) obniżają `tier_base` — legalna optymalizacja Tieru, nie unikanie podatku (zapasy i tak w podstawie). |
+| **Snapshot 00:00 UTC a Kroplówka GBBL** | `Economy` $\leftrightarrow$ `Monetization` | Jeden serwis wyceny zasila dobowy snapshot podatku i bieżący majątek tarczy/Tieru (§22.6.1); konwersje GBBL z 30 dni (`drip_30d` z księgi `gbbl_conversions`, nie z FTS) obniżają `tier_base` — legalna optymalizacja Tieru, nie unikanie podatku (zapasy i tak w podstawie). |
 | **Wydarzenie GM bez zapowiedzi a clamp mnożników** | `Admin` $\leftrightarrow$ `WorldEvents` | Event GM startuje natychmiast (0h zapowiedzi — narzędzie dramatyczne, §25), ale podlega clampowi iloczynu [0,25; 2,20] i wyłączności kryzysu (§25.1) — GM nie tworzy matematycznej czarnej dziury w cenach. |
 
 ---
 
 ## 22. Moduł Monetyzacji, Sklep i Architektura Bramki Płatności (`PaymentGatewayModule`)
+
+**OPEN07 — kanały zakupów:** Google Play Billing dla aplikacji Android, Apple In-App Purchase dla iOS oraz operator webowy przez adapter. Wspólne zamówienia i księga GBBL; grant wyłącznie po weryfikacji serwerowej. UNIQUE(provider, provider_transaction_id), powiązanie zakupu z kontem i katalogiem produktu, idempotentny refund/chargeback. Szczegóły transportu: API §10.4.
+
 
 Gra musi generować stabilny przychód na utrzymanie serwerów, infrastruktury, baz danych, domen oraz rozwój. Wdrażamy elastyczną, rozszerzalną **architekturę mikropłatności i usług premium**, opartą na walucie premium oraz subskrypcjach wygody (Quality of Life) i pakietach wsparcia.
 
@@ -1504,7 +1509,7 @@ W menu administratora pojawia się dedykowany moduł **FINANSE & SKLEP**:
 | IV | 200M–1B | 200 GBBL | 2 |
 | V | > 1B | 400 GBBL | 2 |
 
-(Wartości startowe do kalibracji z bilansem §19.1 — emisja z Kroplówki jest wliczana do faucets/sinks. Zmiana tieru w dół obcina limit od następnego dnia.)
+(Wartości startowe do kalibracji z bilansem §19.1 — emisja z Kroplówki jest wliczana do faucets/sinks. Zmiana Tieru w dół wpływa na nowe decyzje od razu według bieżącego stanu (OPEN02).)
 
 **Wygaśnięcie VIP (po 30 dniach bez odnowienia):** zlecenia limit powyżej 3 anulowane od NAJMŁODSZYCH z natychmiastowym zwrotem `reserved_bbl` do magazynu; pętle cystern i kolejka TTS **dokańczają rozpoczęte** kursy/zadania, ale nie podejmują nowych; Radar PRO wyłączony. Brak cliffów w środku operacji.
 
@@ -1512,14 +1517,14 @@ W menu administratora pojawia się dedykowany moduł **FINANSE & SKLEP**:
 
 ### 22.6.1 Dzienny snapshot majątku i wyznaczanie Tieru Kroplówki
 
-- **Tabela `net_worth_snapshots`:** `company_id`, `snapshot_date` (data UTC), `net_worth_grosze`, `starter_value_grosze`, `drip_30d_grosze`, `tier_base_grosze`, `tier`, `sweep_no`, `balance_version`; UNIQUE(`company_id`, `snapshot_date`). Jeden snapshot na dobę (00:00 UTC, faza 5 sweepa) zasila TRZECH konsumentów: podatek majątkowy (§19.1), tarczę (§19.2), Tier Kroplówki (§22.6) — brak rozjazdów między progami.
+- **Tabela `net_worth_snapshots`:** `company_id`, `snapshot_date` (data UTC), `net_worth_grosze`, `starter_value_grosze`, `drip_30d_grosze`, `tier_base_grosze`, `tier`, `sweep_no`, `balance_version`; UNIQUE(`company_id`, `snapshot_date`). Snapshot dobowy 00:00 UTC służy podatkowi. Tarcza i Tier otrzymują bieżący wynik tego samego serwisu, zapisany oddzielnie jako company_wealth_state z state_version/as_of/pricing_version; nie nadpisują historycznego snapshotu.
 - **Podstawa Tieru:** `tier_base = net_worth − wartość pakietu startowego (kanon) − drip_30d`, gdzie `drip_30d` = suma wpłat PLN z konwersji GBBL→PLN z ostatnich 30 dni (suma z KSIĘGI KONWERSJI `gbbl_conversions` — konwersja GBBL→PLN nie jest pojedynczym wpisem FTS (§24.3); indeks `(company_id, conversion_date_utc)`)`). Kapitał pokonwersyjny starszy niż 30 dni liczy się normalnie — nie ma osobnego pola salda ani znaczników pochodzenia na każdym groszu.
 - **Przedziały Tierów półotwarte:** I `<10M`; II `[10M, 50M)`; III `[50M, 200M)`; IV `[200M, 1B]`; V `>1B` (dokładnie 1 mld = Tier IV). Snapshot niezmiennikowy z polami: `net_worth_grosze`, `tax_base_grosze`, `shield_base_grosze`, `inventory_valuation_version` (§19.1.1) — trzej konsumenci (podatek/tarcza/Tier) czytają JEDEN rekord.
 - **Cel:** zakup GBBL i wymiana tego samego dnia NIE podnosi jutrzejszego limitu; anty-snieżna-kula (Kroplówka → majątek → wyższy Tier → większa Kroplówka) jest strukturalnie zamknięta 30-dniowym oknem.
-- **Potwierdzenie:** Tier obowiązuje z ostatniego snapshotu 00:00 UTC. Spadek majątku w ciągu doby: obcina limit **od następnego dnia** (kanon „zmiana tieru w dół obcina limit od następnego dnia" — bez zmian); wyjątek: wejście w `recovery_mode` lub Fazę 2 egzekucji (§17.2) blokuje wymianę NATYCHMIAST — każdy time-gate sprawdza stan w momencie decyzji, sweeper tylko materializuje powiadomienia (§23).
+- **Potwierdzenie (OPEN02):** Tier jest wyliczany z bieżącego majątku przed decyzją. Zatwierdzona decyzja zastępuje wcześniejsze opóźnienie obniżki Tieru do następnego dnia. Dzienny limit wymiany i UNIQUE na dobę UTC pozostają; spadek Tieru nie cofa wykonanej wymiany. recovery_mode/Faza 2 egzekucji blokują nowe wymiany natychmiast.
 - **Równoległość:** max **1 żądanie oczekujące** na firmę; UNIQUE(`company_id`, `conversion_date_utc`) w księdze konwersji + `idempotency_key=drip:{...DD}` — równoległe kliknięcia dają dokładnie jedną wymianę na dobę (kanon 1/24h); duplikat = no-op z odpowiedzią „już wymieniono".
-- **Wzrost Tieru w ciągu doby** (np. duży kontrakt): widoczny dopiero w następnym dobowym snapshocie — symetrycznie ze spadkiem; limit przy przyjmowaniu żądania = zawsze ten z najnowszego snapshotu.
-- Parametry (okno 30 dni, progi Tierów, limity GBBL) w `game_balance` (wersjonowane); zmiana parametrów wpływa na snapshoty od następnej doby, nigdy wstecz.
+- **Wzrost i spadek Tieru w ciągu doby:** bieżący majątek jest przeliczany przed żądaniem; limit wynika z aktualnego Tieru, bez oczekiwania do północy (OPEN02).
+- Parametry (okno 30 dni, progi Tierów, limity GBBL) w `game_balance` (wersjonowane); nowa wersja parametrów działa od zatwierdzonej aktywacji na nowe decyzje; historyczne snapshoty podatku nie są przeliczane wstecz.
 
 ---
 
@@ -1538,6 +1543,9 @@ W menu administratora pojawia się dedykowany moduł **FINANSE & SKLEP**:
 - Wszystkie trzy wyzwalacze wywołują **ten sam kod** (`SettlementService`) — zakaz osobnej logiki naliczeń w jobie lub cronie (lekcja legacy: dwa silniki ryzyka w jednym serwisie, dryf MySQL vs SQLite).
 
 ### 23.3. Kolejność rozliczeń (kanoniczna, niezmienna)
+
+**OPEN01 — przyjęta granica rynku:** sprzedaż spot HTTP jest natychmiastowa i używa jednego serwisu transakcyjnego Market dla web/API. Blokuje zasób, konta i właściwe wiersze płynności/slippage zgodnie z globalnym porządkiem, ponownie waliduje quote i atomowo księguje. Sweeper jako jedyny publikuje globalną cenę referencyjną i wykonuje automatyczny matching ofert limitowanych. HTTP nie uruchamia globalnego matchingu; odczyt rozliczenia firmy nie uruchamia ponownie ceny świata. Równoległe sprzedaże nie mogą przekroczyć zapasu ani płynności NPC.
+
 W obrębie sweepa (gracza lub przebiegu sweepera): **1** Wydobycie (§9) → **2** Transport/Logistyka → **3** Rynek (§12) → **4** Kontrakty (§13) → **5** Finanse (OPEX/pensje/raty/podatki) → **6** HR (§3–§6) → **7** Awarie (§17.4) → **8** Decay i efekty czasowe (cooldowny, wygasania, ultimatum). Zasada: 1–4 zmieniają stan fizyczny, 5 księguje jego skutki finansowe, 6–8 modyfikują wejścia kolejnych rozliczeń. Fazy 3–4 w zakresie GLOBALNYM (cena, matching, wydarzenia) wykonuje wyłącznie sweeper, sekwencyjnie, pod jednym lockiem — poza schematem per-gracz.
 
 ### 23.4. Plateau — segmentowe rozliczanie długiego Δt (nasycenie buforów)
@@ -1559,11 +1567,11 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | rank | zasób | rank | zasób |
 |---|---|---|---|
 | 10 | `companies` | 80 | `trips` |
-| 20 | konta (`PLN_CASH/PLN_BANK/GBBL/SYS_*`, wg `account_id`) | 90 | `escrow_transactions` (B2B) |
+| 20 | konta (`PLN_CASH/PLN_BANK/GBBL/SYS_*`, wg `account_id`) | 90 | `escrow_movements` (B2B) |
 | 30 | `obligations` + `loans` | 100 | `market_offers` |
 | 40 | `wells` | 110 | `contracts` + `contract_tranches` |
 | 50 | `pipelines` + `pipeline_segments` | 120 | `refineries` |
-| 60 | `hubs` + `hub_buffers` | 130 | globalne wiersze rynkowe (tylko sweeper faza 3) |
+| 60 | `hubs` + `hub_buffers` | 130 | globalne wiersze rynkowe (spot i sweeper, wspólny serwis transakcyjny) |
 | 70 | `storages` + `product_storages` | — | append-only FTS/`oil_movements`/`product_movements` + CAS `last_calc_at` — BEZ nowych blokad |
 
 * Klucz idempotencji (§29.4a) wstawiany/sprawdzany PRZED grupą 20 (własna tabela, UNIQUE robi CAS).
@@ -1814,6 +1822,7 @@ Bufor gotówkowy ~866 000 + przychód z odwiertu szkoleniowego (7 000 bbl × 250
 - **Środowiska:** `dev` (MockDriver płatności), `staging` z seedowanym światem (zanonimizowana kopia produkcyjna sprzed 7 dni) do QA i testów scenariuszowych (§23.7), `prod`.
 
 ### 29.2. Backup i Disaster Recovery
+- Cel odtworzenia podstawowej gry RTO ≤60 minut dla typowej awarii infrastruktury, potwierdzany testem na docelowym środowisku; czas liczymy od stwierdzenia awarii do zweryfikowanej gotowości odczytu i bezpiecznych mutacji.
 - Backup pełny co 24h + ciągły binlog (**RPO ≤ 5 min**); udokumentowany test odtworzenia raz w miesiącu.
 - FTS jest źródłem prawdy: procedura rekoncyliacji odtwarza saldo każdego konta z zapisów double-entry (§24.2) i porównuje ze stanem tabel — rozbieżność = alarm i zamrożenie fazy 5 do wyjaśnienia.
 
@@ -1826,13 +1835,16 @@ Bufor gotówkowy ~866 000 + przychód z odwiertu szkoleniowego (7 000 bbl × 250
 - Archiwum zimne (parquet + obiektowe) dla partycji >24 mies. z zachowaniem możliwości rekoncyliacji (§29.2).
 - Retencje operacyjne: `cookie_consents_log` 3 lata, logi logowań/IP 12 mies. (§16), czat 30 dni (§26), logi płatności — trwale (obowiązek podatkowy).
 
-#### 29.4a Tabela kluczy idempotencji FTS (`fts_idempotency_keys`)
-Partycjonowana RANGE po `created_at` tabela `financial_transaction_service` NIE może mieć globalnego UNIQUE na `idempotency_key` (MySQL wymaga kolumny partycjonującej w każdym UNIQUE) — deduplikacja żyje w osobnej, **niepartycjonowanej** tabeli InnoDB:
+#### 29.4a Idempotencja operacji i trwałe próby zadań
 
-* Kolumny: `id` BIGINT UNSIGNED AI PK; `idem_key` VARBINARY(16) — BLAKE2b-128 z `company_id:operation:reason_code:entity_id:due_slot:request_uuid`; `company_id`; `fts_id` BIGINT UNSIGNED NULL; `fts_created_at DATETIME(3) NULL` (wskazuje partycję wpisu, bez klucza obcego); `request_hash` BINARY(32); `status` VARCHAR(16): `pending|committed|failed` (BackedEnum PHP 8.3); `created_at DATETIME(3)`; `expires_at DATETIME(3) NULL`; `committed_at DATETIME(3) NULL`; `UNIQUE(idem_key)`; `INDEX(expires_at)`.
-* **Przebieg w transakcji:** (1) `INSERT status='pending', expires_at=NULL` PRZED księgowaniem; (2) duplikat 1062 → `SELECT`: `committed` i `request_hash` zgodny → zwróć zapisany `fts_id` (odpowiedź idempotentna, brak ponownego księgowania); hash różny → błąd konfliktu 409; `pending` <60 s → 409 retry-later; `pending` >60 s lub `failed` → przejęcie warunkowe `UPDATE ... SET status='pending', created_at=NOW(3) WHERE idem_key=? AND (status='failed' OR (status='pending' AND created_at < NOW(3)−60s))` — tylko gdy `affected_rows=1` (przegrywający cofa transakcję i ponawia z backoffem §23.5a); (3) `INSERT` FTS + `UPDATE status='committed', fts_id, fts_created_at, committed_at` oraz ustawienie expires_at według polityki retencji w TEJ SAMEJ transakcji (rollback usuwa też `pending`). Żadnych nieodwracalnych działań poza bazą przed commitem.
-* **Retencja (zero-wipe):** klucze zdarzeń domenowych (sweepy, transze, raty, zobowiązania, B2B_GM_AWARD) zachowywane TRWALE z `expires_at=NULL`. Klucze żądań HTTP: `committed` mają `expires_at=committed_at+30 dni`, `failed` = czas porażki +24 h. `pending` ma `expires_at=NULL`; czas próby jest oddzielny od terminu usunięcia. Sprzątanie usuwa wyłącznie rekordy z `expires_at IS NOT NULL AND expires_at < NOW(3) AND status != 'pending'`. Seed RNG nie zastępuje trwałego klucza deduplikacji. Retencja odpowiedzi HTTP nie pozwala odtworzyć skutku po usunięciu klucza: legalny stan domenowy nadal musi wykluczać powtórną wypłatę.
-* Dzienna kontrola spójności: każdy `committed` musi mieć odpowiednik w FTS/archiwum — brak = alarm (§29.2).
+Decyzje OPEN10/OPEN12 zatwierdzone przez właściciela zastępują wcześniejszy model przejmowania starego pending wewnątrz transakcji FTS.
+
+* Krótkie operacje DB: klucz i skutki są zapisywane w jednej transakcji InnoDB. INSERT klucza przed blokadą kont, potem FTS/ruch/stany/outbox i wynik committed. Rollback usuwa także pending. Nie przejmuje się niezatwierdzonego pending na podstawie jego wieku; konflikt UNIQUE czeka lub kończy się kontrolowanym retry całej transakcji. Po konflikcie odczyt zatwierdzonego wyniku musi być bieżącym odczytem z właściwą blokadą.
+* `fts_idempotency_keys`: niepartycjonowana tabela; scope_type (http/domain), company_id, actor_id nullable dla domeny, operation, entity_id, event_slot, client_key, idem_key, request_hash, status, result_ref/result_json, created_at, committed_at, expires_at. Pola nieużywane w danym scope są NULL; konkretne typy kluczy/FK określa karta P03.
+* HTTP: wejście hasha to `http:actor_id:company_id:operation:client_key`. Domena: `domain:event_type:entity_id:durable_slot_id`, bez aktora wyzwalającego i bez HTTP/job/sweeper. Kanoniczne kodowanie składników jest jednoznaczne (nie surowe sklejanie dowolnych stringów dwukropkiem). UNIQUE(idem_key), hash treści osobno; inny payload dla tego samego klucza = konflikt.
+* Retencja: domenowe committed TRWALE, expires_at=NULL. HTTP committed przez 30 dni od committed_at. Pending krótkiej operacji nie jest trwałym zadaniem; failed/diagnostyka prób trafiają do osobnej historii, nie są pretekstem do ponownego księgowania committed. Stan domeny i klucze zdarzeń nadal chronią przed ponowną wypłatą po retencji odpowiedzi HTTP.
+* Długie zadania: osobne `operation_attempts` z operation_id, attempt_no, lease_until i rosnącym fencing_token. Po upływie dzierżawy CAS może nadać nową próbę. Stary worker przed zapisaniem skutku musi sprawdzić bieżący fencing_token; klucz domenowy nie zmienia się między próbami. Dostawcy zewnętrzni dodatkowo wymagają własnej idempotencji/rekoncyliacji.
+* Dzienna kontrola: committed ma wynik i wskazanie księgi/archiwum, jeżeli operacja księguje. Testy obejmują rollback, 1062/timeout, dwa wyzwalacze, przejęcie lease i spóźniony stary worker. Nie ma ogólnego UPDATE przejmującego committed.
 
 ### 29.5. Wersjonowanie Balansu
 - Każda zmiana `game_balance` tworzy wersję (kto, kiedy, diff, opcjonalny powód `owner_admin`, tryb zatwierdzenia wg §29.7); aktywna wersja zapisywana per sweep (`balance_version` w `simulation_sweeps`).
@@ -1884,7 +1896,8 @@ Pozycja „Balans gry" w grupie nawigacyjnej 2. RYNEK (§18.1). Administrator NI
 
 **1. Drzewo modułów (widok główny).** Lista z manifestów (§29.6): `key`, etykieta, `enabled`, `premium`, `params_version`, liczba parametrów, status najnowszej kandydatury. Formularz generowany z JSON Schema modułu (§29.6): typ, `min/max`, enum, jednostka w etykiecie — walidacja natychmiast przy wpisywaniu. Panel musi pokrywać KAŻDY liść `modules.*.params` aktywnego YAML, także tablice, zakresy, receptury, progi i mapy; nowy klucz bez schematu blokuje aktywację modułu z raportem brakującego pola. Zmiana kilku powiązanych pól jest jedną atomową kandydaturą. Wzory zapisane w kodzie, schemat bazy i polityka dostępu nie są parametrami ekonomicznymi — ich zmiana wymaga wersji kodu.
 
-**2. Tabela `balance_versions` (append-only, żadnej edycji w miejscu):**
+**2. Model balansu (OPEN11):** szkic `balance_candidates` jest edytowalny do zgłoszenia; `balance_versions` przechowuje niezmienny snapshot i hash. Każda zmiana po zgłoszeniu wymaga nowej kandydatury. Decyzje i aktywacje są append-only w `balance_version_events`; projekcja `balance_activation_state` może aktualizować bieżący status. Approval jest związane z dokładnym hashem, nie samym ID. Poniższa lista opisuje logiczny widok tych struktur, nie jedną edytowalną tabelę:
+
 `id`, `module_key` (NULL = zmiana globalna/wielomodułowa), `base_version_id`, `params_json` (PEŁNY snapshot parametrów modułu po zmianie), `diff_json` (wyliczony przy zapisie), `reason` (NULL dopuszczalny dla `owner_admin`; wymagany min. 10 znaków dla pozostałych ról proponujących), `proposed_by`, `proposed_at`, `reviewed_by`, `reviewed_at`, `status`, `simulator_report_json`, `simulator_yaml_hash`, `activated_at`, `sweep_no`.
 Statusy: `draft → pending_review`; z pending_review wyłącznie approved albo rejected; wyłącznie approved → active; active → superseded. Rejected jest końcowy. Rollback tworzy nową kandydaturę; rolled_back jest etykietą historyczną zastąpionej aktywacji, nie przejściem od rejected do active.
 
@@ -2319,5 +2332,9 @@ W panelu administracyjnym system rafinerii w pełni integruje się z `PlayerReso
 * **(R8) EPC — transza szarej strefy:** 25% PLN_CASH + 75% PLN_BANK atomowo; brak gotówki blokuje OBA ruchy (brak stanu pośredniego).
 * **(R9) Ubezpieczenie:** dwie wypłaty tego samego dnia — druga ograniczona wolnym limitem 50M/24h i saldem puli; malus +50% naliczony raz na szkodę.
 * **(R10) Flara offline:** gracz nieaktywny 12h przy pełnych zbiornikach — mandaty maksymalnie za 2h, potem `idle_standby` bez kar (polityka §19.2).
-* **(R11) Snapshot 00:00 UTC:** podatek, tarcza i Tier czytają TEN SAM rekord `net_worth_snapshots`; `drip_30d` obniża `tier_base` dokładnie o sumę konwersji z 30 dni.
+* **(R11) Snapshot i bieżący majątek:** podatek czyta snapshot 00:00 UTC; tarcza i Tier aktualną własność i stan przez wspólny serwis wyceny; `drip_30d` obniża `tier_base` dokładnie o sumę konwersji z 30 dni.
 * **(R12) Kołnierz kartelowy:** transakcja wewnątrz kartelu poza [0,8×; 1,2×] spot płaci pełne 1,5% (`B2B_FEE_CARTEL`) i dostaje flagę telemetrii; limit 1 500 bbl/dobę/parę liczony z transz `settled` + `in_transit`.
+
+### 29.8. Przyjęty pomiar inflacji i test 90 dni (OPEN08)
+
+Inflacja cenowa to zmiana ceny stałego koszyka towarów (stałe ilości i jakości, jawnie zdefiniowane przed testem) w porównywalnych oknach 30 dni; do niej odnosi się próg <5%/miesiąc. Osobno raportujemy emisję netto: źródła systemowe minus ujścia, per mechanika i aktywny gracz. B2B nie jest emisją. Scenariusze: stała populacja, napływ graczy, kryzys; każdy ma seed, populację i raport 90 dni. Wagi koszyka i dokładne profile agentów to obowiązkowa karta testu P25, nie parametr dobierany po wyniku.
