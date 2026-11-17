@@ -171,3 +171,24 @@ Nowe wartości trafiają do kandydata balance_version z testami, a nie do histor
 | HR-T16 UI PL/EN/DE i mobile | Pełna ścieżka, SVG, brak okien systemowych |
 
 Tabela to plan testów, nie wyniki PASS. Dotychczasowy symulator nie sprawdza nowych odpraw, grafików ani tabel składek.
+
+
+## 12. Ekran Kadr gracza — koncepcja pod Vue 3
+
+Umowy, wynagrodzenia i odprawy z [HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md) są częścią Kadr, nie osobnym modułem ekonomicznym.
+Koncepcja interfejsu gracza pod Vue 3; nie zastępuje panelu administratora Filament i nie deklaruje migracji całego frontendu.
+
+Nawigacja Kadr: Przegląd, Pracownicy, Rekrutacja, Umowy i płace, Grafik, Szkolenia, Historia.
+Domyślny ekran Pracownicy: wyszukiwarka, filtr działu/statusu/umowy, lista osób oraz panel szczegółów wybranej osoby. Podsumowanie pokazuje liczbę zatrudnionych, sumę etatów, prognozowany koszt miesiąca i luki obsady. Każda wartość ma jednostkę; koszt prognozowany nie jest zaksięgowaną należnością.
+Wiersz osoby: imię i nazwisko, stanowisko, forma/wymiar umowy, morale, najważniejszy skill, stan dostępności i koszt firmy. Rozdzielić status umowy od statusu bieżącej pracy.
+Panel osoby: Profil, Umowa, Rozwój, Historia. W Umowie widoczne brutto/kwota faktury, narzuty, łączny koszt, okres, etat, najbliższa zmiana i działania aneks/wycena zakończenia.
+Odprawa wyświetlana jako prognoza z datą i wersją; nie jako pieniądze już należne. Zakończenie współpracy otwiera własny dostępny modal z ikoną SVG, rozbiciem kosztów, terminami i przyciskiem potwierdzającym aktualny quote.
+Rekrutacja: źródło → zasięg → warunki → wycena kampanii → lista trwałych kandydatów. Kandydat nieoceniony pokazuje przedział lub brak oceny.
+Grafik: oś czasu i obsada; mobilnie agenda dni. Szkolenie, odpoczynek i nieobecność czytelne tekstowo, nie tylko kolorem.
+
+Kierunek wizualny: kompaktowy grafitowy interfejs, złoty akcent akcji/wyboru, jasna typografia, cienkie separatory, SVG o spójnym obrysie. Zielony dostępność, bursztyn wymagające uwagi, czerwony krytyczne braki — zawsze z etykietą.
+Na komputerze lista + szczegóły obok; na telefonie lista kart i osobny ekran szczegółów z powrotem. Brak poziomego scrolla całej strony przy320px; cele dotykowe44px, klawiatura/focus i reduced-motion.
+Nazwy komponentów proponowane: StaffPage, StaffSummary, StaffFilters, EmployeeList, EmployeeDetails, ContractBreakdown, TerminationQuoteDialog, RecruitmentWizard, StaffRoster.
+Stan API/autoryzacja i wszystkie obliczenia finansowe pozostają w Laravel. Vue prezentuje odpowiedzi i obsługuje formularze; nie wylicza autorytatywnej odprawy. Kwoty API jako string w najmniejszej jednostce, formatowane z locale.
+CSS modułu w osobnym pliku; SVG w lokalnych plikach; teksty PL/EN/DE. Obsłużyć loading/empty/error/403/409/offline i ponowne pobranie wygasłego quote. Nie używać v-html do treści użytkownika.
+Makieta to dane demonstracyjne i propozycja wyglądu; nie działający frontend Vue, nie wdrożenie i nie dowód testów przeglądarkowych.
