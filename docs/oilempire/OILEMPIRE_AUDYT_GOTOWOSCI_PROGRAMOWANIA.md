@@ -1,5 +1,8 @@
 # OilEmpire — audyt gotowości do programowania
 
+
+**BIEŻĄCY STATUS:** właściciel zatwierdził wszystkie propozycje OPEN01–OPEN12. Decyzje projektowe są rozstrzygnięte i wdrożone do dokumentacji źródłowej; rejestr: [plan §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Poniższe określenia „otwarte” i liczniki dotyczą historycznych przebiegów audytu. Nie oznacza to gotowego kodu ani kompletu kart DDL/OpenAPI.
+
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Dowody weryfikacji i rejestr otwartych problemów; nie zastępuje wymagań rozdziałów źródłowych. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
 
 
@@ -79,3 +82,18 @@ OPEN01–OPEN09 pozostają otwarte. Dodatkowe ograniczenia:
 - OPEN12 (P1/P03): scope actor_id dla HTTP musi być zapisany w finalnym kluczu idempotencji; dla zdarzenia systemowego używa się stabilnej tożsamości domenowej, niezależnej od tego, czy wyzwolił je HTTP, job czy sweeper.
 
 Werdykt: nie wszystko jest jeszcze zgodne ani gotowe do bezpośredniej implementacji. Poprawiono konkretne błędy dokumentacji; 12 otwartych problemów nadal wymaga kart i decyzji przed wskazanymi pakietami. Wynik 18/73 PASS nie zamyka tych problemów.
+
+## 8. Zamknięcie decyzji OPEN01–OPEN12
+
+Właściciel zaakceptował wszystkie 12 propozycji. Status każdego: **decyzja zatwierdzona / dokumentacja zaktualizowana / implementacja do wykonania**. OPEN06 zostaje zrealizowane przez obowiązkową procedurę kart funkcji, nie przez fikcyjne oznaczenie wszystkich kart jako gotowych.
+
+| Zakres | Aktualizacja |
+|---|---|
+| OPEN01/02/03/08/09/10/11/12 | Architektura: spot i lock rank 130, bieżący Tier, alokacja CAPEX, wskaźniki inflacji, RTO, transakcje/lease, model balansu i scope kluczy |
+| OPEN04/06 | Plan: słownik encji i obowiązkowe karty przed programowaniem |
+| OPEN05/07/12 | API: refresh 2 minuty, kanały sklepowe i klucze HTTP/domeny |
+| OPEN02/09/10 | Bezpieczeństwo: dwa widoki wyceny, RTO i rozdzielenie transakcji od dzierżawy |
+
+Zmiana OPEN02 jawnie zastępuje poprzedni zapis o obniżeniu Tieru dopiero następnego dnia. Podatek pozostaje dobowy, limity dobowe i już wykonana wymiana nie są cofane. Wartości ekonomiczne YAML nie były zmieniane. Do kart wykonawczych pozostają m.in. konkretne kolumny/indeksy, wagi koszyka, profile agentów, konfiguracja kluczy i produktów sklepów; to nie są nierozstrzygnięte warianty opisanych decyzji.
+
+Kontrola po wprowadzeniu zatwierdzonych decyzji: dokumentacja 23 PASS/0 FAIL; symulator 73 PASS/0 FAIL. Zmieniono wyłącznie komentarze opisowe YAML, bez zmiany wartości parametrów. Testy kodu Laravel, współbieżności MySQL, płatności i restore pozostają do wykonania po implementacji.
