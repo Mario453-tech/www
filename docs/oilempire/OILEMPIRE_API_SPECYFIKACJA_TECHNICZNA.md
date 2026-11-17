@@ -36,11 +36,13 @@ Odpowiedź sukcesu: `data` (obiekt lub lista), opcjonalne `meta` (paginacja, cza
 - **2FA:** istniejąca decyzja §14 jest wiążąca: TOTP z aplikacji uwierzytelniającej, opcjonalny dla gracza i obowiązkowy dla każdej roli GM. Jednorazowe kody odzyskiwania są przechowywane jako hashe i zużywane atomowo. Wyzwanie po poprawnym haśle jest ważne **5 minut**, dopuszcza **5 prób** i nie wydaje tokenu dostępu przed zakończeniem. Endpoint mobilny i webowy używają tej samej polityki; nie traktujemy biometrii telefonu ani samego push jako drugiego składnika. Operacje wrażliwe wymagają ponownego potwierdzenia w ostatnich **15 minutach**, zgodnie z §14.5.
 - Logowanie, reset hasła i 2FA muszą respektować §14. Reset hasła lub wylogowanie wszystkich urządzeń unieważnia również sesje API. Nie wolno wystawić prowizorycznego logowania bez tych kontroli.
 
-**OPEN05:** refresh wymaga Idempotency-Key; klient wykonuje jedno odświeżenie naraz. Rotacja i szyfrowany wynik odpowiedzi są zapisane atomowo w bazie w tej samej transakcji; wynik jest dostępny przez 2 minuty, związany z sesją, zużytym tokenem i request_hash. Ten sam request odtwarza wynik, inny request ze zużytym tokenem unieważnia rodzinę. Po upływie okna wymagane może być ponowne logowanie. Klucz szyfrowania wersjonowany, poza bazą; tokeny nigdy nie trafiają do zwykłego cache/logów. Karta P02 określa kolumny i purge.
+**Revokacja access tokenu:** personal_access_tokens ma relację api_session_id do api_sessions i auth_epoch_at_issue. Każde żądanie Bearer sprawdza expires_at, revoked_at, idle/absolute deadline i auth_epoch; logout/reset blokuje niewygasły access token od razu i odłącza prywatne WS.
+
+**OPEN05:** refresh wymaga Idempotency-Key; klient wykonuje jedno odświeżenie naraz. Rotacja i szyfrowany wynik odpowiedzi są zapisane atomowo w bazie w tej samej transakcji; wynik jest dostępny przez 2 minuty, związany z sesją, zużytym tokenem i request_hash. Po sprawdzeniu ważności sesji wyłącznie identyczne session_id/request_key/used_token_hash/request_hash w oknie 2 min jest replay. Każde inne użycie zużytego tokenu unieważnia rodzinę i daje 401 REFRESH_REUSE, również inny payload pod tym samym kluczem. Dopiero dla niewykorzystanego tokenu konflikt istniejącego klucza daje 409 IDEMPOTENCY_KEY_REUSED bez rotacji. Po upływie okna wymagane może być ponowne logowanie. Klucz szyfrowania wersjonowany, poza bazą; tokeny nigdy nie trafiają do zwykłego cache/logów. Karta P02 określa kolumny i purge.
 
 | Metoda i ścieżka | Cel |
 |---|---|
-| `POST /api/v1/auth/login` | rozpoczęcie sesji lub wyzwania 2FA; identyczny komunikat dla błędnych danych logowania |
+| `POST /api/v1/auth/login` | 200: sesja; 202: challenge_id, challenge_secret, expires_at, next_step=totp; sekret losowy, w bazie tylko hash; identyczny komunikat dla błędnych danych logowania |
 | `POST /api/v1/auth/2fa/verify` | zakończenie wyzwania, wydanie pary tokenów po poprawnej weryfikacji |
 | `POST /api/v1/auth/refresh` | atomowa rotacja tokenu odświeżania |
 | `POST /api/v1/auth/logout` | unieważnienie bieżącej sesji |
