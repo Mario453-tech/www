@@ -29,6 +29,8 @@ Kontroler, klient mobilny i widok nie nadają uprawnień ani nie wyliczają wią
 
 ## 3. Kanoniczny przebieg operacji gospodarczej
 
+LockPlan obejmuje nowe tabele zgodnie z pełnym rank §23.5a: idempotencja 1, operations 5, company 10, settlement 11, due-events 12, konta 20 i rezerwacje 21; dalsze grupy domenowe i append 140. Job nie zaczyna od blokady due_event. Przejęcie lease wymaga bieżącego singletonu operations; globalna aktywacja wymaga singletonu balance_current. Konfiguracja i gospodarka mają osobne transakcje.
+
 1. Zweryfikuj sesję, limit żądań, format i zakres aktora; zbuduj znormalizowaną komendę i request_id.
 2. W transakcji domenowej zarejestruj/sprawdź klucz idempotencji przed blokadą kont (§23.5a). Identyczny klucz/payload odtwarza wynik; zmieniony payload daje konflikt.
 3. Zablokuj znany zestaw zasobów według globalnego porządku §23.5a; rozlicz wymagany czas przez wspólny SettlementService. Ponownie sprawdź własność, legalny stan, state_version, terminy, saldo i pojemności.
@@ -47,7 +49,7 @@ Zabronione są wywołania sieciowe do operatora płatności/push w otwartej tran
 | Bilans pieniędzy | suma zapisów księgowania = 0; każde źródło/ujście ma konto przeciwstawne |
 | Brak niedozwolonego debetu | konta gracza nie schodzą poniżej zera poza jawnie dozwolonym długiem GBBL po chargebacku |
 | Bilans ropy/produktów | wydanie = przyjęcie + udokumentowana strata/zużycie; brak podwójnej własności ładunku |
-| Rezerwacje | dostępne = fizyczne saldo minus aktywne rezerwacje, nigdy ujemne |
+| Rezerwacje | dostępne = saldo minus aktywne rezerwacje; zwykły transfer amount≤available, capture zużywa wskazaną rezerwację atomowo; nigdy ujemne |
 | Czas i zdarzenia | last_calc_at nie cofa się; ten sam due_slot daje jeden skutek |
 | Pojemność | przyjęcie nie przekracza pojemności; nadmiar obsługiwany wyłącznie regułą domenową |
 | Wycena | wspólny serwis wyceny: dobowy snapshot podatku, bieżący stan tarczy/Tieru; bez podwójnego dyskonta rafinerii |
