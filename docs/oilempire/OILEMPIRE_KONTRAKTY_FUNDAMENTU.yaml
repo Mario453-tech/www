@@ -1,0 +1,274 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OilEmpire foundation authentication contracts",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "login",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "TOTP challenge after valid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChallengeEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/2fa/verify": {
+      "post": {
+        "operationId": "verifyTotp",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authenticated session"
+          },
+          "401": {
+            "description": "Invalid challenge or code"
+          }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "refresh",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rotated or identical replayed tokens"
+          },
+          "401": {
+            "description": "Invalid session or REFRESH_REUSE"
+          },
+          "409": {
+            "description": "Conflicting key for unconsumed token only"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LoginRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1
+          },
+          "device_label": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "required": [
+          "email",
+          "password",
+          "device_label"
+        ]
+      },
+      "ChallengeData": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "challenge_secret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "next_step": {
+            "const": "totp"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "challenge_secret",
+          "expires_at",
+          "next_step"
+        ]
+      },
+      "ChallengeEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/ChallengeData"
+          }
+        },
+        "required": [
+          "data"
+        ]
+      },
+      "VerifyRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "challenge_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "challenge_secret": {
+            "type": "string",
+            "minLength": 1
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "challenge_id",
+          "challenge_secret",
+          "code"
+        ]
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "refresh_token"
+        ]
+      }
+    }
+  },
+  "x-scope": "Partial executable structural contract for foundation; other auth responses/endpoints and runtime SQL tests remain required.",
+  "x-flow-bindings": [
+    {
+      "producer": "ChallengeData",
+      "consumer": "VerifyRequest",
+      "fields": [
+        "challenge_id",
+        "challenge_secret"
+      ]
+    }
+  ],
+  "x-session-policy": {
+    "access_token_session_fk": "api_session_id",
+    "check_each_bearer_request": [
+      "revoked_at",
+      "expires_at",
+      "idle_expires_at",
+      "absolute_expires_at",
+      "auth_epoch"
+    ],
+    "refresh_priority": [
+      "invalid_session",
+      "identical_replay",
+      "consumed_token_revoke",
+      "unused_token_key_conflict",
+      "rotate"
+    ]
+  },
+  "x-storage-contracts": {
+    "fund_reservations": {
+      "columns": [
+        "id",
+        "account_id",
+        "operation_id",
+        "reservation_kind",
+        "amount_minor",
+        "state",
+        "expires_at",
+        "state_version"
+      ],
+      "unique": [
+        [
+          "operation_id",
+          "account_id",
+          "reservation_kind"
+        ]
+      ]
+    },
+    "operations": {
+      "columns": [
+        "operation_id",
+        "current_attempt_no",
+        "fencing_token",
+        "lease_owner",
+        "lease_until",
+        "state_version",
+        "status"
+      ],
+      "primary": [
+        "operation_id"
+      ]
+    },
+    "balance_current": {
+      "columns": [
+        "world_id",
+        "active_version_id",
+        "state_version"
+      ],
+      "primary": [
+        "world_id"
+      ],
+      "singleton": {
+        "world_id": 1
+      }
+    }
+  }
+}
