@@ -1308,7 +1308,7 @@ Aby gospodarka nie zbankrutowała ani nie uległa dewaluacji po 2 latach ciągł
 ### 19.2. Ochrona Nowych Graczy i Polityka Graczy Offline (24/7 Persistence)
 
 1. **Tarcza Startowa (Newbie Shield):**
-   - Nowo zarejestrowana korporacja posiada **7 dni bezwzględnego immunitetu** lub do momentu osiągnięcia majątku netto **10 000 000 PLN liczonego Z WYŁĄCZENIEM wartości pakietu startowego (magazyn 20 000 bbl = POJEMNOŚĆ, stan początkowy 0 bbl). Wzór majątku netto (snapshot §22.6.1): `PLN_CASH + PLN_BANK + własne PLN_ESCROW + Σ(CAPEX × (1 − wear/100) × 0,70) aktywa trwałe + zapasy (§19.1.1; do progów w 100% ceny referencyjnej) − wymagalne zobowiązania`** (z progu wyłączona jest wartość pakietu startowego: 4M PLN gotówki oraz — do rozstrzygnięcia produktowego — wartość początkowego magazynu; §1 musi jednoznacznie określić, czy „magazyn 20 000 bbl” to pojemność, czy przyznana ropa; pełny algorytm wyceny majątku netto do doprecyzowania przed implementacją).
+   - Nowo zarejestrowana korporacja posiada 7 dni immunitetu lub do osiągnięcia progu 10 000 000 PLN po wyłączeniu pakietu startowego. Bieżący majątek = PLN_CASH + PLN_BANK + własne PLN_ESCROW + 100% systemowej wyceny własnych aktywów trwałych (§19.1, z osobnym wzorem rafinerii §31.7) + zapasy w 100% ceny referencyjnej − wymagalne zobowiązania. Dyskonto podatkowe 70% nie dotyczy progów tarczy/Tieru. Pakiet pieniężny 4M jest wyłączany zgodnie z §22.6.1; magazyn 20 000 bbl oznacza pojemność, początkowa ropa = 0. Wycenę początkowego aktywa magazynowego, jeśli uwzględnia ją ewidencja, obejmuje ta sama udokumentowana wartość startera — nie jest to przyznana ropa ani drugi koszt gotówki. Tarcza sprawdza bieżący company_wealth_state, nie historyczny snapshot podatku (OPEN02).
    - W tym okresie gracz nie może być celem żadnych sabotaży PvP, ani nie mogą w niego uderzać wrogie kontrole skarbowe ze strony innych graczy.
    - **Tarcza jest DWUKIERUNKOWA:** gracz osłonięty nie może atakować innych firm, handlować na czarnym rynku ani być stroną agresora w jakiejkolwiek operacji PvP — pierwsza taka próba natychmiast i trwale zdejmuje tarczę.
 2. **Polityka Pracy w Trybie Offline (Gdy gracz nie jest zalogowany):**
@@ -1566,17 +1566,33 @@ Naiwne `rate × Δt` jest niedozwolone. Rozliczenie jest **segmentowe (piecewise
 #### 23.5a Globalny porządek blokad (kanoniczny — obowiązuje HTTP, kolejki i sweeper)
 Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity_id`); wiersze systemowe (SYS_*) traktowane jak zwykłe wiersze swoich grup:
 
-| rank | zasób | rank | zasób |
-|---|---|---|---|
-| 10 | `companies` | 80 | `trips` |
-| 20 | konta (`PLN_CASH/PLN_BANK/GBBL/SYS_*`, wg `account_id`) | 90 | `escrow_movements` (B2B) |
-| 30 | `obligations` + `loans` | 100 | `market_offers` |
-| 40 | `wells` | 110 | `contracts` + `contract_tranches` |
-| 50 | `pipelines` + `pipeline_segments` | 120 | `refineries` |
-| 60 | `hubs` + `hub_buffers` | 130 | globalne wiersze rynkowe (spot i sweeper, wspólny serwis transakcyjny) |
-| 70 | `storages` + `product_storages` | — | append-only FTS/`oil_movements`/`product_movements` + CAS `last_calc_at` — BEZ nowych blokad |
+| rank | zasób i kolejność w grupie |
+|---|---|
+| 1 | operation_idempotency: klucze operacji w porządku binarnym; przed innymi blokadami |
+| 5 | operations: rekord kontrolny długiego zadania po operation_id; tylko gdy operacja ma lease |
+| 10 | companies: wszystkie objęte firmy rosnąco po ID |
+| 11 | company_settlement_state: rosnąco po company_id |
+| 12 | due_events: rosnąco po event_id; job nie blokuje eventu przed firmą |
+| 20 | ledger_accounts: rosnąco po account_id, w tym SYS_* |
+| 21 | fund_reservations: rosnąco po account_id, potem reservation_id; zawsze po blokadzie konta rodzica |
+| 30 | obligations, potem loans: rosnąco po ID w każdej tabeli |
+| 40 | wells, potem well_buffers |
+| 50 | pipelines, potem pipeline_segments |
+| 60 | hubs, potem hub_buffers |
+| 70 | storages, potem product_storages |
+| 80 | trips |
+| 90 | escrow_accounts; escrow_movements są append-only |
+| 100 | market_offers |
+| 110 | contracts, potem contract_tranches |
+| 120 | refineries |
+| 130 | globalne wiersze płynności/slippage: spot i sweeper przez ten sam kontrakt |
+| 140 | append-only FTS, effect keys, oil/product/escrow movements, audit i outbox; CAS istniejących rekordów już zablokowanych |
 
-* Klucz idempotencji (§29.4a) wstawiany/sprawdzany PRZED grupą 20 (własna tabela, UNIQUE robi CAS).
+W każdej wymienionej tabeli domenowej kolejność po ID. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
+
+Transakcje konfiguracji mają osobny porządek: balance_current (activation_gate) → users/role assignments → kandydatura/wersja/projekcje → module_runtime_states → audit/outbox. Nie łączymy ich z gospodarczym LockPlan. Szczegóły i testy: karty P04-F02/P05-F03.
+
+* Klucz operacji (§29.4a) wstawiany/sprawdzany w rank 1; trwałe effect keys zapisuje się w fazie append rank 140. Retry obejmuje transakcję w całości.
 * Żądanie HTTP i sweeper stosują IDENTYCZNĄ kolejność; sweeper przetwarza firmy rosnąco wg `companies.id`; operacje wsadowe sortują encje PRZED pierwszą blokadą (nie odkrywamy kolejnego zasobu po zablokowaniu późniejszej grupy).
 * `innodb_lock_wait_timeout` = 10 s; twardy cap transakcji 30 s w `SettlementService`. MySQL 1213/1205: max **3 ponowienia** całej transakcji, backoff 50 ms × 2^n + jitter 0–50 ms (bezpieczne dzięki §29.4a). Każdy 1213 → wpis `deadlock_log` (obie strony + zapytania), przegląd tygodniowy w Filament.
 * Po ponowieniu: re-weryfikacja salda, `state_version`, `last_calc_at` i statusu; zapis RNG `HMAC(entity:due_slot)` wykonywany raz. Do `SKIP LOCKED` wolno sięgać wyłącznie w zadaniach tolerujących pominięcie (np. powiadomienia), nigdy w rozliczeniach. Naruszenie kolejności blokad = bloker code review.
@@ -1594,7 +1610,8 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | Wydobycie, OPEX, pensje, wear, decay (ciągłe) | ✅ w locie przy requeście | ❌ | ✅ dla nieaktywnych >5 min | jedna rutina + CAS (§23.2); stan „śpiocha" nie może czekać na jego login |
 | Zapadłe ETA (kursy, rejsy, budowy, szkolenia, egzaminy) | ✅ kto pierwszy | ✅ opóźniony job | ✅ fallback | idempotentny `due_slot` (§23.6), wynik według `due_at` |
 | Ryzyko incydentów | ✅ agregowane | ❌ dla spontanicznych rzutów | ✅ | jeden rzut na slot; termin już utworzonego incydentu może uruchomić job |
-| Cena ropy, matching limit, slippage, wydarzenia światowe | ❌ | ❌ | ✅ wyłącznie | stan globalny, sekwencyjnie pod lockiem (§23.3) |
+| Cena referencyjna, matching limit i wydarzenia światowe | ❌ | ❌ | ✅ wyłącznie | publikacja/matching tylko sweeper (§23.3) |
+| Zużycie płynności NPC i okno slippage sprzedaży spot | ✅ atomowo przy sprzedaży | ❌ | ✅ przy sprzedaży systemowej | wspólny kontrakt Market i rank 130; bez ponownego publikowania ceny świata |
 | Podatki, raty, mediator z urzędu, eskalacja ultimatum | ❌ (podgląd: odczyt z timestampów) | ✅ dla zapisanego terminu | ✅ fallback | materializacja + powiadomienia (§27.2) |
 | Wygasania (tarcze, cooldowny, oferty, pozwolenia, VIP) | sprawdzane z `expires_at` przy autoryzacji | ✅ materializacja i powiadomienie | ✅ fallback | §23.6 — brak okien nielegalnych stanów |
 
