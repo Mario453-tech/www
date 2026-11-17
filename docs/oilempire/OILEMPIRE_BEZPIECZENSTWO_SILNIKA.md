@@ -12,7 +12,7 @@
 | Identity/Access | sesje, TOTP, step-up, role i jawny kontekst aktora |
 | Moduł domenowy | własność zasobu, dozwolone przejścia, walidacja reguł i parametrów |
 | Settlement | aktualny stan według czasu serwera, due-events, CAS, globalny porządek blokad |
-| Finance / rejestry zasobów | atomowe księgowanie, rezerwacje, bilans i rekoncyliacja |
+| Ledger (Core) / rejestry zasobów | atomowe księgowanie, rezerwacje, bilans i rekoncyliacja |
 | Integrations/Outbox | trwałe przekazanie zdarzeń, ponowienia, deduplikacja konsumentów |
 | Operations | backup/restore, monitoring, klucze, wydania i obsługa incydentów |
 
@@ -25,7 +25,7 @@ Kontroler, klient mobilny i widok nie nadają uprawnień ani nie wyliczają wią
 - Każdy proces ma tabelę przejść: stan źródłowy, komenda, aktor, warunki, stan wynikowy, skutki finansowe/zasobowe, zdarzenie i klucz deduplikacji. Moduł nie może być wdrożony z samą listą statusów.
 - Ponowiona komenda końcowa jest kontrolowanym no-opem albo konfliktem; nigdy powtórną nagrodą, dostawą czy zwrotem. Termin, cooldown, tarcza i VIP są sprawdzane według timestampów (§23.6).
 - Walidacja obejmuje typ, zakres, precyzję, długość, enum, rozmiar listy i limit payloadu. Pola zapisywane są z allowlisty; klient nie może ustawić właściciela, roli, salda, ceny systemowej, statusu wypłaty ani wyniku RNG.
-- Pieniądze: BIGINT grosze; wolumen: DECIMAL zgodnie z domeną. W API liczby całkowite przekraczające bezpieczny zakres JavaScript wymagają jawnego kodowania dziesiętnego jako string w OpenAPI; brak cichego zaokrąglenia. Czasy klienta nie ustalają terminu ani kolejności księgowania.
+- Pieniądze: BIGINT grosze; wolumen: DECIMAL zgodnie z domeną. W API wszystkie kwoty w najmniejszej jednostce są dziesiętnymi stringami zgodnie z kontraktem API; brak cichego zaokrąglenia. Czasy klienta nie ustalają terminu ani kolejności księgowania.
 
 ## 3. Kanoniczny przebieg operacji gospodarczej
 
