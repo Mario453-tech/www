@@ -50,3 +50,7 @@ P0 blokuje objęty mechanizm; P1 blokuje pakiet do czasu decyzji, P2 wymaga zapl
 ## 5. Następny krok
 
 Wypełnić szczegółowe karty P01–P05, zaczynając od rejestru kontraktów i modelu transakcji Ledger/Settlement. Równolegle zamknąć OPEN01, bo wpływa na projekt podstawowej transakcji. Kolejne pakiety doprecyzowywać przed kodowaniem, z zachowaniem pełnego zakresu planu. Po każdej decyzji ponowić właściwe testy dokumentacji; po implementacji zastąpić statyczne założenia dowodami z MySQL i testów kontraktowych.
+
+## 6. Powiązanie w jedną specyfikację
+
+Wspólny README określa właścicieli reguł i mapę P01–P25 → domena/API/panel/bezpieczeństwo → testy/blokery. Każdy kanoniczny rozdział odsyła do indeksu. Zmiana wymaga aktualizacji wszystkich dotkniętych kontraktów; nowszy załącznik nie nadpisuje automatycznie innych reguł. Po integracji wykonano 12 kontroli dokumentacji: 12 PASS, 0 FAIL; symulator ekonomii: 73 PASS, 0 FAIL. Pierwszy test D10 ujawnił błąd wzorca w nowej kontroli indeksu; poprawiono wzorzec i ponowiono przebieg. Otwarte OPEN01–OPEN09 pozostają bez zmian.
