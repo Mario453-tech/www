@@ -1062,3 +1062,149 @@ Przy C80,75 i niepełnym supported gate → preliminary/medium, nie supported/hi
 Przy q0 i skill10 → nadal q0. Przy braku okazji → insufficient. Granice Score±0,20 należą do typical.
 
 Status ASSESS-CFG01: algorytm i kandydat progów szczegółowo opisane, produkcyjne baseline ról oraz kalibracja nadal otwarte. ASSESS-CONTRACT01 i ASSESS-QA01 pozostają otwarte. Niniejsza tabela nie jest zmianą aktywnego game_balance.
+
+
+### 18.16. Normy obserwacji stanowisk — HR-ROLE-BASELINES-01
+
+Status: katalog wykonawczy metryk i warunków porównania, kandydat do kalibracji. Nie ustala jeszcze produkcyjnych expected_value/tolerance/normalization_span. Wartości fixture z §18.15C pozostają przykładami rachunku. Normy nie dodają nowych etatów ani nowych obowiązkowych zadań do gospodarki.
+
+Powiązania: §16.1 (rzeczywiste skutki cech), §18.5–18.15 (dowody i oceny), architektura §3, §6, §9, §11, §11A i §31. Nazwy stanowisk poniżej muszą zostać zmapowane na istniejące role_code przed implementacją; identyfikatory kategorii są propozycją kontraktu.
+
+#### A. Co oznacza norma
+
+Norma opisuje oczekiwany obserwowalny wynik porównywalnej pracy osoby z neutralnymi nowymi osiami szczególnymi, przy określonych kwalifikacjach, sprzęcie, obciążeniu i trudności. Nie jest normą produkcji na etat ani automatycznym wymogiem zatrudnienia.
+
+Rozdzielamy:
+1. Wynik operacyjny: np. transport dotarł, naprawa zakończona, raport zatwierdzony.
+2. Możliwy do przypisania wynik pracownika: np. potwierdzony błąd wykonania.
+3. Kontekst: np. awaria maszyny, polecenie właściciela, pogoda lub brak surowca.
+4. Wniosek HR: porównanie kwalifikującego wyniku z właściwą normą.
+
+Mniejszy wolumen produkcji, niższy zysk, brak wygranej w przetargu czy sama awaria nie są dowodem złej dokładności. Nieobecność wyłącza okazję zawodową; nie zapisujemy wtedy zera jako nieudanego zadania. Dostępność oceniana jest oddzielnie według §18.15.
+
+#### B. Wspólny format metryk
+
+| Domena | Licznik | Mianownik | Kierunek |
+|---|---|---|---|
+| Dokładność | Zamknięte kwalifikujące jednostki z co najmniej jednym potwierdzonym błędem przypisywalnym wykonawcy | Wszystkie zamknięte porównywalne jednostki, także bez błędu | Mniej lepiej |
+| Współpraca | Potwierdzone udane współdziałania | Zamknięte, obserwowalne interakcje z jawnym kryterium sukcesu | Więcej lepiej |
+| Inicjatywa | Wykorzystane, obserwowalne okazje | Wszystkie kwalifikujące i obserwowalne okazje, także niewykorzystane | Więcej lepiej |
+| Dostępność | Planowane godziny utracone przez chorobę | Planowane godziny ekspozycji według §18.15A | Mniej lepiej |
+
+Pierwsza wersja dokładności używa binarnego błędu jednostki: trzy usterki tej samej czynności to1 jednostka z błędem, nie3 niezależne zadania. Kwota straty i ciężkość incydentu są oddzielnym faktem operacyjnym. Ważone ciężkością wskaźniki wymagają odrębnego metric_code/baseline; nie mieszamy ich z odsetkiem0..1.
+
+Nie zbieramy tylko porażek ani tylko sukcesów: bez pełnego mianownika wynik nie kwalifikuje się do porównania. Korekta faktu zmienia rewizję źródła, nie liczbę prób. Licznik nigdy nie przekracza mianownika.
+
+#### C. Katalog stanowisk technicznych i operacyjnych
+
+| Stanowisko / źródło normy | Kategoria jednostki dokładności | Dowód współpracy | Okazja inicjatywy | Wyłączenia i ograniczenia |
+|---|---|---|---|---|
+| Operator odwiertu — Extraction | well_operation: zamknięty blok obsługi z kontrolą czynności; potwierdzony błąd obsługi | Przekazanie zmiany lub współpraca przy interwencji technika | Udokumentowany sygnał wymagający zgłoszenia w czasie obsady | Wyczerpanie złoża, cena ropy, brak odbioru i czysto maszynowa awaria nie są błędem operatora |
+| Technik utrzymania — Technical | maintenance_acceptance: zadanie serwisowe i wynik odbioru | Wspólne przygotowanie/zabezpieczenie obiektu i przekazanie do ruchu | Wykryta podczas uprawnionej inspekcji potrzeba dodatkowego serwisu | Brak części/środków, wada dostarczonej części i obce uszkodzenie nie są automatyczną winą technika |
+| Inżynier rurociągów — Technical/Logistics, zgodnie z właścicielem zadania | pipeline_task: odbiór inspekcji/naprawy konkretnego odcinka | Potwierdzone uzgodnienie odcięcia/przekazania odcinka | Obserwowalny symptom nieszczelności lub potrzeby przeglądu | Nie przypisywać całej straty sieci jednej osobie; sabotaż i zużycie wymagają własnej atrybucji |
+| Operator huba — Logistics | hub_operation: zamknięta operacja przyjęcia/przekazania partii albo blok nadzoru, osobne baseline | Przekazanie partii kierowcy/operatorowi kolejnej zmiany | Rozpoznawalna niezgodność lub ryzyko przeciążenia w obsługiwanym hubie | Brak miejsca, złe polecenie routingu i brak dostaw nie oznaczają błędu; bonus tylko dla przypisanego huba |
+| Kierowca — Logistics | road_delivery: zakończony kurs z potwierdzeniem ładunku i rozładunku | Potwierdzone przejęcie/oddanie ładunku lub zmiana kierowcy | Zaobserwowany sygnał nieprawidłowości pojazdu/ładunku wymagający zgłoszenia | Samo opóźnienie, pogoda, zamknięta droga, awaria i sabotaż nie przesądzają winy; nie premiować przekraczania norm jazdy |
+| Operator rafinerii — Refining | refinery_operation: blok obsługi konkretnej instalacji i zatwierdzonej receptury | Przekazanie zmiany lub wykonanie uzgodnionej procedury z chemikiem | Dostępny operatorowi sygnał odchylenia procesu | Cena produktów, zamówiona receptura, brak wsadu i zapełnienie zbiornika z decyzji gracza nie są automatyczną winą |
+| Inżynier chemik procesowy — Refining | process_review: zamknięta analiza/procedura z udokumentowanym wynikiem kontroli | Uzgodnienie i przekazanie zaleceń operatorom | Potwierdzona możliwość usprawnienia dopuszczona przez katalog procesu | Nie oceniać na podstawie późniejszej zmiany rynku; brak zgody na propozycję nie oznacza braku inicjatywy |
+| Inspektor BHP — właściciel procesu HSE | hse_inspection: odbiór kompletnej inspekcji według checklisty | Potwierdzone przekazanie zaleceń i warunków bezpiecznej pracy | Obserwowalne zagrożenie wymagające eskalacji | Zero wypadków nie dowodzi poprawnej inspekcji; ujawnione zagrożenie nie jest porażką inspektora |
+| Geolog wykonujący badanie — Extraction | geological_survey: zamknięte badanie z uprawnioną niezależną weryfikacją | Przekazanie danych zespołowi wierceń/eksploatacji | Obserwowalna przesłanka dodatkowego badania | Brak odkrycia opłacalnego złoża nie jest błędem; niedostępna prawda o złożu nie może wyciec przez ocenę HR |
+
+Bloki obsługi są proponowaną reprezentacją obserwacji, nie nowymi płatnymi zadaniami. Jeśli właściciel domeny nie generuje kontroli wykonania i atrybucji, dany wiersz pozostaje nieaktywny: sam upływ czasu nie daje „bezbłędnego zadania”.
+
+#### D. Specjaliści i zarząd
+
+| Rola | Jednostka dokładności / właściciel faktu | Współpraca i inicjatywa | Czego nie oceniamy jako cechy |
+|---|---|---|---|
+| Dyspozytor/logistyk | dispatch_plan: zatwierdzony plan i weryfikacja ograniczeń przez Logistics | Uzgodnione przekazanie planu; wskazanie wykonalnej alternatywy | Losowa blokada trasy; odmowa gracza; tańsza trasa nie jest zawsze lepsza |
+| Analityk | analysis_report: raport z zamkniętym okresem, wersją danych i kontrolą poprawności przez moduł zlecający | Przekazanie analizy; wykrycie sprawdzalnej rozbieżności | Trafność prognozy rynku bez osobnej skalibrowanej metryki; sama rentowność firmy |
+| Dyrektor techniczny | technical_decision: uprawniona decyzja/procedura z kontrolą zgodności | Koordynacja interwencji; udokumentowana propozycja planu serwisu | Wszystkie awarie firmy niezależnie od przyczyny |
+| Dyrektor finansowy | finance_decision: kontrola wyliczeń i zgodności mandatu przez Finance | Uzgodnienie budżetu; wskazanie rozpoznawalnej luki płynności | Wahania cen, brak gotówki po decyzji właściciela, spekulacyjny zysk/strata |
+| Dyrektor prawny | legal_case_review: zamknięta kontrola kompletności i terminów przez Legal | Przekazanie dokumentów; wykrycie obserwowalnego braku | Przegrana sprawa/odmowa pozwolenia jako samodzielny dowód niekompetencji |
+| Dyrektor logistyki | logistics_decision: zamknięty plan zasobów z kontrolą wykonalności | Uzgodnienia między zespołami; propozycja usunięcia rozpoznawalnego zatoru | Każde opóźnienie podległych kierowców |
+| Dyrektor HR / uprawniony analityk HR | hr_procedure: kontrola zgodności procesu z polityką przez Staff | Przekazanie rekrutacji/grafiku; wykrycie jawnej luki obsady | Zgodność oceny pracownika z jego sekretnym profilem; „zatrudnił podatną osobę” |
+
+Nie tworzymy osobnego stanowiska analityka HR bez mapowania ról z §18.8. To funkcja wymagająca kwalifikacji i mandatu. Nie generujemy samooceny z własnego snapshotu HR. Kontrola procesu HR jest niezależnym faktem deterministycznej walidacji/audytu, bez dostępu do ukrytych cech; nie uruchamia rekurencyjnej oceny ocen.
+
+Każda aktywna rola musi mieć jawne pokrycie: obsługiwane kategorie albo not_supported z przyczyną. Nowy role_code bez normy nie dziedziczy automatycznie normy „podobnego” pracownika.
+
+#### E. Jednostki, czas i dowody niezależne od odczytów
+
+Zadanie skończone: jedna jednostka source_task_id+acceptance_revision, liczona po ostatecznym wyniku. Nie liczymy rozpoczęcia i zakończenia jako dwóch sukcesów. Powtórna kontrola tej samej pracy koryguje źródło, chyba że domena potwierdziła rzeczywiście nowe zadanie z nowym zakresem.
+
+Proces ciągły: kandydat bloku obserwacyjnego to stałe8h UTC [00,08),[08,16),[16,24), oddzielnie od godzin grafiku. To siatka pomiaru, nie zmiana zatwierdzonych zmian06–14/14–22/22–06. Kontrakt klucza: person+asset+task_category+block_start. Segmenty Settlement łączymy w jeden blok, zachowując faktycznie wykonaną ekspozycję. Zmiana grafiku lub request nie tworzy nowego bloku.
+
+W bloku częściowym nie zakładamy pełnych8h; zapisujemy work_seconds. Normę dobieramy do zatwierdzonego zakresu ekspozycji. Mniej niż zatwierdzone minimum daje insufficient_exposure, nie porażkę. Minimum i przedziały ekspozycji wymagają kalibracji kategorii. Zmiana roli, metody lub istotnego kontekstu wewnątrz bloku zapisuje segmenty pod jednym kluczem niezależności; brak zatwierdzonego agregatora daje niekwalifikujący blok, bez uśredniania różnych norm.
+
+Liczba jednostek zadaniowych i klastrów pozostają oddzielne (§18.15D). Podział czynności przez gracza nie może mnożyć dowodów: owner nadaje stabilny independence_key dla zakresu zlecenia. Dwa assety nie oznaczają dwóch dowodów tego samego przekazania.
+
+Współpraca wymaga co najmniej dwóch rzeczywistych uczestników; automatyczne potwierdzenie przez system nie udaje drugiego pracownika. Zdarzenie zespołowe wspólne, ale atrybucja osoby i udział osobne. Brak indywidualnej atrybucji nie daje q1.
+
+#### F. Dobór porównywalnego baseline
+
+Rozszerzenie klucza z §18.15C:
+domain + role_code + task_category + metric_code + difficulty_band + equipment_band + workload_band + qualification_band + exposure_band + measurement_method_version.
+
+qualification_band wyznacza właściciel na podstawie jawnych umiejętności i certyfikatów istotnych dla zadania. To konieczne, aby niższy skill nie udawał ukrytej niedbałości. Nie korzystamy z ukrytej accuracy/cooperation/initiative, podatności, lojalności ani prywatnej oceny innej firmy. Zmiana umiejętności daje nowy kontekst przyszłej obserwacji; nie przepisuje starego faktu.
+
+Dla współpracy baseline uwzględnia jawny kontekst zespołu (liczba osób, kwalifikacje, rodzaj współdziałania) przez wersjonowany team_context_band. Bez tego nie porównujemy dwuosobowego przekazania z dużą akcją remontową. Inicjatywa wymaga opportunity_category oraz wykrywalności na podstawie informacji dostępnych w danym momencie.
+
+Nie tworzymy iloczynu wszystkich kombinacji „na zapas”. Właściciel deklaruje legalne konfiguracje i coverage manifest. Każda rzeczywiście obsługiwana kombinacja musi mieć dokładnie jedną aktywną normę albo jawny brak. Nieznany band, brak wpisu i dwa pasujące wpisy blokują ocenę tej kategorii, nie operacje gospodarcze.
+
+Definicje bandów pochodzą z katalogu właściciela i muszą zawierać jednostkę, granice i zachowanie na granicy. routine/complex/critical nie są dowolnym tekstem nadawanym przez HR. Wskaźnik sprzętu/obciążenia z chwili pracy, nie z aktualnego stanu przy otwarciu profilu. Nie nadawać difficulty po zobaczeniu sukcesu/porażki.
+
+#### G. Inicjatywa bez ujawniania ukrytych okazji
+
+Generator domeny i HR mają inne uprawnienia. To, że silnik zna niewykorzystaną okazję, nie oznacza, że HR może ją zaliczyć do mianownika.
+
+Do oceny trafia tylko okazja z niezależnym dowodem, że odpowiedni sygnał był dostępny osobie, oraz późniejszym legalnym potwierdzeniem wyniku. Jeżeli rejestrowane są wyłącznie zgłoszone sukcesy, cała taka kategoria nie nadaje się do oceny proporcji. Nie prezentować100% inicjatywy z trzech sukcesów i nieznanej liczby okazji.
+
+Zamknięcie wspólnej okazji przez inną osobę nie tworzy porażki tych, którzy nie zdążyli wykonać swojej kwalifikującej próby. Kontrola musi odróżniać attempted, not_exposed, closed_by_other i unobservable. Tylko pierwsze z obserwowalnym wynikiem wchodzi do mianownika; bias kolejności prób uwzględnia kalibracja.
+
+Dla geologa, HSE i podobnych ról niedostępna graczowi prawda nie trafia do message_params, licznika ocen ani filtrów. Odkrycie/weryfikacja może później dostarczyć dowód z zachowaniem daty pracy i daty poznania. Ocenę liczymy według czasu pracy; spóźniona rewizja nie odmładza dowodu.
+
+#### H. Pozyskanie liczb i walidacja norm
+
+Dla każdej legalnej komórki katalogu:
+1. Właściciel domeny dostarcza syntetyczny scenariusz, neutralne nowe osie, kwalifikacje i kontekst.
+2. Harness wykonuje próbę z wieloma zapisanymi seedami, wersją modelu i pełnym mianownikiem.
+3. Osobna próba walidacyjna używa innych seedów/scenariuszy, również cech±1..3, zakłóceń i zmian obsady.
+4. Raport zawiera sample_size, ekspozycję, częstość metryki, niepewność estymacji, rozkład residual i odsetek ocen HR.
+5. Dopiero zatwierdzony rekord otrzymuje expected_value, tolerance, normalization_span, dataset_hash, method_version, valid_from i status active.
+
+Nie ustawiamy wspólnego „10% błędów” dla kierowcy, chemika i dyrektora. Tolerancja nie może być dobrana po wyniku tak, aby wszystkie fixture przechodziły. Kryteria akceptacji/statystyczne liczebności ustalamy przed kalibracją. Mała liczba rzadkich błędów nie uzasadnia dokładnej normy; taki rekord pozostaje draft/insufficient_sample.
+
+Normy po publikacji niezmienne. Nowa wersja domeny, która zmienia wynik, wymaga sprawdzenia ważności baseline. Zmiana cen rynkowych sama w sobie nie przelicza jakości osoby. Brak aktualnej normy daje komunikat o ograniczeniu porównania, nie ocenę negatywną.
+
+#### I. Przykłady interpretacji i porównywania
+
+- Kierowca:12 zamkniętych kursów,1 potwierdzony błąd wykonania →1/12≈8,33%. Dwa opóźnienia pogodowe nie zwiększają licznika. Bez normy dla tego rodzaju kursów brak wniosku favourable/concern; nadal obowiązują dni/próba z §18.15.
+- Technik:5 odrębnych odbiorów, jeden zawiera3 usterki przypisywalne wykonaniu →1/5=20%, nie3/5. Pięć ponownych odczytów protokołu nadal daje5 jednostek.
+- Operator: spadek wydobycia przez wyczerpanie złoża → brak dowodu błędu. Prawidłowo obsłużony blok daje wynik tylko przy istniejącym kontrakcie kontroli wykonania.
+- Inicjatywa:3 zgłoszenia i brak rejestru niewykorzystanych, obserwowalnych okazji → brak metryki proporcji. Przy10 pełnych kwalifikujących okazjach i3 sukcesach →30%.
+- Współpraca:6 udanych z8 obserwowalnych interakcji →75%. Sam fakt wspólnego przydziału do zmiany nie jest interakcją.
+- Ta sama osoba po kursie: obserwacje sprzed kursu korzystają z dawnego qualification_band, po kursie z nowego. Nie poprawiamy historycznej dokładności przez aktualizację skilla.
+
+Przykłady sprawdzają interpretację liczników, nie zatwierdzają norm ekonomicznych.
+
+#### J. Panel, widok gracza i kontrakt odbioru
+
+Panel Kadry → Normy stanowisk: macierz rola/kategoria/domena, właściciel źródła, jednostka, kryteria kwalifikacji, klucz baseline, kompletność pokrycia, wersja i wynik kalibracji. Widoki: brakujące normy, konflikty dopasowania, zbyt mała próba, nieaktywny producer, zmieniona wersja domeny.
+
+Edycja liczb i bandów w kandydacie; preview na zapisanych syntetycznych scenariuszach; aktywacja zgodna z bramką balansu. Główny administrator bez obowiązkowego komentarza; audyt automatyczny. Formularz nie przyjmuje dowolnego SQL/PHP ani formuły wykonywanej jako kod. Nowy typ metryki wymaga zarejestrowanego adaptera.
+
+Gracz widzi ocenę danej domeny, okres, liczbę obserwacji i opis ograniczeń, np. „Brak wystarczających porównywalnych odbiorów napraw”. Brak jednej kategorii nie zeruje ocen pozostałych; zbiorczy widok oznacza zakres częściowy i nie twierdzi, że opisuje całość pracy. Nie zestawiamy surowych odsetków różnych ról w rankingu pracowników. SVG, PL/EN/DE, bez okien systemowych, zgodnie z §12 i §18.12.
+
+Wymagany payload właściciela: source/revision, person/company, role/task/metric, independence_key, work_period, observed_at, exposure, numerator/denominator, context bands/version, attribution_reason, observability status i metoda kontroli. Szczegóły wewnętrzne mogą być chronione; publiczny DTO pozostaje allowlistą §18.11. HR nie odpytuje prywatnych tabel innych modułów.
+
+#### K. Testy i pozostałe bramki
+
+B01 pełny mianownik sukcesów i porażek. B02 zero okazji→insufficient. B03 trzy usterki jednego zadania→jedna jednostka. B04 pogoda/wyczerpanie/ceny nie stają się błędem pracownika.
+B05 baseline uwzględnia kwalifikacje, bez hidden profile. B06 nowy skill nie zmienia starego kontekstu. B07 brak i wieloznaczność baseline blokują tylko ocenę danej kategorii.
+B08 GET/job/sweeper i segmentacja czasu dają te same jednostki. B09 częściowa obsada nie daje pełnej ekspozycji. B10 brak kontroli wykonania nie generuje sztucznych sukcesów.
+B11 brak partnera nie tworzy współpracy. B12 sukces zespołu nie daje każdemu bezpośredniej atrybucji. B13 zamknięcie okazji przez inną osobę nie tworzy fikcyjnej porażki.
+B14 same sukcesy bez mianownika blokują metrykę. B15 ukryte złoże/okazja nie wycieka przez oceny. B16 późne odkrycie nie odmładza dowodu.
+B17 korekta źródła i nowa wersja normy zachowują historię. B18 brak rekurencyjnej samooceny HR. B19 nieznany role_code nie dziedziczy normy.
+B20 panel waliduje legalne komórki, zakres0..1, dodatni span, hash i kompletność. B21 preview nie zmienia gry. B22 komunikaty PL/EN/DE i brak wycieku w eksporcie/cache/filtrach.
+
+Domknięte dokumentacyjnie: katalog obserwacji, jednostki, zasady przypisania, dobór porównywalnych norm i procedura kalibracji. Otwarte: mapowanie role_code/producerów i DDL/OpenAPI, liczbowe bandy/ekspozycja oraz rzeczywiste expected/tolerance/span z harnessu. Nie oznaczać ASSESS-CFG01 ani ASSESS-QA01 jako zakończonych na podstawie samego opisu. Żaden z testów B01–B22 nie jest tu deklarowany jako uruchomiony test Laravel.
+
