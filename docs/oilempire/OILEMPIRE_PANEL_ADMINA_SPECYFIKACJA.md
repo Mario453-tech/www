@@ -562,3 +562,11 @@ Szczegółowe procesy i granice: [Kadry §14–§17](OILEMPIRE_KADRY_ZATRUDNIENI
 - Ukryte cechy: wagi, mapy wpływu, dowody i progi ocen. Oddzielnie rzeczywisty profil GM oraz ocena znana firmie; osobna capability i audyt. Nie wysyłać ukrytych wartości w zwykłym DTO.
 - Rozwój: wersje kursów i tryby czasu, pauzy, mentoring, awanse oraz odnowienia uprawnień. Walidacja grafiku i kosztu obowiązkowa. Braki DOM06/07/08 blokują zależne nowe warianty.
 Wszystkie zmiany parametrów przez wersjonowany kandydat/preview/aktywację. Główny administrator bez obowiązku komentarza; audyt i integralność pozostają. Taryfy niepodane w domenie nie mają cichej wartości0.
+
+
+### Oceny i obserwacje HR — szczegółowy zakres
+
+Źródło wykonawcze: [Kadry §18 HR-ASSESS-01](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md).
+Ekrany Filament: katalog domen, źródła dowodów, progi etapów/ekspozycji, baseline i strategie atrybucji, jakość podstaw/aktualność, kompetencje HR i kolejka, komunikaty, snapshoty i korekty, preview/porównanie wersji.
+Rzeczywisty profil jest oddzielny od obserwacji i wyliczonej oceny. Nie edytować computed confidence ręcznie. Korekta faktu tworzy rewizję i nowy snapshot. GM hidden profile wymaga osobnego prawa i audytu.
+Aktywna polityka niezmienna; preview nie zapisuje skutków. Główny administrator bez wymaganego komentarza; audit pozostaje. Testy A01–A22 oraz bramki ASSESS-CFG01/CONTRACT01/QA01 obowiązują przed aktywacją.
