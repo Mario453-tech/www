@@ -562,6 +562,162 @@ Inicjatywa nie wykonuje napraw i nie wydaje pieniędzy bez zgody. Ukryta cecha n
 Panel konfiguracji: rozkład, wagi, intensywność, konflikty, mapy efektów, typy dowodów, progi oceny, retencja historii i teksty obserwacji. Rzeczywiste wartości GM tylko z capability/audytem.
 Przed implementacją HR-CFG05 musi zawierać liczbowe mapy i testy statystyczne. Testy izolacji: payload, sortowanie, eksport, WebSocket, logi; brak wycieku przez wycenę ocen opartą na prywatnej cesze.
 
+
+### 16.1. Katalog i generator profilu — HR-TRAITS-01
+
+Status: szczegółowy kandydat do programowania i kalibracji; nie zmienia aktywnego game_balance v1. Doprecyzowuje §2.1, §14 i §16. Oceny z §18 obserwują skutki, nigdy nie odczytują poniższych wartości. Liczby oznaczają mechanikę fikcyjnych pracowników gry, nie model medyczny.
+
+#### A. Rozdzielenie profilu, umiejętności i stanu
+
+- Profil szczególny: trwałe osie podatności, dokładności, współpracy, inicjatywy.
+- Umiejętności: istniejące kwalifikacje i poziomy zawodowe; wpływ na bazowy wynik określa właściciel zadania.
+- Stan: morale, zmęczenie, stres, odpoczynek, dostępność. Zmienia się w czasie i nie przepisuje profilu.
+- Ocena: wniosek konkretnej firmy z obserwacji, według §18. Nie jest kopią profilu.
+
+Neutralny profil nadal korzysta z umiejętności, może popełnić błąd, zachorować, współpracować i zauważyć problem. Szczególna dokładność nie daje kwalifikacji, inicjatywa nie daje uprawnienia do wydania pieniędzy. Podatność nie oznacza niskiej lojalności ani niskiego morale.
+
+Kody poniżej są proponowanymi kodami katalogu Staff. Przed migracją wymagane sprawdzenie istniejącego słownika employee_traits: istniejącą równoważną oś mapujemy, nie tworzymy drugiej. Nie przeskalowujemy w ciemno obecnych skills1–10.
+
+#### B. Katalog wartości i neutralność
+
+| Oś / proponowany kod | Wartości szczególne | Neutralna | Właściciel zastosowania |
+|---|---|---|---|
+| Podatność / absence_susceptibility | 1 łagodna, 2 umiarkowana, 3 silna | 0 | Staff, generator krótkiej absencji |
+| Dokładność / accuracy | −3,−2,−1 oraz +1,+2,+3 | 0 | Właściciel zadania przez pojedynczy kontrakt wyniku/Incidents |
+| Współpraca / cooperation | −3,−2,−1 oraz +1,+2,+3 | 0 | Właściciel zadania zespołowego |
+| Inicjatywa / initiative | −3,−2,−1 oraz +1,+2,+3 | 0 | Właściciel kwalifikującej okazji |
+
+Skala to odrębna jednostka intensywności, nie ocena pracownicza1–10. Brak wpisu szczególnego daje wartość0. Zapis nie może jednocześnie zawierać dwóch wartości tej samej osi. Ujemna dokładność realizuje niedbałość: nie dokładamy dodatkowej cechy z drugim mnożnikiem. Konfliktowość, talent mentorski i stosunek do ryzyka pozostają poza pierwszym generatorem.
+
+Nie dodajemy szczególnej „odporności na choroby” jako przeciwieństwa podatności w tej wersji. Brak podatności nie gwarantuje zdrowia.
+
+#### C. Losowanie liczby, osi, znaku i intensywności
+
+1. Przy pierwszym utworzeniu osoby losujemy K: 0 z wagą6000, 1 z3000, 2 z1000; suma10000.
+2. Wybieramy K różnych osi spośród czterech. Wagi osi: każda100. Losowanie ważone bez zwracania, stała kolejność kodów przy budowie przedziałów.
+3. Podatność zawsze dodatnia. Dla pozostałych osi znak dodatni/ujemny ma wagę50/50.
+4. Intensywność bezwzględna1/2/3: wagi60/30/10.
+5. Walidujemy kompletny profil i zapisujemy atomowo z generation_version oraz niezmiennym identyfikatorem losowania.
+
+Przedziały losowania całkowite i półotwarte; przykład K: U z0..9999, [0,6000)→0, [6000,9000)→1, [9000,10000)→2. Próbkowanie liczb całkowitych bez błędu modulo; nie używać round(random×limit). Algorytm RNG i wersja należą do wspólnego kontraktu silnika; brak zatwierdzonego adaptera blokuje aktywację.
+
+Idempotentne wejście to niezmienny person_creation_key ze źródła kandydatury. Zapis RNG/profile musi przetrwać retry; nowy request_id, odświeżenie, odrzucenie oferty i ponowne zatrudnienie nie tworzą nowego profilu tej samej osoby. Klient nie podaje seed ani cechy. Sekret generatora nie trafia do DTO/logów; narzędzia odtwarzania dostępne tylko wewnętrznie.
+
+W pierwszym kandydacie kanał rekrutacji, cena kampanii, region, płeć, wiek, forma umowy i wymiar pracy NIE modyfikują rozkładu ukrytych osi. Kanał nadal może zmieniać liczbę kandydatów, dopasowanie kwalifikacji i dowody zawodowe według §15. To jawne rozstrzygnięcie wcześniejszego otwarcia zależności cech od źródła; przyszła zmiana wymaga osobnej wersji i kalibracji.
+
+Wynik oczekiwany na10000 osób:6000 neutralnych,3000 zjedną,1000 zdwiema; łącznie5000 szczególnych osi. Każda oś występuje średnio u1250 osób (12,5%), nie u25% całej populacji. Podatność intensywności1/2/3: oczekiwane750/375/125 osób. To wartości oczekiwane, nie kwoty wymuszane w pojedynczej kampanii.
+
+#### D. Kombinacje i walidator
+
+Dozwolone wszystkie6 różnych par czterech osi, wszystkie dopuszczalne znaki i intensywności. Dokładny pracownik może być podatny na nieobecności; współpracujący może mieć niską inicjatywę. Nie wymagamy sztucznego równoważenia zalety wadą.
+
+Zakazane:
+- powtórzona oś, np. accuracy+2 i accuracy−1;
+- accuracy oraz osobna aktywna niedbałość;
+- więcej niż2 szczególne osie w tej wersji;
+- wartość spoza skali, nieznany kod lub cecha przyszłego etapu;
+- zerowa intensywność zajmująca miejsce jednej zK cech;
+- nadpisanie istniejącej lojalności/ambicji/odporności na stres przez nowy los.
+
+Walidator wersji sprawdza, czy dla każdego K o dodatniej wadze istnieje legalny wybór. Przy przyszłych wykluczeniach katalog enumeruje legalne uporządkowane wybory i ich wagi; nie używać nieograniczonej pętli „losuj aż pasuje” ani cichego zmniejszania K. Dla bieżącego katalogu każda para jest legalna.
+
+#### E. Podatność — mapa ryzyka
+
+| Intensywność | Nominalne prawdopodobieństwo rozpoczęcia krótkiej absencji w30 aktywnych dniach |
+|---:|---:|
+| 0 | 10% |
+| 1 | 13% |
+| 2 | 16% |
+| 3 | 20% |
+
+Są to prawdopodobieństwa dla bazowej ekspozycji bez blokad, przed wpływem warunków. Nie interpretować20% jako20% dni na chorobowym ani2× ryzyko codziennie. Cooldown, limit epizodów i okresy niekwalifikujące zmniejszają zrealizowaną częstość.
+
+Kandydat przeliczenia na pełny aktywny dzień: p_day=1−(1−p30)^(1/30). Przykład p30=10% daje około0,3505857%/dzień; p30=20% około0,7410524%/dzień. Dla części dnia ekspozycji e w0..1: p(e)=1−(1−p_day)^e. Ryzyko składa się po ekspozycji, nie sumuje liniowo.
+
+Wersjonowany modyfikator warunków m działa na hazard: p(e,m)=1−(1−p30)^(e×m/30). Kandydat ogranicza wynik m do0,75..1,50; neutralny m=1. Morale nie jest wejściem m. Brak mapy odpoczynku/zmęczenia/warunków nie oznacza automatycznego uruchomienia neutralnej konfiguracji na produkcji — pozostaje bramką HR-CFG03.
+
+Długość1/2/3 aktywne dni z równymi wagami1/1/1, losowana raz przy początku epizodu. Intensywność wpływa tylko na częstość, nie ponownie na długość, płatność, cooldown lub cap. Zachowane:7dni cooldown od końca, max2 rozpoczęcia w ruchomych30dniach, brak nakładania. Wypadki nie korzystają z tej cechy.
+
+Przed aktywacją konieczne zamknięcie podstawy ekspozycji (grafik, dni wolne, urlopy, szkolenia), slotów oraz przenoszenia zegara osoby między firmami. Pauza i rehire nie mogą usuwać istniejącego cooldownu/licznika. Sama mapa p30 nie zamyka generatora chorobowego.
+
+#### F. Dokładność — jeden mnożnik ryzyka błędu
+
+| Wartość | −3 | −2 | −1 | 0 | +1 | +2 | +3 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Mnożnik | 1,30 | 1,20 | 1,10 | 1,00 | 0,90 | 0,80 | 0,70 |
+
+p_base to ryzyko błędu przypisywalnego wykonawcy, obliczone przez właściciela zadania z kwalifikacji, trudności, sprzętu i obciążenia, bez tej osi. p_final=clamp(p_base×m_accuracy,0,1). To zmiana względna:10%×0,70=7%, nie minus30 punktów procentowych.
+
+Nie zmienia błędu czysto maszynowego ani pewnego skutku reguły. Brak kwalifikacji nadal blokuje zadanie; wysokie ryzyko nie zastępuje zakazu. Błąd, jego dotkliwość i księgowanie pozostają jednym wynikiem właściciela. Dokładność nie zmniejsza równocześnie prawdopodobieństwa, wielkości straty i kosztu naprawy. W tej wersji nie daje bonusu szybkości ani kary czasu.
+
+Dla zadań ciągłych właściciel określa stałą okazję do błędu lub hazard niezależny od liczby wywołań Settlement. Podział jednego zadania na segmenty nie tworzy nowych prób. Bez takiego kontraktu mapa pozostaje nieaktywna w danej kategorii.
+
+#### G. Współpraca — wynik wspólnego zadania
+
+Ta sama tabela mnożników co wF stosowana jest do ryzyka nieudanego współdziałania, nie do całej produkcji. Dodatnia współpraca zmniejsza ryzyko; ujemna zwiększa. Neutralna osoba nadal współpracuje.
+
+Dla zespołu: x_team=sum(x_i×h_i)/sum(h_i), gdzie h_i oznacza rzeczywiście wykonane, kwalifikujące godziny udziału. Nieobecny, niezatrudniony lub tylko wpisany do planu ma wagę0. Przy sum(h_i)=0 brak okazji/wyniku; nie losujemy udanego współdziałania. M_team=1−0,10×x_team, zakres0,70..1,30. Wartości pośrednie zachowujemy bez zaokrąglenia osi.
+
+p_failure=clamp(p_failure_base×M_team,0,1). Dla osób+3 i−1 z równym czasem: x_team=1, M=0,90; bazowe20% niepowodzenia daje18%. Zwiększenie liczby identycznych pracowników nie mnoży bonusu.
+
+W pierwszym zakresie brak bezpośredniej zmiany morale, strajku, wydajności i czasu szkolenia. Faktyczne powodzenie/konflikt może wejść do istniejącego modelu morale, jeśli jego katalog tak stanowi, z jednym source_event_id. Mentorowanie i osobny talent mentorski wymagają przyszłej mapy; nie przyznajemy darmowego przyspieszenia.
+
+Nie przypisywać wszystkim osobom identycznego sukcesu jako bezpośredniego dowodu indywidualnej cechy. Właściciel zadania przekazuje udział i jakość atrybucji; §18 może uznać wynik za niejednoznaczny lub niekwalifikujący.
+
+#### H. Inicjatywa — okazja, wykrycie i propozycja
+
+| Wartość | −3 | −2 | −1 | 0 | +1 | +2 | +3 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Mnożnik szansy wykorzystania okazji | 0,70 | 0,80 | 0,90 | 1,00 | 1,10 | 1,20 | 1,30 |
+
+p_final=clamp(p_opportunity_base×M_initiative,0,1). Bazowe30% i+3 daje39%. p_base=0 nadal daje0; cecha nie tworzy problemów ani okazji z niczego.
+
+Właściciel tworzy stabilny opportunity_id z przyczyną, oknem dostępności, wymaganą rolą i kategorią (wykrycie problemu/propozycja usprawnienia). Próba najwyżej raz na person+opportunity. Pierwszy poprawny sukces zamyka wspólną okazję atomowo; kolejne wyniki nie duplikują naprawy, nagrody ani powiadomienia. Współbieżne próby mają deterministyczną kolejność według kontraktu domeny, nie szybkości workerów.
+
+Brak uprawnionej obecności oznacza brak próby, nie porażkę. Porażka oznacza niewykorzystaną okazję, nie awarię. Wykrycie tworzy fakt i propozycję wymagającą normalnej decyzji/budżetu. Nie ma bezpośredniej nagrody pieniężnej, przyrostu skill ani automatycznej naprawy za samo posiadanie inicjatywy. Wewnętrzna nieudana próba jest dostępna do HR wyłącznie, gdy istnieje obserwowalny, uprawniony dowód; nie ujawniamy graczowi ukrytych okazji.
+
+#### I. Łączenie efektów i maksymalny wpływ
+
+Kolejność: dostępność i uprawnienia → bazowy wynik domeny → dokładnie jeden właściwy modyfikator danej metryki → ograniczenie zakresu → jedno losowanie → zapis wyniku → obserwacja HR.
+
+Współpraca dotyczy współdziałania, dokładność błędu wykonania. Jeśli kategoria zadania nie rozróżnia tych wyników, kontrakt wybiera jedną oś; mnożenie obu przez ten sam wskaźnik jest zabronione. Jeśli rozróżnia, definiuje dwa niezależnie identyfikowalne fakty i jedną regułę końcowego skutku, aby nie naliczyć podwójnej straty.
+
+Limity kandydata: na każdą ztrzech metryk zawodowych mnożnik0,70..1,30; podatność nominalna10..20%/30dni przed warunkami. Nie istnieje dodatkowy globalny mnożnik „jakości pracownika”. Brak załogi, brak pieniędzy, nielegalny grafik i brak kwalifikacji mają pierwszeństwo przed bonusami. Dwa korzystne atrybuty mogą pomagać w różnych zdarzeniach, lecz nie dają mnożnika1,30² do produkcji.
+
+Pieniądze nadal rozliczane w jednostkach całkowitych przez właściciela finansów. Prawdopodobieństwa/mnożniki wymagają wspólnej deterministycznej reprezentacji i reguł zaokrąglenia. Wektory zgodności PHP/harness obowiązkowe, szczególnie dla potęg wE.
+
+#### J. Trwałość, wersje i panel
+
+Profil utrwala person_id, kod osi, wartość, generation_version, created_at oraz chroniony identyfikator próby. Cały profil powstaje raz atomowo; nie zapisujemy połowy dwóch cech. Historia korekt append-only, z osobną uprawnioną akcją techniczną, bez zwykłego przycisku „losuj ponownie”.
+
+Zmiana wag generatora działa tylko na nowe osoby. Istniejąca osoba zachowuje wartości. Mapa skutków ma odrębną wersję obowiązującą od daty aktywacji; zmiana mapy nie przelicza wyników przeszłych. Zadanie/okazja/epizod zapisuje wersję użytych reguł. Ciągły proces dzielimy na granicy aktywacji, nie według chwili uruchomienia workera. Migracja dawnych profili wymaga mapy i preview, bez automatycznego losowania braków przy GET.
+
+Panel Kadry → Cechy i generator:
+- rozkład K, wagi osi/znaków/intensywności, skale i legalne kombinacje;
+- mapy skutków z jednostką, zakresem i właścicielem metryki;
+- preview rozkładu i kosztów, porównanie wersji, próbka syntetyczna;
+- walidacja osiągalności, neutralności, monotoniczności, duplikatów i limitów;
+- historia wersji, aktywacja przyszła zgodnie z bramką balansu, wycofanie przez kolejną wersję.
+
+Parametry ekonomiczne są edytowalne wersjonowanym kandydatem. Nie można wyłączyć izolacji firm, ochrony ukrytych wartości, idempotencji ani nadać klientowi prawa losowania. Główny administrator zatwierdza bez obowiązkowego komentarza; actor, czas, zakres, hash i wynik walidacji zapisują się automatycznie.
+
+Zwykły panel gracza/API nie otrzymuje K, osi, znaku, intensywności, seed ani mnożnika. Nie używamy ich w cenie kandydata, filtrach, kolejności ofert lub opisach zdradzających profil. Oceny zawodowe z rekrutacji pozostają osobnymi dowodami. Rzeczywisty profil dostępny GM wyłącznie przez osobną capability i audyt.
+
+#### K. Scenariusze odbioru i bramki
+
+T01 granice losowania K5999/6000/8999/9000. T02 brak powtórzeń osi i zachowanie K. T03 nielegalny katalog blokuje aktywację. T04 retry/concurrent creation daje jeden profil. T05 rehire/odrzucona oferta nie zmienia wartości.
+T06 neutralna osoba może zachorować/popełnić błąd/wykazać inicjatywę. T07 morale nie zmienia podatności. T08 intensywność nie wydłuża choroby ani nie obchodzi cap/cooldown.
+T09 dokładność nie zmienia czysto maszynowej awarii. T10 jedna metryka nie przyjmuje dwóch modyfikatorów. T11 brak kwalifikacji nie jest losową próbą.
+T12 zespół uwzględnia faktyczny udział, nieobecny ma0. T13 duplikat członka/czasu nie zwiększa bonusu. T14 brak okazji nie daje porażki inicjatywy.
+T15 jedna okazja ma jeden końcowy skutek także przy wyścigu workerów. T16 podział Settlement/100GET nie zmienia rozkładu zdarzeń.
+T17 nowe wagi nie przerzucają starych profili. T18 aktywacja w połowie procesu zachowuje granicę i wersje. T19 API/cache/export/log/WebSocket/Agencja nie ujawniają profilu.
+T20 HR odczytuje tylko dowody; test zawodowy nie ujawnia podatności. T21 błędna migracja nie tworzy drugiej osi. T22 korekta GM audytowana i nie nadpisuje historii.
+
+Harness statystyczny: wiele stałych seedów, porównanie liczności0/1/2 i osi z rozkładem oczekiwanym, monotoniczność map, przebiegi30/90/180dni, podział na etaty/role/warunki, koszty zastępstw i straty. Nie wymagać dokładnie60/30/10 w małej próbie. Liczebność prób, tolerancje i akceptowalne fałszywe oceny HR muszą być zapisane przed uruchomieniem bramki; nie dobierać ich po zobaczeniu wyników.
+
+Status: katalog, kombinacje i siła efektów opisane. Otwarte: HR-TRAITS-CONTRACT (mapa istniejących osi, RNG, kontrakty okazji i wyniku), HR-CFG03 (ekspozycja/warunki/clock absencji), ASSESS-CFG01 (baseline stanowisk), HR-TRAITS-QA (kalibracja i pełne testy). Testy opisane powyżej są wymaganiami, nie deklaracją uruchomienia silnika.
+
+
 ## 17. Szkolenia, mentoring i awanse
 
 Training pozostaje wewnątrz Staff. Wykorzystuje istniejące skills, certyfikaty i dostępność, nie osobny model pracownika.
