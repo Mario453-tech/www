@@ -8,6 +8,12 @@ CARD = "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md"
 ARCH = "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md"
 API = "OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md"
 CASES = [
+
+    ("D43", "OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md", "### P06-F01", "### MISSING-F01"),
+    ("D48", "OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md", "ReleaseAvailability", "MissingRelease"),
+    ("D49", ARCH, "Cred --> B2BRep", "Cred --> B2BRep" + chr(10) + "    Cred --> ContractRep"),
+    ("D50", ARCH, "| 14 | Staff:", "| 99 | Staff:"),
+    ("D52", "OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md", "finance/technical/hr/legal/logistics", "finance/api/v1/technical/hr/legal/logistics"),
     ("D22", ARCH, "Snapshot dobowy 00:00 UTC służy podatkowi", "Snapshot dzienny jest nieokreslony"),
     ("D29", CARD, "202 z challenge_id, challenge_secret,", "202 z challenge_id,"),
     ("D30", CARD, "api_session_id FK", "unmapped_session_id"),
@@ -64,8 +70,31 @@ def main():
             detected += int(caught)
         finally:
             contract_path.write_bytes(original_contract)
+    domain_path = BASE / "OILEMPIRE_KONTRAKTY_P06_P13.yaml"
+    domain_bytes = domain_path.read_bytes()
+    for check_id in ["D44", "D45", "D46", "D47", "D51"]:
+        try:
+            domain = json.loads(domain_bytes.decode("utf-8"))
+            if check_id == "D44":
+                domain["x-cards"].pop()
+            elif check_id == "D45":
+                domain["x-balance-roots"].append("unknown_module")
+            elif check_id == "D46":
+                domain["x-blockers"].pop()
+            elif check_id == "D47":
+                domain["x-storage-contracts"]["employee_availability"]["columns"].remove("employee_id")
+            else:
+                first = next(iter(domain["paths"]))
+                domain["paths"]["/api/v1/missing-contract-route"] = domain["paths"].pop(first)
+            domain_path.write_text(json.dumps(domain), encoding="utf-8")
+            exit_code, result = verify()
+            caught = exit_code != 0 and any(row["check"].startswith(check_id + " ") and row["status"] == "FAIL" for row in result)
+            print(check_id + ": " + ("DETECTED" if caught else "MISSED"))
+            detected += int(caught)
+        finally:
+            domain_path.write_bytes(domain_bytes)
     code, restored = verify()
-    total = len(CASES) + 3
+    total = len(CASES) + 8
     print(f"BASELINE {len(baseline)} PASS; MUTATIONS {detected}/{total} DETECTED; RESTORED " + ("PASS" if code == 0 else "FAIL"))
     return 0 if detected == total and code == 0 else 1
 
