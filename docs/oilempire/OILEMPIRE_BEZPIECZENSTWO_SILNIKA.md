@@ -38,6 +38,8 @@ Kontroler, klient mobilny i widok nie nadają uprawnień ani nie wyliczają wią
 
 Zabronione są wywołania sieciowe do operatora płatności/push w otwartej transakcji finansowej. Deadlock retry obejmuje całą transakcję, według istniejącego limitu §23.5a, z ponowną walidacją. Blokada cache lub UNIQUE job są optymalizacją; poprawność zapewniają transakcje, ograniczenia UNIQUE, CAS i stan domenowy.
 
+**OPEN10:** krótka operacja DB zapisuje pending i skutek w jednej transakcji; rollback usuwa oba. Nie ma przejęcia niewidocznego, niezatwierdzonego pending. Długie zadanie ma osobną próbę z lease i fencing_token; przejęcie CAS zmienia token, stary worker nie może zapisać skutku. Obie ścieżki używają stabilnego klucza skutku domenowego z §29.4a.
+
 ## 4. Niezmienniki i reakcja na naruszenie
 
 | Gwarancja | Weryfikacja |
@@ -48,7 +50,7 @@ Zabronione są wywołania sieciowe do operatora płatności/push w otwartej tran
 | Rezerwacje | dostępne = fizyczne saldo minus aktywne rezerwacje, nigdy ujemne |
 | Czas i zdarzenia | last_calc_at nie cofa się; ten sam due_slot daje jeden skutek |
 | Pojemność | przyjęcie nie przekracza pojemności; nadmiar obsługiwany wyłącznie regułą domenową |
-| Wycena | wspólny wersjonowany snapshot dla podatku, tarczy i Tieru; bez podwójnego dyskonta rafinerii |
+| Wycena | wspólny serwis wyceny: dobowy snapshot podatku, bieżący stan tarczy/Tieru; bez podwójnego dyskonta rafinerii |
 
 Naruszenie w transakcji powoduje rollback i alarm z request_id. Wykrycie rozbieżności już zapisanej przez rekoncyliację wstrzymuje dotknięte mutacje dla zasobu/firmy lub odpowiedniej fazy globalnej; zakres musi być najmniejszy, który zachowuje integralność. Odczyt pokazuje ostatni potwierdzony stan i komunikat. Naprawa wymaga audytowanej operacji kompensacyjnej; zakaz edycji historycznej księgi i automatycznego „wyrównania salda” bez wyjaśnienia.
 
@@ -64,7 +66,7 @@ Naruszenie w transakcji powoduje rollback i alarm z request_id. Wykrycie rozbie�
 ## 6. Konta, personel i sekrety
 
 - Obowiązują TOTP, czasy tokenów, rotacja refresh i limity ze specyfikacji API §3/§10. Token odświeżania i kody odzyskiwania są hashowane; sekret TOTP szyfrowany kluczem poza bazą.
-- Rotacja refresh: klient wykonuje jedno odświeżenie naraz. Retry po utracie odpowiedzi używa tego samego klucza idempotencji. Odtworzenie odpowiedzi wymaga krótkotrwałego, szyfrowanego wyniku powiązanego z sesją/żądaniem; nie wolno przechowywać jawnych tokenów w logu lub zwykłym cache. Ponowne użycie zużytego refresh poza tym samym żądaniem unieważnia rodzinę sesji.
+- Rotacja refresh: klient wykonuje jedno odświeżenie naraz. Retry po utracie odpowiedzi używa tego samego klucza idempotencji. Odtworzenie odpowiedzi wymaga szyfrowanego wyniku ważnego 2 minuty powiązanego z sesją/żądaniem; nie wolno przechowywać jawnych tokenów w logu lub zwykłym cache. Ponowne użycie zużytego refresh poza tym samym żądaniem unieważnia rodzinę sesji.
 - Reset hasła/wylogowanie wszystkich urządzeń unieważnia sesje web/mobile, refresh i dostęp do prywatnych kanałów. Otwarty WebSocket musi utracić autoryzację po revokacji, a nie dopiero przy ponownym połączeniu.
 - Zmiana e-maila, łączenie Google, wyłączenie 2FA i odzyskanie konta mają osobne stany, step-up i powiadomienie; link nie nadaje uprawnień ponad wskazaną operację. Odzyskiwanie 2FA nie może polegać na znajomości nicku/e-maila.
 - GM działa na imiennym koncie z minimalnymi uprawnieniami. Audit zapisuje aktora, akcję, zasób, wynik, czas i request_id; powód dla owner_admin pozostaje opcjonalny zgodnie z §29.7. Brak powodu nie usuwa audytu.
@@ -85,7 +87,7 @@ Webhook weryfikuje podpis na surowej treści zgodnie z dostawcą, ogranicza rozm
 
 ## 9. Eksploatacja, awarie i wydania
 
-- Backup i restore spełniają §29.2 (RPO ≤5 min); test odtworzenia co miesiąc obejmuje klucze, księgi, outbox i zaległe terminy. Backup jest szyfrowany, odseparowany od serwera aplikacji i ma ograniczone uprawnienia. RTO musi być zmierzone i zatwierdzone przed startem produkcji.
+- Backup i restore spełniają §29.2 (RPO ≤5 min); test odtworzenia co miesiąc obejmuje klucze, księgi, outbox i zaległe terminy. Backup jest szyfrowany, odseparowany od serwera aplikacji i ma ograniczone uprawnienia. Cel RTO ≤60 minut dla typowej awarii jest zatwierdzony; musi zostać zmierzony na docelowym środowisku przed startem.
 - Awaria workera: trwałe due-events i outbox czekają; sweeper odzyskuje terminy. Awaria DB: mutacje kończą się kontrolowaną niedostępnością; brak lokalnego „sukcesu” na telefonie. Awaria Redis/limitera: mutacje i logowanie są odrzucane, jeśli nie można bezpiecznie wymusić limitu; nie wyłącza się kontroli.
 - Metryki: p95 API/SettlementService, konflikty i deadlocki, najstarszy outbox, lag due-events, błąd rekoncyliacji, nieudane backupy, błędy logowania i revokacji. Alerty nie zawierają sekretów. Procedura incydentu określa osobę reagującą i audytowane wznowienie.
 - Wydania: expand–migrate–contract, zgodność starego/nowego workera i schematów zdarzeń, restart długowiecznych workerów. Wycofanie kodu nie odwraca automatycznie zatwierdzonych transakcji; naprawa danych to jawna kompensacja.
