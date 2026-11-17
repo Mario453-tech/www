@@ -5,6 +5,8 @@
 
 **Status:** obowiązujący projekt do implementacji. Rozwija §8 i §29.6–29.7 architektury, §4 panelu oraz kontrakt bezpieczeństwa silnika. Nie oznacza, że opisane klasy lub polecenia już istnieją. Schemat manifestu i cykl życia są tu opisane szczegółowo; sprzeczne przykłady w innych rozdziałach należy poprawić wraz z tym standardem, bez automatycznego nadawania pierwszeństwa jednemu plikowi.
 
+Zatwierdzone rozstrzygnięcia OPEN01–OPEN12 są zebrane w [planie programowania §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Nowy DDL i kontrakty stosują je przed przykładami historycznymi.
+
 ## 1. Wersje i źródła prawdy
 
 | Wersja | Źródło | Kiedy zmieniana |
