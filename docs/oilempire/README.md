@@ -1,5 +1,8 @@
 # OilEmpire — jedna specyfikacja techniczna gry
 
+> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+
+
 Ten dokument jest głównym wejściem do całej specyfikacji. Pliki poniżej są rozdziałami jednego projektu, a nie niezależnymi wariantami silnika. Czytamy je razem zgodnie z zakresem zadania. Dokumentacja opisuje wymagania do implementacji; wdrożenie potwierdzają kod i testy.
 
 **Aktualne decyzje:** OPEN01–OPEN12 są zatwierdzone; [rejestr i zakres realizacji w planie §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Wzmianki o otwartych OPENxx w poprzednich przebiegach audytu są historyczne. Karty funkcji i testy implementacji nadal są wymagane.
@@ -83,7 +86,7 @@ Nie duplikujemy całych wzorów i tabel liczbowych do planu/API. Kontrakty trans
 
 ## 5. Weryfikacja całości
 
-[Maszynowy kontrakt fundamentu](OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml) zawiera wycinek OpenAPI i powiązania sekwencji 2FA oraz kluczy tabel. [Testy weryfikatora](OILEMPIRE_TESTY_WERYFIKATORA.py) uruchamiaj wyłącznie w osobnej kopii dokumentacji, bez równoległej edycji: celowo zmieniają pliki i przywracają je w finally. Testy sprawdzają wykrywanie 15 regresji, nie uruchamiają SQL ani serwera gry.
+[Maszynowy kontrakt fundamentu](OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml) zawiera wycinek OpenAPI i powiązania sekwencji 2FA oraz kluczy tabel. [Testy weryfikatora](OILEMPIRE_TESTY_WERYFIKATORA.py) uruchamiaj wyłącznie w osobnej kopii dokumentacji, bez równoległej edycji: celowo zmieniają pliki i przywracają je w finally. Testy sprawdzają wykrywanie wybranych regresji, nie uruchamiają SQL ani serwera gry.
 
 W katalogu dokumentacji uruchom:
 ```powershell
