@@ -1,0 +1,14 @@
+# Source 7521a97aab762c1ff4dd27b249b78778922cb5ed — static scan only; not proof that UI works.
+path	lines	forms	buttons	inline_events	php_data_bind	includes	missing_literal_assets	status
+templates/views/admin/players/main.php	161	3	5	0	extract	0	none	STATIC_ONLY
+templates/views/admin/wells/main.php	478	6	12	8	extract	1	none	STATIC_ONLY
+templates/views/admin/loans/main.php	361	7	7	4	extract	0	none	STATIC_ONLY
+templates/views/admin/gm_tools/main.php	282	7	7	6	extract	7	none	STATIC_ONLY
+templates/views/admin/hr/main.php	61	0	0	0	extract	1	none	STATIC_ONLY
+templates/views/admin/boardroom/main.php	124	2	3	1	extract	3	none	STATIC_ONLY
+templates/views/admin/training/main.php	37	0	0	0	extract	2	none	STATIC_ONLY
+templates/views/admin/market/main.php	264	7	7	3	extract	1	none	STATIC_ONLY
+templates/views/admin/balance/main.php	212	3	3	3	extract	0	none	STATIC_ONLY
+templates/views/admin/incidents/main.php	902	14	27	25	extract	12	none	STATIC_ONLY
+templates/views/admin/black_market/main.php	398	3	8	7	extract	0	none	STATIC_ONLY
+templates/views/admin/transport/main.php	313	7	8	8	extract	0	none	STATIC_ONLY
