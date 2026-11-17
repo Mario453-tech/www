@@ -81,6 +81,8 @@ Nie duplikujemy całych wzorów i tabel liczbowych do planu/API. Kontrakty trans
 
 ## 5. Weryfikacja całości
 
+[Maszynowy kontrakt fundamentu](OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml) zawiera wycinek OpenAPI i powiązania sekwencji 2FA oraz kluczy tabel. [Testy weryfikatora](OILEMPIRE_TESTY_WERYFIKATORA.py) uruchamiaj wyłącznie w osobnej kopii dokumentacji, bez równoległej edycji: celowo zmieniają pliki i przywracają je w finally. Testy sprawdzają wykrywanie 15 regresji, nie uruchamiają SQL ani serwera gry.
+
 W katalogu dokumentacji uruchom:
 ```powershell
 python OILEMPIRE_WERYFIKATOR_DOKUMENTACJI.py
