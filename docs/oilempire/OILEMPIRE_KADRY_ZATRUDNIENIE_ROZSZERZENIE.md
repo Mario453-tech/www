@@ -483,3 +483,113 @@ Nie jest to ukończony moduł gry. Docelowe PL/EN/DE, autoryzacja, serwerowa wyc
 ## 13. Opcjonalna Agencja pracy — przyszły moduł
 
 [Specyfikacja Agencji pracy](OILEMPIRE_AGENCJA_PRACY_SPECYFIKACJA.md) opisuje kompletowanie załogi, utrzymanie obsady i obsługę kadrową. Podstawowe Kadry działają bez tej usługi. Agencja korzysta z tych samych publicznych akcji Staff, kandydatów, ocen HR i ograniczeń; nie ma dostępu do ukrytego profilu. Zarządza wyłącznie w granicach mandatu i limitów gracza. Rezygnacja zachowuje pracowników/umowy i przekazuje procesy do ręcznej obsługi. Nie należy utożsamiać tego modułu z kanałem rekrutacji „agencja rekrutacyjna”. Pierwszy zakres: NPC, bez agencji graczy. Ceny i wdrożenie pozostają przyszłe.
+
+
+## 14. Chorobowe i zastępstwa — zapis ustaleń
+
+Zatwierdzona korekta właściciela: pracownik tymczasowy kosztuje **250% standardowego pełnego kosztu godzinowego stanowiska**, czyli mnożnik2,5, a nie bazę plus250%. Mnożnik edytowalny w panelu. Nie ma gwarancji znalezienia pracownika ani natychmiastowego rozpoczęcia pracy. Ta reguła zastępuje wcześniejszą propozycję150%.
+Baza godzinowa pochodzi z polityki stanowiska/regionu i nominalnego kalendarza, obejmuje normalne obciążenia firmy. Przykład: pełny koszt100PLN/h → usługa250PLN/h; nie doliczamy drugi raz standardowych składek. Dojazd/minimum zamówienia/anulowanie wyłącznie jako osobne ujawnione pozycje quote.
+Dostępność oferty, czas przyjazdu, kwalifikacje i długość zastępstwa muszą być znane przed potwierdzeniem. Cena zablokowana w ważnym quote, rezerwacja konkretnej dostępności atomowo; brak ofert daje unavailable, nie sztucznego pracownika. Do rozpoczęcia usługi normalne skutki braku obsady.
+
+Kandydat generatora chorobowego:10% bazowo / do20% przy podatności na30 aktywnych dni przed wpływem warunków; długość1–3dni; cooldown7dni od końca; max2 rozpoczęcia krótkiego epizodu w ruchomych30dniach. Parametry wymagają kalibracji. Wypadki odrębne.
+Ekspozycja i cooldown według wspólnego zegara aktywnego czasu firmy; przed produkcją wymagane dokładne sloty i mapa modyfikatorów. Nie losować przy requestach. Stały wynik epizodu, jedno source_event_id i idempotencja na granicach.
+Morale oddzielone od podatności; przeciążenie/odpoczynek/warunki są wejściami ryzyka. Pojedyncza choroba nie dowodzi cechy ani symulowania.
+Proces: zapis epizodu → niedostępność Staff → luki grafiku → propozycja zastępstwa → domenowe skutki obsady → powrót do najbliższej własnej zmiany. Powrót nie dodaje pracy w dniu wolnym.
+Długość epizodu w pierwszej wersji losowana raz; brak codziennego niejawnego przedłużania.
+Kandydat płatności employment:80% podstawy w okresie choroby zamiast normalnej pensji, nie dodatkowo. Zlecenie wykonane godziny; B2B/management według jawnej polityki umowy. Profil obciążeń świadczenia wymaga konfiguracji, nie automatycznego zastosowania narzutu do wszystkiego.
+Pensja15000PLN, miesiąc30dni,3dni choroby:13500+1200=14700PLN brutto; zastępca osobno.
+
+Kolejność zastępstw: wolny uprawniony pracownik → legalna zamiana zmian → zatwierdzone nadgodziny → oferta tymczasowa → ograniczenie pracy właściwe dla instalacji. Przesunięcie nie może ukryć nowej krytycznej luki.
+Automatyczne płatne zastępstwo wymaga mandatu, limitu pojedynczej operacji i miesiąca oraz środków; wszystkie sprawdzane atomowo. Własny pracownik w nominalnym czasie nie otrzymuje drugiej pensji.
+Wcześniejszy powrót chorego nie kasuje automatycznie opłaconego zastępstwa. UI pokazuje warunki anulowania. Agencja zarządzająca nie jest wymagana do kupienia pojedynczej usługi zastępstwa.
+Kolizje: choroba/urlop wg §4.2; choroba/kurs wg §17 poniżej; koniec zatrudnienia zachowuje należności; kierowca w tranzycie wymaga safe-stop/handover Logistics. Generator nie może być aktywowany bez legalnej ścieżki obsługi tego przypadku.
+Panel: ryzyko, modyfikatory, długość/cooldown/cap, płatność, oceny HR, dostępność i taryfy zastępstw, limity, kolizje i komunikaty. Wersje nie przeliczają wstecz rozpoczętego epizodu/usługi.
+Odbiór: wiele odczytów ten sam epizod; brak nakładania; granice cooldown/cap; brak podwójnej pensji; dwie rezerwacje nie kupują tej samej osoby; brak budżetu; powrót przed końcem zastępstwa; brak odpowiedniego kandydata; brak ukrytych cech w DTO.
+
+## 15. Rekrutacja — przebieg i parametry do implementacji
+
+Rozwija §2 i DOM16. Źródło ogłoszenia, zasięg, region, stanowisko i warunki zatrudnienia to oddzielne parametry. Kanał „agencja” nie jest przyszłym modułem zarządzania firmą.
+
+| Kanał | Docelowa specjalizacja | Ograniczenie |
+|---|---|---|
+| Gazeta lokalna | Stanowiska lokalne i operacyjne | Mały zasięg, mniej rzadkich kwalifikacji |
+| Radio | Większy nabór regionalny | Więcej niedopasowanych zgłoszeń |
+| Telewizja | Masowy nabór na wiele stanowisk | Wysoki koszt, nie gwarantuje wysokich kompetencji |
+| Portal ogłoszeniowy | Ogólny rynek pracy | Konkurencja warunkami oferty |
+| Portal branżowy | Specjaliści techniczni/logistyczni | Wyższe oczekiwania płacowe |
+| Uczelnia/szkoła | Początkujący z potencjałem | Niskie doświadczenie |
+| Polecenie | Mała pula dopasowanych kontaktów | Cooldown i limit źródła |
+| Agencja rekrutacyjna | Selekcja pod wymagania | Jawna opłata za selekcję |
+| Headhunter | Rzadkie specjalizacje/zarząd | Zachowuje istniejące25GBBL/raz dziennie do jawnej zmiany balansu |
+
+Formularz kampanii: rola, liczba wakatów, lokalizacja, kanał/zasięg, forma i okres umowy, pensja z jednostką, wymiar/grafik, wymagane certyfikaty, budżet i termin. Nie pozwala ustalać hidden_traits.
+Przed startem quote: opłata początkowa, koszt selekcji, koszt sukcesu jeśli występuje, limit całkowity, prognozowany przedział zgłoszeń i czas. Zero gwarancji znalezienia kandydata.
+Start atomowo rezerwuje limit kampanii, pobiera należną opłatę i zapisuje parametry/wersję/RNG. Bazowe max2procesy i czasy2–4/3–5min pozostają kanonem do zatwierdzenia mapy nowych kanałów. Nie wolno równolegle stosować dwóch różnych cenników.
+Kampania tworzy trwałe oferty. Zmiana pensji/źródła po starcie jest nową wersją przyszłych działań, nie przerzutem wyników już wygenerowanych.
+Cennik ma fee_basis=fixed/per_vacancy/budget oraz jednoznaczne jednostki. Krzywa budżetu monotoniczna, ograniczona i z malejącym przyrostem; nie liniowy zakup nieskończonej liczby kandydatów.
+Atrakcyjność uwzględnia pensję na zgodnej podstawie etatu, umowę/grafik, reputację i bezpieczeństwo. Nie używać nieujawnionych cech osoby do rekomendacji.
+Rozdzielić: liczbę zgłoszeń, rozkład kompetencji, dopasowanie wymagań i prawdopodobieństwo przyjęcia oferty. Wyższy budżet nie zwiększa automatycznie każdej z tych wielkości.
+
+Przebieg kandydata: dostępny → oceniany → oferta złożona → zaakceptowana/odrzucona/wygasła → zatrudniony. Każda oferta ma expires_at, snapshot warunków i stan. Wygaśnięcie nie kasuje historii.
+Wymagania twarde filtrowane jawnie; „brak certyfikatu” nie jest ukrytą cechą. Rozmowa/test zawodowy dostarcza oceny kompetencji z ustaloną dokładnością HR, nie podnosi skilla.
+Accept/hire sprawdza własność, ważność, wersję, budżet i brak zużycia. Jedna oferta nie tworzy dwóch zatrudnień. Cena i warunki nie mogą zmienić się po cichu między akceptacją a hire.
+Relokacja: potrzeba, kwota, płatnik i czas do rozpoczęcia zapisane w ofercie. Koszt i brak dostępności przed przyjazdem jawne; brak teleportacji do pracy. Mapowanie regionów wymaga katalogu.
+Anulowanie kampanii nie odzyskuje automatycznie wykonanej usługi; zasady zwrotu/rezerwacji określa taryfa. Brak kandydatów nie oznacza nowego darmowego losowania.
+
+Do ustalenia tabelami HR-CFG01: PLN dla kanałów, czasy kanał×zasięg, liczba/wagi kandydatów, ważność oferty, refundy, relokacja i efekt reputacji. Nie dopisujemy arbitralnego cennika jako zaakceptowanego.
+Panel: edytor katalogu, schemat kombinacji, preview kosztów i rozkładów, kampanie/oferty, ślad losowania bez sekretu, statystyki skuteczności. Testy: koszt raz, brak re-roll, wygasanie, konkurencja hire, zgodność pensji/etatu, brak ofert i brak wycieku.
+
+## 16. Ukryte cechy — model oceny i poznawania
+
+Zatwierdzony pierwszy zakres: podatność na niedyspozycję, dokładność, współpraca i inicjatywa. Pozostałe cechy z §2.1 są późniejszym rozszerzeniem. Rozkład60%/30%/10% dotyczy0/1/2cech szczególnych i pozostaje kandydatem kalibracji.
+Jedna rzeczywista wartość w katalogu Staff oraz osobna ocena HR. Nie tworzyć drugiej lojalności/ambicji/stresu ani dwóch niezależnych osi dokładność/niedbałość.
+Każda cecha ma trait_code, dopuszczalną skalę, neutralny efekt, wersję generatora, właściciela skutku i allowlistę dowodów. Tablica mapowania intensywności→efekt jawna dla konfiguracji, prywatna dla gracza.
+Dobór bez powtórzeń, zakazane kombinacje walidowane. Brak cechy szczególnej oznacza bazowy profil, nie zerowe ryzyko absencji lub zerową zdolność współpracy.
+Profil trwały dla osoby; zatrudnienie, ponowne zatrudnienie i retry nie losują ponownie. Zmiana balansu nie przerzuca cech istniejących osób.
+
+Poznawanie:
+1. Nieocenione: brak ujawnionej wartości.
+2. Obserwacja wstępna: fakty i ostrożna ocena.
+3. Ocena poparta obserwacjami: przedział/poziom z datą i pewnością.
+Żaden stan nie wymaga100% pewności. Kryteria: minimalny okres aktywnej obserwacji, liczba niezależnych epizodów/zadań, jakość dowodu i kompetencja HR. Progi konfigurowalne; nie definiujemy pewności jako samej liczby odczytów.
+Przykłady dowodów: absencja=1epizod, dokładność=wyniki zakończonych porównywalnych zadań, współpraca=zdarzenia zespołowe, inicjatywa=potwierdzona obserwacja problemu. Dni jednego epizodu nie są wieloma dowodami.
+Oddzielać wpływ pracownika od awarii, złego sprzętu i przeciążenia. Wskaźnik błędów bez liczby okazji/zadań nie wystarcza do oceny.
+Chorobowej podatności nie ujawnia rozmowa rekrutacyjna. Dokładność lub współpracę może częściowo ocenić właściwy test/referencja z allowlisty.
+Ocena wiąże osobę z obserwującą firmą; inna firma nie dostaje cudzych prywatnych obserwacji. Powrót do tej samej firmy zachowuje historię z datą, nie udaje świeżej stuprocentowej oceny.
+
+Wpływ domenowy: dokładność przez kontrakt zadania/Incidents, współpraca przez istniejący model zespołu, inicjatywa przez powiadomienie/propozycję, podatność przez generator nieobecności. Jeden skutek i jedno source_event_id; nie dublujemy modyfikatora.
+Inicjatywa nie wykonuje napraw i nie wydaje pieniędzy bez zgody. Ukryta cecha nie jest filtrem dozwolonym Agencji.
+Panel konfiguracji: rozkład, wagi, intensywność, konflikty, mapy efektów, typy dowodów, progi oceny, retencja historii i teksty obserwacji. Rzeczywiste wartości GM tylko z capability/audytem.
+Przed implementacją HR-CFG05 musi zawierać liczbowe mapy i testy statystyczne. Testy izolacji: payload, sortowanie, eksport, WebSocket, logi; brak wycieku przez wycenę ocen opartą na prywatnej cesze.
+
+## 17. Szkolenia, mentoring i awanse
+
+Training pozostaje wewnątrz Staff. Wykorzystuje istniejące skills, certyfikaty i dostępność, nie osobny model pracownika.
+Katalog kursu: rola/skill, poziom, wymagany poprzedni poziom, minimalne kompetencje, kwalifikowalne umowy, cena, czas, tryb czasu, zajętość, próg zdania, bonusy prób, limity, zasady przerwania, certyfikat i ewentualna ważność.
+Zachowujemy kanoniczne kursy/kwoty/capy: Refining20k/50k/100k,24/48/72h, próg70, skill cap10. Brakujące ceny kursów bazowych nadal DOM06; nie zamieniamy przedziału10–100k na arbitralny cennik.
+
+Tryby czasu:
+- elapsed_time: upływ według dotychczasowego zegara kursu, bez samowolnego przeliczania24h na3dni robocze;
+- scheduled_training_time: postęp tylko w zaplanowanych godzinach nauki, jako przyszły wariant wymagający osobnej kalibracji.
+Czas kalendarzowy i zajętość osoby to osobne pola katalogu. Płatne szkolenie w czasie pracy wchodzi do limitów grafiku. Nie publikować trybu24hciągłej pracy sprzecznego z odpoczynkiem.
+Dla istniejącego elapsed_time wymagane jawne rozstrzygnięcie zajętości vs grafik w HR-CFG03 przed aktywacją nowego modelu. Rozpoczęte kursy zachowują swoją wersję.
+
+Zapis: wycena, wymagania, dostępność, wpływ na obsadę, opłata raz i rezerwacja Staff. Nie odpinamy pracownika od krytycznego stanowiska bez akceptacji skutku.
+Choroba: dla nowego kandydata polityki proponujemy paused_absence; zachowane postępy/opłata, brak egzaminu w czasie choroby, wznowienie bez ponownego pobrania. Aktualizacja terminu i due-event z wersją; stary job no-op.
+To rozszerzenie wymaga jawnego dopięcia do istniejącej polityki kursu; nie stosować wstecz. Strajk nadal nie zatrzymuje kursu według kanonu. Urlop nie może automatycznie oznaczać udziału w szkoleniu; katalog określa pauzę/odmowę kolizji.
+Koniec zatrudnienia: istniejące cancelled_employee_left, bez certyfikatu i zwrotu według kanonu. Remis logical exam/end wymaga DOM08, nie kolejności workerów.
+Egzamin: jeden zapisany wynik, jedno nadanie certyfikatu i jeden przyrost skilla. Retry lub odebranie powiadomienia nie losuje ponownie. Reset porażek/bonusu po blokadzie pozostaje DOM07.
+
+Mentoring: relacja mentor–podopieczny, cel, zakres czasu, wymagana kwalifikacja, limit podopiecznych i koszt utraconej dostępności. Nauka ma efekty tylko przy rzeczywistym pokryciu obu kalendarzy.
+Mentor nie daje jednocześnie100% czasu naprawie i100% podopiecznemu. Bonus nie tworzy certyfikatu bez egzaminu. Limity/bonusy/talent mentorski do HR-CFG05, nie domyślna nieskończona premia.
+Wdrożenie nowego pracownika: jawny okres i krzywa osiągania docelowej samodzielności w katalogu roli; nie obniża trwale zapisanych skills. Krytyczne uprawnienie nadal wymagane od początku.
+
+Awans: propozycja roli → walidacja kompetencji/certyfikatów → quote nowych warunków → akceptacja → aneks od effective_from → przeliczenie przydziału/grafiku.
+Awans nie resetuje stażu, osoby, morale, chorobowego lub historii. Nie nadaje automatycznie skilla. Płatność i oczekiwania aktualizowane przez wspólne kontrakty płac, a nie bezpośredni UPDATE.
+Rekrutacja wewnętrzna pokazuje lukę pozostawioną na poprzednim stanowisku. Zmiana mandatu zarządu używa istniejącego BoardAccess.
+Certyfikat ukończenia i uprawnienie do pracy są różne. Certyfikat historyczny nie znika; wygasające uprawnienie może wymagać odnowienia. Nie wszystkie kursy otrzymują arbitralny termin ważności.
+Wygasanie blokuje nowe zadania wymagające uprawnienia; trwające mają zatwierdzony safe-stop/handover. Odnowienie ma osobny quote i ślad, nie drugi ten sam certyfikat poziomu.
+
+Panel: katalog i wersje, zapisy/pauzy/terminy, próby, certyfikaty/uprawnienia, mentoring, awanse, wpływ na obsadę i koszty. Nie ma cichego „zalicz” bez właściwej akcji GM/audytu.
+Testy: kwalifikowalność i drugi zapis, kurs vs praca, choroba/pauza/wznowienie bez drugiej opłaty, stary job, egzamin retry, koniec umowy, współdzielony czas mentora, awans bez resetu, wygaśnięcie uprawnienia, izolacja firmy.
+Bramki: DOM06/07/08, HR-CFG03/05, HR-CONTRACT01 i testy gospodarki90dni. Rozdziały14–17 są specyfikacją, nie gotowym kodem ani wynikiem PASS.
