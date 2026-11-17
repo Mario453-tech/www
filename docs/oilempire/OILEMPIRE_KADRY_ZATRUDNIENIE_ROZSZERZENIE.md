@@ -771,3 +771,138 @@ Testy statystyczne na syntetycznych profilach: odsetek favourable/concern/mixed 
 Bramki: ASSESS-CFG01 baseline/wagi/progi, ASSESS-CONTRACT01 DDL/OpenAPI/lock order, ASSESS-QA01 kalibracja statystyczna i negatywne testy wycieków.
 Etapy programowania:1zbieranie/deduplikacja →2read-only historii →3evaluator i wersje →4snapshoty/worker →5UI/panel →6kalibracja/aktywacja.
 Ta runda opisuje kontrakty i testy do wykonania. Nie deklaruje testów Laravel/MySQL ani pełnego zamknięcia HR-CFG05.
+
+
+### 18.15. Tabele parametrów kandydata HR-ASSESS-01a
+
+Status: propozycja liczbowa do harnessu, nie aktywny YAML. Doprecyzowuje algorytm §18.7; w tej wersji waga independence_cap zastąpiona jest deterministycznym grupowaniem obserwacji opisanym poniżej. Nie stosować obu mechanizmów jednocześnie.
+
+#### A. Warunki wejścia i jakość próby
+
+| Domena | Preliminary: minimalna próba / ekspozycja | Supported: minimalna próba / ekspozycja | target_count dla Q | Okno aktywnych dni |
+|---|---|---|---:|---:|
+| Dostępność | 30dni zatrudnienia i80planowanych godzin | 90dni i240h | 30bloków ekspozycji | 180 |
+| Dokładność | 10zadań na5dniach | 40zadań na20dniach | 40 | 90 |
+| Współpraca | 8zadań na4zmianach | 25zadań na12zmianach i3współpracowników | 25 | 90 |
+| Inicjatywa | 10okazji na5zmianach | 30okazji na15zmianach | 30 | 90 |
+
+Dla dostępności brak choroby jest obserwowalnym wynikiem ekspozycji, a nie dowodem ukrytego zdrowia. Q liczymy z bloków ekspozycji, nie z liczby chorób. Jeden blok=UTC dzień z dodatnimi zaplanowanymi godzinami; liczba epizodów pozostaje osobnym ograniczeniem kierunku concern.
+Planowane godziny dostępności wyłączają zatwierdzone urlopy/pauzy i okresy poza umową, ale obejmują godziny utracone przez chorobę. Nie wolno usunąć choroby z mianownika.
+Liczba epizodów: preliminary concern wymaga2; supported concern3. Spełnienie licznika nie wystarcza bez reszty progów, baseline i kierunku Score.
+Progi liczbowe zadania/zmiany odnoszą się do niezależnych źródeł po deduplikacji, przed ułamkowymi wagami. Kwalifikowalność wymaga q≥0,25. Dowód q=0 pozostaje wyłącznie w historii.
+
+#### B. Jakość kontekstu i udział analityka
+
+| Poziom dowodu | q bazowe | Warunek |
+|---|---:|---|
+| Bezpośredni, zweryfikowany | 1,00 | Wynik/ekspozycja i pełny kontekst, bez istotnego zakłócenia |
+| Kontekst kontrolowany | 0,75 | Znany wpływ sprzętu/obciążenia uwzględniony przez zatwierdzony baseline |
+| Istotna niejednoznaczność | 0,50 | Część atrybucji niepewna, nadal znany mierzalny wynik |
+| Słaby dowód pomocniczy | 0,25 | Referencja lub ocena częściowa z allowlisty; nie chorobowa podatność |
+| Niekwalifikujący | 0,00 | Brak baseline, nieznana przyczyna dominująca, uszkodzony lub nieuprawniony dowód |
+
+Jakość1,00 bezpośredniego dowodu nie zależy od skilla HR. HR może poprawić interpretację zakłócenia tylko wtedy, gdy istnieje oznaczony resolvable_context i niezbędne dane.
+Kandydat: q_final=min(1,q_base+0,025×analysis_skill), wyłącznie dla resolvable_context i q_base≥0,50. Dla q0/0,25 brak bonusu. Skill zakres0–10; brak uprawnionego analityka nie uruchamia analizy, zamiast przyjmować10.
+Przykład q0,50, skill6 i kontekst rozstrzygalny →0,65. Ten sam dowód bez kontekstu →0,50. Brak baseline pozostaje0 nawet przy skill10.
+Organizacja wpływa tylko na kolejkę/przepustowość według osobnej polityki; nie podwyższa automatycznie wiarygodności. Koszt i przepustowość wymagają mapy obsady HR przed aktywacją.
+
+#### C. Normalizacja i poziomy odniesienia
+
+Każdy baseline ma: domain,role_code,task_category,difficulty_band,equipment_band,workload_band,metric_code,unit,direction,expected_value,tolerance,normalization_span,valid_from,version,status.
+Dopuszczalne difficulty: routine/complex/critical; sprzęt: normal/degraded; obciążenie: nominal/elevated. Granice przedziałów dostarcza właściciel domeny, a nie HR.
+Wybór: dokładne dopasowanie klucza. Nie stosować podobnej roli jako cichego fallbacku. Jawna wildcard polityka możliwa tylko po zatwierdzeniu i z oznaczoną niższą jakością.
+Baseline powstaje z syntetycznych danych referencyjnych i jest publikowany jako niezmienna tabela. Nie wyliczać go na bieżąco z zachowania graczy, co pozwalałoby zatruć punkt odniesienia.
+Evaluator nie zna hidden_trait_value nawet przy doborze baseline.
+
+Dla metryki „mniej znaczy lepiej”:
+delta=expected−observed.
+Dla „więcej znaczy lepiej”: delta=observed−expected.
+residual=0 gdy abs(delta)≤tolerance; poza marginesem residual=sign(delta)×min(1,(abs(delta)−tolerance)/normalization_span).
+normalization_span musi być>0. Jednostki observed/expected/tolerance/span identyczne. Przedziały percent zapisujemy jako0..1, nie mieszamy z punktami procentowymi.
+
+Katalog metryk:
+- dostępność: utracone godziny chorobowe / planowane godziny ekspozycji, mniej lepiej; liczbę epizodów pokazujemy osobno;
+- dokładność: błędy przypisywalne / okazje do błędu, mniej lepiej; wagę ciężkości błędów definiuje właściciel zadania;
+- współpraca: potwierdzone udane współdziałania / kwalifikujące interakcje, więcej lepiej;
+- inicjatywa: potwierdzone wykorzystane okazje / kwalifikujące okazje, więcej lepiej.
+Mianownik0 → brak wyniku. Nie dopisujemy zerowej obserwacji do średniej.
+
+Fixture WYŁĄCZNIE do testów rachunku (nie tabela ekonomii stanowisk):
+| Metryka | expected | tolerance | span |
+|---|---:|---:|---:|
+| Utracone godziny/planowane | 0,02 | 0,01 | 0,10 |
+| Błędy/okazje | 0,10 | 0,02 | 0,20 |
+| Udana współpraca/interakcje | 0,70 | 0,05 | 0,30 |
+| Inicjatywy/okazje | 0,30 | 0,05 | 0,30 |
+
+Nie aktywować fixture jako uniwersalnego baseline. Rzeczywiste tabele dla każdej roli/zadania wymagają danych z kalibracji; brak tabeli daje „brak porównywalnych danych”, nie zgadywany wynik.
+
+#### D. Grupowanie i ochrona przed mnożeniem dowodów
+
+Najpierw scalamy revisions do najnowszej skutecznej wersji źródła i independence_key. Następnie:
+- dokładność: jeden klaster person+UTCday+task_category;
+- współpraca: person+shift+team_ref;
+- inicjatywa: person+shift+opportunity_category;
+- dostępność: person+UTCday; godziny są ważoną ekspozycją, epizody deduplikowane niezależnie.
+W klastrze średnia residual ważona q i ekspozycją; q klastra=średnia q ważona ekspozycją. Łączna waga klastra≤1. Nie odrzucać arbitralnie pierwszych lub ostatnich zdarzeń.
+Q i N_eff liczymy na klastrach. Liczniki wymaganych niezależnych zadań/okazji zachowujemy oddzielnie.40zadań jednego dnia nie daje20dni obserwacji ani wysokiej różnorodności.
+Wzór N_eff z §18.7 pozostaje. Jeżeli te capy utrudniają osiągnięcie supported w danych realnego rytmu zadań, kalibracja zmienia wersję target_count, nie omija ograniczenia.
+
+#### E. Różnorodność, aktualność i atrybucja
+
+Q=min(1,N_eff/target_count).
+D:
+- dostępność=min(1,distinct_exposure_days/90);
+- dokładność=min(1,distinct_task_days/20);
+- współpraca=min(min(1,distinct_shifts/12),min(1,distinct_partners/3));
+- inicjatywa=min(1,distinct_opportunity_shifts/15).
+R=średnia q klastra ważona ekspozycją przed zanikiem.
+freshness_i=max(0,1−active_age_days/window_days).
+A=średnia freshness ważona q przed zanikiem. Nie używać już zanikłych wag do wyliczenia A, co ukrywałoby starzenie próby.
+Score=średnia residual z wagami q×freshness, po grupowaniu. Q używa tych samych końcowych wag; D wyłącznie kwalifikujące obserwacje w oknie.
+Jeśli suma wag0: etap unassessed, pewność unavailable, direction insufficient.
+
+C=100×(0,35Q+0,25D+0,20A+0,20R).
+Porównania na dokładnej wartości; zaokrąglenie wyłącznie do prezentacji GM. Wagi muszą sumować się do1.
+Przykład Q0,8,D0,75,A0,9,R0,8 → C80,75. Wysoki wynik C nie uchyla bramek etapu.
+
+Aktualność current wymaga: A≥0,40, zgodnej roli oraz ostatniej kwalifikującej obserwacji nie starszej niż30aktywnych dni dla dostępności albo14 dla pozostałych domen. W innym przypadku stale; ostatni snapshot z datą pozostaje. Próg nie wymusza dopisywania nowego dowodu.
+
+#### F. Kierunek i publikacja oceny
+
+Kandydat:
+| Warunek Score | Kierunek |
+|---|---|
+| Score>0,20 | favourable |
+| −0,20≤Score≤0,20 | typical |
+| Score<−0,20 | concern |
+
+Sprzeczność ma pierwszeństwo: jeśli≥30% kwalifikującej końcowej wagi ma residual>0,20 i≥30% ma residual<−0,20 → mixed.
+Brak baseline/jakości → insufficient. Dla dostępności kierunek concern bez wymaganego licznika epizodów staje się insufficient z opisem faktów, nie typical.
+Publiczny favorable dostępności oznacza „dotychczasowa dostępność stabilna”, nie „brak podatności”. Podwyższona nieobecność może pozostać opisowym faktem bez wniosku o cesze.
+Etap:
+- niespełnione preliminary → unassessed/unavailable;
+- spełnione preliminary, ale nie wszystkie supported albo C<50 → preliminary; confidence low przy C<50, medium przy C≥50;
+- supported gates spełnione i C≥50 → supported; medium dla C<80, high dla C≥80.
+mixed ogranicza confidence do medium. stale ogranicza confidence do low i wyłącza automatyczne rekomendacje oparte na aktualnej ocenie, ale nie usuwa historii.
+Etap nie zmienia się w połowie wyliczenia: jeden immutable wynik publikowany atomowo wraz z wersją metody i opisem podstaw.
+
+#### G. Wersjonowanie i panel
+
+Wersjonowane tabele: stage_thresholds, evidence_quality_rules, hr_context_bonus, baseline_catalog, grouping_rules, confidence_weights, direction_thresholds, freshness_rules, translation_templates.
+Edytor wymaga jednostek i zakresów: min_count≥1, exposure≥0, q/weights0..1, low_threshold<high_threshold, positive_span>0, sum(weights)=1. Progi supported nie mogą być słabsze niż preliminary w tej samej miarze.
+Nie wolno konfigurować odczytu hidden_traits jako źródła ani wyłączać ownership/deduplikacji. Przyciski: Klonuj wersję, Waliduj, Porównaj, Symuluj na fixture, Preview skutków, Zatwierdź zgodnie z bramką balansu.
+Preview pokazuje rozkład etapów/kierunków, liczby brakujących baseline, zmianę względem poprzedniej metody i przypadki graniczne. Nie nadpisuje ocen i nie zmienia osoby.
+Główny administrator bez obowiązkowego komentarza. Audit: actor/version/hash/scope/time i wynik walidacji automatycznie.
+Plan wdrożenia: wypełnić baseline rzeczywistych kategorii, uruchomić harness, ustalić limity mylnych alarmów, dopiero aktywować. Sam poprawny wzór nie potwierdza jakości predykcji.
+
+#### H. Przykłady i kontrola
+
+Fixture accuracy: observed0,04, expected0,10, tolerance0,02, span0,20 → residual+0,20; observed0,18 →−0,30; observed0,11 →0.
+Fixture availability:8utraconych godzin/160planowanych=0,05 → residual−0,20. Jeden epizod nie daje concern niezależnie od wyniku.
+Wagi klastrów[1,1,0,5] → N_eff=6,25/2,25=2,777…; nie3pełne obserwacje.
+Przy residual[+0,6,−0,6] i równych wagach → mixed, nie typical mimo średniej0.
+Przy C80,75 i niepełnym supported gate → preliminary/medium, nie supported/high.
+Przy q0 i skill10 → nadal q0. Przy braku okazji → insufficient. Granice Score±0,20 należą do typical.
+
+Status ASSESS-CFG01: algorytm i kandydat progów szczegółowo opisane, produkcyjne baseline ról oraz kalibracja nadal otwarte. ASSESS-CONTRACT01 i ASSESS-QA01 pozostają otwarte. Niniejsza tabela nie jest zmianą aktywnego game_balance.
