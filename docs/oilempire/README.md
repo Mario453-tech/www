@@ -21,6 +21,8 @@ Nie ma zasady „nowszy plik automatycznie wygrywa”. Dokument właściwy dla o
 
 ## 2. Jak czytać i programować
 
+Dalszy rozdział wykonawczy: [31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), [kontrakty i rejestr gotowości](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Razem z fundamentem to47kart. Ujawnione luki ekonomiczne dotyczą wskazanych akcji, nie są po cichu wypełniane nowymi wartościami; rejestr DOM01–DOM16 jest na końcu kart i w audycie.
+
 Szczegółowy rozdział wykonawczy: [karty implementacyjne P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md). Zawiera 16 kart danych, kontraktów i transakcji. Rozwija standard i plan; źródłem reguł gry pozostaje architektura.
 
 1. Rozpocznij od mapy powyżej i otwartych problemów audytu.
