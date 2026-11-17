@@ -207,11 +207,14 @@ Shell: motyw i tokeny (§1.1–1.4), autoryzacja + 2FA, budowniczy nawigacji (sk
 
 | Stan modułu | Zachowanie panelu |
 |---|---|
-| `enabled: true` | pełny CRUD + akcje GM + widgety live |
-| `enabled: false` | grupa i zasoby WIDOCZNE, badge „moduł wyłączony" (slate), dane read-only (zero-wipe — historia zostaje), akcje GM i widgety ukryte, zakładki 360° wyszarzone z adnotacją |
-| `premium: true` | złoty badge „PREMIUM" przy zasobach; w panelu bez ograniczeń (entitlement §29.6 dotyczy wyłącznie graczy) |
-| nowy moduł (instalacja) | po rejestracji manifestu: grupa/zasoby/widgety pojawiają się automatycznie; `balance_schema` przechodzi walidację JSON Schema — błąd = moduł nieaktywny w panelu z komunikatem |
-| usunięcie kodu modułu | wpisy `gm_action_log`, FTS i dane tabel modułu zostają (append-only); nawigacja traci grupę po odświeżeniu cache |
+| runtime active | dostępne operacje według polityk; enabled jest zatwierdzonym zamiarem |
+| runtime draining | enabled=false blokuje nowe zobowiązania; kontynuacja, recovery i obsługa rozpoczętych procesów pozostają dostępne zgodnie z politykami |
+| runtime disabled | historia read-only; brak nowych procesów, jawne akcje recovery wymagają odrębnego uprawnienia |
+| runtime faulted | komunikat incydentu, zakres blokady i audytowane recovery; brak automatycznej reaktywacji |
+| premium=true | badge PREMIUM; role GM nadal podlegają politykom i zakresowi zasobu |
+| nowy moduł | installed/ready do czasu zaliczenia walidacji, migracji i zatwierdzenia aktywacji |
+| usunięcie kodu | niedozwolone przy procesach, zależnościach i historii wymagającej jego kontraktów; plan migracji i zachowanie odczytu przed usunięciem |
+
 
 ---
 
@@ -322,7 +325,7 @@ Zapis zwarty: **K** = kolumny tabeli, **F** = filtry, **A** = akcje wiersza (Vie
 
 ## 6. Katalog akcji GM (kody rejestrowane w manifestach)
 
-Każda akcja: kod (prefix `GM_` poza FTS-owymi), cel, role, reason (W = zawsze wymagany; S = wymagany dla `gm_support`), cap (ograniczenie nadużyć), skutek księgowy (para FTS z jawnym przeciwkontem albo brak — „niepieniężna").
+Każda akcja: kod (prefix `GM_` poza FTS-owymi), cel, role, reason (W = wymagany dla ról innych niż owner_admin; S = wymagany dla `gm_support`; owner_admin ma wyjątek §0.4), cap (ograniczenie nadużyć), skutek księgowy (para FTS z jawnym przeciwkontem albo brak — „niepieniężna").
 
 | Kod | Cel | Role | Reason | Cap / warunki | Księgowanie |
 |---|---|---|---|---|---|
@@ -397,7 +400,7 @@ Zasady wspólne: wykonanie = jedna transakcja domenowa + `gm_action_log` + (dla 
 
 * **(P1) Drop-in modułu:** rejestracja testowego modułu „Dummy" (manifest §4.1) → bez zmian rdzenia pojawiają się: grupa nawigacji, zasób z tabelą, zakładka 360°, widget pulpitu, akcja GM w Actions ▾.
 * **(P2) Zero-wipe disable:** `enabled=false` → zasoby read-only z badge, dane nienaruszone, akcje GM i widgety ukryte.
-* **(P3) Re-enable:** stan i dane identyczne jak przed wyłączeniem.
+* **(P3) Re-enable:** dane i historia zachowane; stan po upływie czasu wynika z legalnych rozliczeń/dormant, nie z odtworzenia starego salda. W draining trwające procesy nadal się kończą.
 * **(P4) Four-eyes serwerowe:** gdy istnieje drugi aktywny administrator z 2FA, autor kandydatury otrzymuje 403 przy próbie jej zatwierdzenia (także owner_admin).
 * **(P5) Bramka symulatora:** kandydatura z wartością poza kotwicą → auto `rejected` + raport w `simulator_report_json`.
 * **(P6) Emergency:** aktywacja pomija symulator, NIE pomija four-eyes; przy jednym owner_admin zwraca 403; baner na dashboardzie do następnej zwykłej wersji.
