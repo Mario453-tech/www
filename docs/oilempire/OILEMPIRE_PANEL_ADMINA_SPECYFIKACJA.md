@@ -438,3 +438,8 @@ Zasady wspólne: wykonanie = jedna transakcja domenowa + `gm_action_log` + (dla 
 ## 9. Karty domeny P06–P13
 
 [Karty P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) definiują dane oraz te same akcje aplikacyjne, które wywołuje Filament. Widoki pracownika, szkolenia, pozwolenia, odwiertu, huba, kursu i naprawy pokazują stany i przyczyny odmów z kontraktu; nie zapisują statusów ręcznie. employee_skills/employee_traits są pojedynczym źródłem cech, employee_availability chroni zajętość. Procedury wymagające nierozstrzygniętej polityki DOM są oznaczone niedostępne wraz z przyczyną; administracyjny przycisk nie omija tej bramki.
+
+
+## Kadry — pełna konfiguracja polityk urlopowych
+
+Źródło reguł i zakres edytora: [Kadry §4.2](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Filament udostępnia Kadry → Polityki urlopowe: typy, pule, naliczanie, dostępność, wnioski, zatwierdzanie, płatność, przenoszenie, anulowanie, kolizje, ekwiwalenty, morale i powiadomienia. Parametry są wersjonowane; preview skutków i jawne przejście dla istniejących praw/wniosków. Korekty pracownika są audytowanymi zdarzeniami, nie nadpisaniem salda. Główny administrator nie musi wpisywać komentarza ani uzasadnienia tekstowego. Obowiązują serwerowe capability, istniejące zatwierdzanie balansu, idempotencja i ochrona historii. To specyfikacja do implementacji, nie działający ekran.
