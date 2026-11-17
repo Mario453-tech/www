@@ -21,6 +21,8 @@ Nie ma zasady „nowszy plik automatycznie wygrywa”. Dokument właściwy dla o
 
 ## 2. Jak czytać i programować
 
+Szczegółowy rozdział wykonawczy: [karty implementacyjne P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md). Zawiera 16 kart danych, kontraktów i transakcji. Rozwija standard i plan; źródłem reguł gry pozostaje architektura.
+
 1. Rozpocznij od mapy powyżej i otwartych problemów audytu.
 2. Odczytaj właściwe sekcje domeny, standard modułu i kontrakt bezpieczeństwa.
 3. Wybierz pakiet z planu i sprawdź poprzedniki oraz blokery.
