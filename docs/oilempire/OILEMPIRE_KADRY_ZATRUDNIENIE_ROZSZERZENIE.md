@@ -593,3 +593,181 @@ Wygasanie blokuje nowe zadania wymagające uprawnienia; trwające mają zatwierd
 Panel: katalog i wersje, zapisy/pauzy/terminy, próby, certyfikaty/uprawnienia, mentoring, awanse, wpływ na obsadę i koszty. Nie ma cichego „zalicz” bez właściwej akcji GM/audytu.
 Testy: kwalifikowalność i drugi zapis, kurs vs praca, choroba/pauza/wznowienie bez drugiej opłaty, stary job, egzamin retry, koniec umowy, współdzielony czas mentora, awans bez resetu, wygaśnięcie uprawnienia, izolacja firmy.
 Bramki: DOM06/07/08, HR-CFG03/05, HR-CONTRACT01 i testy gospodarki90dni. Rozdziały14–17 są specyfikacją, nie gotowym kodem ani wynikiem PASS.
+
+
+## 18. Oceny i obserwacje HR — specyfikacja wykonawcza HR-ASSESS-01
+
+Data:2026-11-18. Rozwinięcie §2.1/§16, właściciel Staff, obszar wewnętrzny bez odrębnego modułu/runtime. Nie dotyczy całego domknięcia Kadr.
+Status: projekt algorytmów, danych i kontraktów. Progi liczbowe poniżej są kandydatem do kalibracji; aktywny YAML pozostaje bez zmian. Brak gotowego kodu i testów runtime.
+
+### 18.1. Gwarancje i granice
+
+1. Rzeczywisty profil wpływa na symulację; evaluator HR nie ma dostępu do jego wartości.
+2. Ocena wynika wyłącznie z dowodów dostępnych obserwującej firmie.
+3. Wysoka pewność opisuje stabilność zaobserwowanego zachowania, nie procent trafności wykrycia ukrytej cechy.
+4. GET, refresh, ponowne logowanie, restart i manualny przycisk analizy nie tworzą dowodów.
+5. Profil osoby pozostaje po rehire; historia firmy i aktualność oceny są odrębne.
+6. Dostępność nie jest morale, chorobowe nie dowodzi nielojalności/symulacji choroby.
+7. Zdarzenie korzystne/niekorzystne nie powoduje automatycznej zmiany pensji, zwolnienia lub kary. Decyzje kadrowe to odrębne akcje.
+8. Agencja i zwykłe UI nie otrzymują więcej informacji niż właściciel firmy.
+9. Ocena historyczna nigdy nie jest nadpisana po zmianie metody.
+10. Pozytywne wyniki, brak danych i brak okazji do działania to różne sytuacje.
+
+### 18.2. Trzy warstwy danych
+
+Profil rzeczywisty: istniejące Staff traits/skills, trwała tożsamość osoby, generator i wersja. Nie kopiować ukrytych wartości do tabel ocen.
+Dowód: immutable źródłowe zdarzenie, czas i kontekst, jakość, rodzaj okazji, obserwator. Korekta przez odrębny wpis wskazujący zastępowany dowód.
+Ocena: snapshot okna dowodów, metoda, etap, kierunek wniosku, jakość podstaw, aktualność i opublikowana treść przez klucz tłumaczenia.
+Zależność wyłącznie profile→symulacja→zdarzenia→evidence→assessment. Zabroniony skrót profile→assessment.
+Nie zapisujemy prawdziwych danych medycznych: dotyczy fikcyjnych pracowników i zdarzeń gry, bez diagnoz w UI.
+
+### 18.3. Słownik stanów
+
+Etap: unassessed, preliminary, supported.
+Kierunek: insufficient, mixed, typical, favourable, concern. Nie każdy kierunek ma sens dla każdej domeny; allowlista w polityce.
+Pewność prezentacyjna: unavailable, low, medium, high.
+Aktualność: current, stale; stan techniczny osobno: queued, computing, completed, failed.
+Unassessed nie pokazuje ukrytej liczby0 ani oceny „zły”. Preliminary może mieć niską/średnią pewność, supported średnią/wysoką; nigdy supported tylko dlatego, że minęło dużo dni.
+Stale nie usuwa ostatniej oceny: pokazujemy datę, jej historyczny zakres i powód potrzeby nowych danych.
+Przejścia mogą działać wstecz przy wygaśnięciu okna, korekcie dowodu lub zmianie roli. Historyczny snapshot pozostaje.
+Brak oceniającego personelu HR: dowody zbierane dalej, poprzednia ocena widoczna z datą; nie korzystamy z maksymalnego skilla zastępczego.
+
+### 18.4. Kandydat progów wejścia
+
+Wymagania w wierszu są łączne. „Dzień” oznacza dzień rzeczywistej ekspozycji/obserwacji według UTC, nie samo istnienie konta.
+
+| Domena | Preliminary | Supported | Okno |
+|---|---|---|---|
+| Dostępność | 30aktywnych dni zatrudnienia i80zaplanowanych godzin | 90dni i240h | 180aktywnych dni |
+| Dokładność | 10kwalifikujących zadań na5różnych dniach pracy | 40zadań na20dniach | 90aktywnych dni |
+| Współpraca | 8wspólnych zadań na4zmianach | 25zadań na12zmianach i co najmniej3różne osoby współpracujące | 90aktywnych dni |
+| Inicjatywa | 10kwalifikujących okazji na5zmianach | 30okazji na15zmianach | 90aktywnych dni |
+
+Absencja jest składnikiem wyniku dostępności, nie koniecznym warunkiem zebrania historii. Nieobecność0 nie oznacza pewnego braku ukrytej podatności.
+Dla kierunku concern w dostępności dodatkowo minimum2niezależne epizody; supported concern wymaga minimum3 oraz progów supported i kontroli warunków. Są to proponowane zabezpieczenia, nie gwarancja kierunku wniosku.
+Częściowy etat nie daje automatycznie gorszej oceny; gromadzi mniej okazji/godzin i może potrzebować dłuższego czasu.
+Awans/zmiana charakteru pracy nie usuwa dowodów, lecz zmienia ich kwalifikowalność. Ocena nowej roli może być nieoceniona mimo dobrze poznanej starej roli.
+
+### 18.5. Kontrakt dowodu
+
+Producer dostarcza: source_module, source_event_id, source_revision, event_type, person_id, employment_period_id, observer_company_id, logical_at, interval_from/to, opportunity_id, role/task_category, outcome_code, exposure_units, public_context i schema_version.
+public_context zawiera tylko dozwolone informacje: poziom trudności, stan sprzętu, obciążenie, kwalifikacje znane firmie, rodzaj zmiany, zdarzenia zewnętrzne. Żadnych hidden_trait_value lub secret_rng.
+Adapter domeny wyznacza eligibility i quality wraz z reason_code; nie przyjmuje dowolnej jakości z klienta.
+Unikalność źródła: (source_module, source_event_id, observer_company_id, assessment_domain, source_revision). Jedna najnowsza skuteczna rewizja danego dowodu; rewizje nie są nowymi niezależnymi obserwacjami.
+Independence key:
+- dostępność: absence_episode_id, a nie dzień absencji;
+- dokładność: trwałe task_id lub z góry zdefiniowane okno produkcji, nie każdy baryłkowy ruch;
+- współpraca: wspólne task/shift+team_ref, nie każde powiadomienie;
+- inicjatywa: opportunity_id, zarówno wykorzystana jak i niewykorzystana okazja.
+Wagi wspólnego zdarzenia nie mogą rosnąć przez rozbicie na callbacki. Udział obserwacji z jednego dnia/zadania ma cap w polityce.
+Nie wolno interpretować braku dostarczonego eventu jako braku inicjatywy; tylko jawne zamknięcie rzeczywistej okazji daje taką obserwację.
+
+### 18.6. Normalizacja wyników
+
+Dostępność: osobno liczba epizodów/ekspozycja, utracone planowane godziny/planowane godziny, długość epizodów. Zatwierdzony urlop nie jest chorobowym; osobne kody przyczyn.
+Dokładność: wyniki porównywalnych zadań wobec baseline rola×trudność×sprzęt×obciążenie. Brak wiarygodnego baseline → dowód opisowy, bez oceny liczbowej.
+Współpraca: wyłącznie potwierdzone wyniki zespołowe i kontekst. Jedna osoba współpracująca nie daje supported oceny reprezentatywnej dla całej firmy.
+Inicjatywa: wykorzystane okazje / kwalifikujące okazje, z jakością potwierdzonego skutku.0okazji=brak oceny, nie0kompetencji.
+Dla każdej domeny adapter emituje signed residual w [-1,1], quality w[0,1] i attribution reason. Znaki znaczą favourable/concern zgodnie ze słownikiem domeny, nie ogólną ocenę wartości pracownika.
+Wzór residual, wartości baseline i margines typical muszą być w zatwierdzonej DomainAssessmentPolicy. Nie wpisujemy arbitralnych progów błędów dla wszystkich stanowisk.
+Gdy dominującym czynnikiem jest awaria/warunki, zmniejszamy quality lub wyłączamy dowód z oceny. Historia zdarzenia nadal dostępna.
+Nie porównywać pracownika z jego prywatnym „oczekiwanym wynikiem” wyliczonym z ukrytej cechy — byłby to przeciek przez normalizację.
+
+### 18.7. Proponowany algorytm jakości podstaw
+
+Oddzielamy kierunek oceny od jakości podstaw. Kandydat do symulacji:
+w_i = eligibility_i × quality_i × freshness_i × independence_cap_i.
+Score = sum(w_i×residual_i)/sum(w_i); gdy mianownik0 → unassessed.
+Freshness_i=max(0,1−age_i/window) w aktywnym czasie obserwacji; dla innego modelu zaniku konieczna nowa wersja polityki.
+N_eff=(sum(w_i))²/sum(w_i²), przy zerowym mianowniku0. Chroni przed traktowaniem wielu znikomych lub jednej dominującej obserwacji jako pełnej próby.
+Q = min(1,N_eff/target_count); D = znormalizowane pokrycie dni/zmian/współpracowników dla domeny; A = średnia ważona aktualność; R = jakość atrybucji kontekstu. Dokładne liczenie każdej miary zapisane w polityce; capy przed agregacją.
+Proponowany wskaźnik podstaw C=100×(0,35Q+0,25D+0,20A+0,20R). Nie jest skalibrowanym prawdopodobieństwem statystycznym.
+Proponowane przedziały: low<50, medium50–79, high≥80. Etapy nadal wymagają bramek §18.4, niezależnie od C.
+Brak minimalnej jakości, niejednorodna rola albo silnie sprzeczne wyniki może dać mixed, nawet przy dużej próbce. Nie ukrywamy sprzeczności przez prostą średnią.
+HR nie mnoży wprost C przez skill. Kompetencje mogą poprawić jakość rozpoznania kontekstu i zmniejszyć zakres niepewności tylko przy odpowiednich dowodach.
+Konkretne baseline/residual, independence cap, target_count i strategia sprzeczności pozostają ASSESS-CFG01. Bez nich evaluator nie jest produkcyjnie gotowy. Ten wzór jest kandydatem, nie pozornie kompletną statystyką wykrywania cech.
+
+### 18.8. Rola działu HR i kolejka analiz
+
+Wykorzystujemy istniejące umiejętności analizy/organizacji przez publiczny Staff context. Mapowanie ról na uprawnionego analityka wymaga katalogu; brak nowego duplikatu skilla.
+Lepszy analityk lepiej oddziela kontekst od pracownika i obsługuje większą kolejkę; nie tworzy dowodów i nie zagląda do profilu.
+Ocenę obliczamy najwyżej raz na dobę aktywnego czasu firmy dla person+domain, po nowych dowodach/zmianie metody/wygaśnięciu okna. Pilne fakty widoczne od razu, ale nie wymuszają nowej oceny.
+Manualny Reanalyse: ten sam input_hash+policy_version zwraca istniejący wynik. Brak płatnego „rzucania do skutku”.
+input_hash obejmuje kanonicznie uporządkowane evidence revisions, role_context, method_version, as_of i HR context. Slot dobowy trwały; samo nowe request_id nie zmienia as_of.
+Przerwanie pracy HR nie zatrzymuje logowania dowodów. Powrót przelicza stan docelowy zamiast emitować setki starych powiadomień.
+Zamrożenie firmy korzysta z istniejącego zegara; po długiej przerwie kalendarzowej UI pokazuje datę ostatniej oceny, nawet jeżeli aktywny czas się nie przesunął.
+
+### 18.9. Schemat logiczny
+
+staff_observation_events: id, source refs/revision, person/company/employment, domain, opportunity/independence key, logical_at, exposure, context_schema_version, payload allowlist, correction_of, recorded_at. Append-only.
+staff_observation_eligibility: evidence_id, policy_version, eligible, quality, reason_code, context_hash; UNIQUE(evidence_id,policy_version).
+staff_assessment_runs: id, company/person/domain, as_of, method_version, input_hash, HR_context_ref, status, result_ref, error_code; UNIQUE(company,person,domain,input_hash,method_version).
+staff_assessment_snapshots: run_id UNIQUE, stage, direction, confidence_band, basis_score, freshness_state, window_from/to, independent_count, exposure, message_key, safe_message_params, created_at. Immutable.
+staff_assessment_current: company/person/domain PK, snapshot_id, state_version. CAS nie pozwala starszemu wynikowi zastąpić nowszego.
+staff_assessment_evidence_links: snapshot_id,evidence_id,evidence_revision,weight,eligibility_reason, UNIQUE(snapshot_id,evidence_id,evidence_revision).
+Wszystkie ownership FK i indeksy company+person+domain+logical_at, źródło+revision, status+due wymagają migracji w HR-CONTRACT01. JSON tylko dla ograniczonego kontekstu, nie całego modelu.
+Retencja nie może usuwać podstawy snapshotu bez jawnej polityki archiwizacji i informacji „szczegóły zarchiwizowane”. Nie przeliczać starej oceny z niepełnej historii.
+
+### 18.10. Akcje, zdarzenia i transakcje
+
+RecordObservation: zaufany producer, walidacja schema/ownership, idempotentny zapis, outbox ObservationRecorded. Client nie ma publicznej mutacji tworzącej dowody.
+CorrectObservation: wskazanie pierwotnego źródła, nowa rewizja, uprawnienia, audyt i unieważnienie zależnych aktualnych ocen do przeliczenia. Bez usuwania źródła.
+ScheduleAssessment: scalanie żądań do jednego slotu, snapshot wejść. ComputeAssessment poza długą transakcją na niezmiennych danych.
+PublishAssessment: sprawdzenie input/version i aktualnej revokacji/scope, CAS bieżącego snapshotu, historia/outbox atomowo. Zmiana wejść w trakcie obliczeń → stale/requeue, nie podmiana nowszego wyniku.
+Odrębne lease+fencing dla długiego zadania; dla krótkiego zapisu standardowa idempotencja. Nowe tabele wymagają globalnej kolejności Staff14, nie własnych blokad po append140.
+AssessmentUpdated payload minimalny: snapshot_id/company/person/domain/version; nie hidden profile ani cały evidence payload.
+Powiadomienie tylko przy istotnej zmianie etapu/kierunku/powrocie aktualności według polityki. Nie wysyłać alertu dla każdej zmiany C o ułamek punktu.
+
+### 18.11. Kontrakt HTTP i DTO
+
+Proponowany odczyt: GET /api/v1/hr/employees/{id}/assessments; GET /api/v1/hr/assessments/{snapshot}/basis (paginowane).
+Proponowane żądanie analizy: POST /api/v1/hr/employees/{id}/assessment-requests z domain, expected_state_version i Idempotency-Key. Bez pól wynik/cecha/pewność.
+DTO: domain,stage,direction,confidence_band,freshness,as_of,window,independent_count,exposure_summary,message_key,safe_params,method_version,pending_refresh. Bez basis_score i surowego residual dla zwykłego gracza w pierwszej wersji.
+Brak oceny zwraca jawne unassessed z brakującymi typami przesłanek, nie404 osoby ani ukrytą wartość.
+Błędy:401/403/404wg wspólnej polityki,409stale/already_queued,422nieznana domena,429limit,503moduł niedostępny. Dokładne schematy i zgodność semantyki already_queued wymagają karty API; zalecany replay istniejącej operacji zamiast nowej.
+Filtry/sortowanie/eksport/cache/WebSocket bazują na publicznym DTO i ownership. Cache key obejmuje firmę, uprawnienia i wersję oceny. Brak ukrytej wartości w HTML,data-*,telemetrii i komunikatach błędów.
+GM odczyt rzeczywistego profilu oddzielnym kontraktem/capability z audytem, nigdy dodatkowym polem zwykłego DTO.
+
+### 18.12. Widok gracza
+
+Profil → Obserwacje HR, cztery obszary oceniane oddzielnie.
+Każdy: nazwa, etap, bezpieczny wniosek, pewność, aktualność, okres/liczba niezależnych obserwacji, Zobacz podstawę.
+Podstawa: lista faktów z datą, rodzajem zadania i opisem ograniczenia; widok bez sekretów, skalibrowanych ukrytych wag i danych obcej firmy.
+Przykład preliminary availability: „Historia jest zbyt krótka, aby określić trwałą tendencję. Zaobserwowano dwa krótkie epizody nieobecności.” Nie „ma podatność”.
+Przykład supported accuracy: „W porównywalnych zadaniach popełnia mniej błędów niż poziom odniesienia.” Gdy brak baseline, nie pokazujemy takiego wniosku.
+Rekrutacja: ocena zawodowa z rozmowy/testu tylko tam, gdzie dopuszcza katalog; dostępność/morale przyszłej pracy nadal nieocenione.
+Animacje zgodnie z §12.1; nie pokazują pseudo-losowania cechy. SVG, trzy języki, focus/klawiatura, mobile320px. Ładowanie/ocena w toku nie zastępują poprzedniego wyniku pustą kartą.
+
+### 18.13. Panel i wersjonowanie
+
+Kadry → Oceny i obserwacje HR:
+- katalog domen/cech i allowlista dowodów;
+- progi czasu/liczby/ekspozycji/różnorodności;
+- polityki baseline, residual, jakości, zaniku i przedziałów pewności;
+- mapowanie analityka/kompetencji i limitów kolejki;
+- komunikaty PL/EN/DE i reguły powiadomień;
+- lista snapshotów, dowodów, korekt, błędów i zaległych analiz;
+- preview nowej metody na syntetycznych danych i porównanie wersji.
+
+Aktywna metoda niezmienna, zmiana jako kandydat z hash i datą. Wdrożenie nie zmienia ukrytej cechy. Przeliczenie aktualnych ocen tworzy nowe snapshoty z nową wersją; nie nadpisuje historycznych.
+GM może skorygować błędny fakt przez uprawnioną akcję, nie wpisać dowolnej pewności w computed snapshot. Główny administrator bez obowiązkowego komentarza; automatyczny audyt i reason operacji pozostają.
+Granice praw: hr.assessments.view, hr.assessment_policy.draft/activate, hr.observations.correct, hr.assessments.recompute, hr.hidden_traits.view. Nazwy do rejestracji, nie przyznane uprawnienia.
+
+### 18.14. Testy i kryteria odbioru
+
+A01 epizod3dni=1dowód. A02 100GET=0nowych dowodów. A03 duplicate/revision nie zwiększa niezależnej liczby.
+A04 0okazji inicjatywy→unassessed. A05 sprzęt/awaria obniża jakość atrybucji. A06 brak baseline blokuje liczbowy wniosek.
+A07 wszystkie progi wejścia wymagane; progi dokładnie na granicy. A08 wysokie C bez ekspozycji nie daje supported.
+A09 niedostępność nie staje się karą morale. A10 silny HR bez danych nie zna cechy.
+A11 rehire zachowuje profil; obca firma nie dziedziczy oceny. A12 wygasłe okno/nowa rola obniża aktualność/etap bez kasowania historii.
+A13 metoda zmienia ocenę, nie źródłowe fakty/profil. A14 korekta dowodu wymaga nowego snapshotu.
+A15 brak wycieku przez DTO, filtry, cache, eksport, logi, WebSocket i Agencję.
+A16 worker/job/HTTP/retry publikują jeden wynik; stary worker nie zastępuje nowego. A17 odłączenie firmy/uprawnień przed publikacją.
+A18 brak personelu HR zachowuje dowody i ostatni wynik. A19 symulacja różnorodnych ról/etatów/warunków; pomiar mylnych wniosków.
+A20 preview bez skutków; admin bez komentarza; odmowa nieuprawnionej korekty.
+A21 PL/EN/DE/mobile/keyboard/reduced-motion. A22 retencja zachowuje odtwarzalność podstawy lub jawne archiwum.
+
+Testy statystyczne na syntetycznych profilach: odsetek favourable/concern/mixed i etapów po30/90/180dniach, fałszywe alarmy przy małej próbie, różnice ekspozycji pełny/pół etatu, przeciążenie vs neutralne warunki. Porównanie z rzeczywistą cechą dozwolone WYŁĄCZNIE w offline harness, nie evaluatorze runtime.
+Bramki: ASSESS-CFG01 baseline/wagi/progi, ASSESS-CONTRACT01 DDL/OpenAPI/lock order, ASSESS-QA01 kalibracja statystyczna i negatywne testy wycieków.
+Etapy programowania:1zbieranie/deduplikacja →2read-only historii →3evaluator i wersje →4snapshoty/worker →5UI/panel →6kalibracja/aktywacja.
+Ta runda opisuje kontrakty i testy do wykonania. Nie deklaruje testów Laravel/MySQL ani pełnego zamknięcia HR-CFG05.
