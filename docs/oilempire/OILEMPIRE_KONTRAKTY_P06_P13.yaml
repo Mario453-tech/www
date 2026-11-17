@@ -1,0 +1,1135 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OilEmpire P06–P13 implementation contracts (partial)",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/company": {
+      "post": {
+        "operationId": "createCompany",
+        "x-card-id": "P06-F01",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCompany"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/hr/employees": {
+      "post": {
+        "operationId": "hireEmployee",
+        "x-card-id": "P07-F02",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HireEmployee"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/hr/raise-requests/{id}/decision": {
+      "post": {
+        "operationId": "decideRaise",
+        "x-card-id": "P08-F02",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RaiseDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/training/enrollments": {
+      "post": {
+        "operationId": "enrollEmployee",
+        "x-card-id": "P09-F02",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnrollEmployee"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/legal/permits": {
+      "post": {
+        "operationId": "applyPermit",
+        "x-card-id": "P10-F01",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyPermit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/wells/drilling-projects": {
+      "post": {
+        "operationId": "drillWell",
+        "x-card-id": "P11-F02",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DrillWell"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/logistics/trips": {
+      "post": {
+        "operationId": "dispatchTrip",
+        "x-card-id": "P12-F03",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DispatchTrip"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    },
+    "/api/v1/technical/tasks": {
+      "post": {
+        "operationId": "startTechnicalTask",
+        "x-card-id": "P13-F02",
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartTechnicalTask"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Synchronous committed result when applicable"
+          },
+          "202": {
+            "description": "Deferred process accepted when applicable"
+          },
+          "409": {
+            "description": "State/policy/catalog conflict; see card"
+          },
+          "422": {
+            "description": "Validation error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateCompany": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "additionalProperties": false
+      },
+      "HireEmployee": {
+        "type": "object",
+        "properties": {
+          "candidate_offer_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "accepted_salary_minor": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          }
+        },
+        "required": [
+          "candidate_offer_id",
+          "accepted_salary_minor"
+        ],
+        "additionalProperties": false
+      },
+      "RaiseDecision": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "enum": [
+              "accept",
+              "counteroffer",
+              "refuse",
+              "defer"
+            ]
+          },
+          "offered_salary_minor": {
+            "type": "string",
+            "pattern": "^[0-9]+$"
+          },
+          "expected_state_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "action",
+          "expected_state_version"
+        ],
+        "additionalProperties": false
+      },
+      "EnrollEmployee": {
+        "type": "object",
+        "properties": {
+          "employee_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "program_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "expected_state_version": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "expected_catalog_version": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "employee_id",
+          "program_id",
+          "level",
+          "expected_state_version",
+          "expected_catalog_version"
+        ],
+        "additionalProperties": false
+      },
+      "ApplyPermit": {
+        "type": "object",
+        "properties": {
+          "region_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "permit_type": {
+            "enum": [
+              "P1",
+              "P2"
+            ]
+          },
+          "expected_scope_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "region_id",
+          "permit_type",
+          "expected_scope_version"
+        ],
+        "additionalProperties": false
+      },
+      "DrillWell": {
+        "type": "object",
+        "properties": {
+          "stratum_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "survey_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "equipment_tier": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_state_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "stratum_id",
+          "survey_id",
+          "equipment_tier",
+          "expected_state_version"
+        ],
+        "additionalProperties": false
+      },
+      "DispatchTrip": {
+        "type": "object",
+        "properties": {
+          "vehicle_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ref": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "destination_ref": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "quantity_bbl": {
+            "type": "string",
+            "pattern": "^[0-9]+([.][0-9]{1,4})?$"
+          },
+          "route_option": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_source_version": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "vehicle_id",
+          "source_ref",
+          "destination_ref",
+          "quantity_bbl",
+          "route_option",
+          "expected_source_version"
+        ],
+        "additionalProperties": false
+      },
+      "StartTechnicalTask": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "target_ref": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "minLength": 1
+              },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          },
+          "provider_kind": {
+            "enum": [
+              "internal",
+              "external",
+              "private_fire"
+            ]
+          },
+          "staff_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "type",
+          "target_ref",
+          "provider_kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "x-scope": "Partial input schemas, card coverage and ownership; not complete endpoint implementation or proof of SQL.",
+  "x-cards": [
+    {
+      "id": "P06-F01",
+      "title": "Utworzenie firmy i jednorazowy starter",
+      "package": "P06",
+      "owner": "core",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P06-F02",
+      "title": "Zmiany reputacji i propagacja",
+      "package": "P06",
+      "owner": "core",
+      "blocked_scenarios": [
+        "DOM05"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P06-F03",
+      "title": "Bieżący majątek, Tier i tarcza",
+      "package": "P06",
+      "owner": "core",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P06-F04",
+      "title": "Urlop, dormant i bezpieczny powrót",
+      "package": "P06",
+      "owner": "core",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P07-F01",
+      "title": "Proces rekrutacji i oferty",
+      "package": "P07",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM16"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P07-F02",
+      "title": "Zatrudnienie i rozwiązanie umowy",
+      "package": "P07",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM02"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P07-F03",
+      "title": "Przydziały i rezerwacja dostępności",
+      "package": "P07",
+      "owner": "staff",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P07-F04",
+      "title": "Zarząd i bramki kompetencyjne",
+      "package": "P07",
+      "owner": "staff",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P08-F01",
+      "title": "Naliczanie wynagrodzeń i ocena zadowolenia",
+      "package": "P08",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM01"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P08-F02",
+      "title": "Żądanie podwyżki i decyzja",
+      "package": "P08",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM04"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P08-F03",
+      "title": "Dobowy model morale i populacja działu",
+      "package": "P08",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM02"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P08-F04",
+      "title": "Spór, strajk, negocjacje i mediator",
+      "package": "P08",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM03"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P09-F01",
+      "title": "katalog, kwalifikowalność i niezmienna oferta kursu",
+      "package": "P09",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM06"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P09-F02",
+      "title": "zapis pracownika na kurs i wyłączna zajętość",
+      "package": "P09",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM06"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P09-F03",
+      "title": "egzamin, certyfikat, powtórki i dokończenie w draining",
+      "package": "P09",
+      "owner": "staff",
+      "blocked_scenarios": [
+        "DOM07",
+        "DOM08"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P10-F01",
+      "title": "złożenie wniosku P1/P2",
+      "package": "P10",
+      "owner": "legal",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P10-F02",
+      "title": "werdykt, refund pierwszej odmowy i odwołanie",
+      "package": "P10",
+      "owner": "legal",
+      "blocked_scenarios": [
+        "DOM09"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P10-F03",
+      "title": "kontrakt uprawnień, koncesja i odnowienie",
+      "package": "P10",
+      "owner": "legal",
+      "blocked_scenarios": [
+        "DOM10"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P10-F04",
+      "title": "jednorazowy CAPEX pozwolenia i alokacje do odwiertów",
+      "package": "P10",
+      "owner": "legal",
+      "blocked_scenarios": [
+        "DOM11"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P11-F01",
+      "title": "badanie geologiczne i prognoza złoża",
+      "package": "P11",
+      "owner": "extraction",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P11-F02",
+      "title": "wiercenie, odbiór i ewidencja nakładów",
+      "package": "P11",
+      "owner": "extraction",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P11-F03",
+      "title": "obsada, połączenie i legalny rozruch",
+      "package": "P11",
+      "owner": "extraction",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P11-F04",
+      "title": "produkcja segmentowa, wyczerpanie i zużycie",
+      "package": "P11",
+      "owner": "extraction",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P12-F01",
+      "title": "magazyny, huby, najem i przypisanie odwiertu",
+      "package": "P12",
+      "owner": "logistics",
+      "blocked_scenarios": [
+        "DOM14"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P12-F02",
+      "title": "rurociąg skierowany i segmenty",
+      "package": "P12",
+      "owner": "logistics",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P12-F03",
+      "title": "flota, kurs drogowy i rejs morski",
+      "package": "P12",
+      "owner": "logistics",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P12-F04",
+      "title": "przepływ, zatoki, rozładunek i delivery_receipt",
+      "package": "P12",
+      "owner": "logistics",
+      "blocked_scenarios": [
+        "DOM12",
+        "DOM13"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P13-F01",
+      "title": "BHP, integralność procedur i audyty",
+      "package": "P13",
+      "owner": "incidents",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P13-F02",
+      "title": "TTS: zlecenie, obsada, pauza i koszt materiałów",
+      "package": "P13",
+      "owner": "incidents",
+      "blocked_scenarios": [],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P13-F03",
+      "title": "losowanie, skutki i rejestr incydentu",
+      "package": "P13",
+      "owner": "incidents",
+      "blocked_scenarios": [
+        "DOM15"
+      ],
+      "implementation_status": "not_implemented"
+    },
+    {
+      "id": "P13-F04",
+      "title": "naprawa, blowout i uzgodnienie stanu zasobu",
+      "package": "P13",
+      "owner": "incidents",
+      "blocked_scenarios": [
+        "DOM08",
+        "DOM15"
+      ],
+      "implementation_status": "not_implemented"
+    }
+  ],
+  "x-blockers": [
+    {
+      "id": "DOM01",
+      "scope": "P08-F01",
+      "alias": "POLICY-PAYROLL-01",
+      "decision": "PLN/miesiąc bez dzielnika czasu; wybrać kalendarz UTC albo inną jawną podstawę, reguły reszt i test sumy miesięcznej.",
+      "source": "§4.1/§23; staff.params.morale.salary_satisfaction",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM02",
+      "scope": "P07-F02, P08-F03",
+      "alias": "DISMISSAL-01",
+      "decision": "Natychmiastowe zakończenie vs24h populacji sporu; −10 instant vs−8/os14dni cap−24. Ustalić jeden employment_ended_at oraz osobno znaczenie kar, bez automatycznego sumowania.",
+      "source": "§4.2/§4.3/§5",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM03",
+      "scope": "P08-F04",
+      "alias": "NEGOTIATION-01",
+      "decision": "Brak pełnej formuły rund zbiorowych i etapów eskalacji; ustalić współczynniki i koszt oferty przed produkcyjną negocjacją.",
+      "source": "§5.2; staff params",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM04",
+      "scope": "P08-F02",
+      "alias": "RAISE-AMOUNT-01",
+      "decision": "Próg/deadline kontroferty istnieją, brak formuły żądanej kwoty podwyżki; potrzebna wersjonowana polityka generatora.",
+      "source": "§4.2",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM05",
+      "scope": "P06-F02 (wyłącznie event sankcji P21)",
+      "alias": "CARTEL-PROPAGATION-01",
+      "decision": "Jawne −15cred/−15B2B vs propagacja50%; określić czy B2B finalne czy dodatkowe. Pozostałe reputacje i wyjątek2FA są rozpisane.",
+      "source": "§2/§26.3",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM06",
+      "scope": "P09-F01, P09-F02",
+      "alias": "T09-L02",
+      "decision": "Uzupełnić wersjonowany cennik i parametry każdego bazowego kursu/poziomu; przedział10–100k nie jest ceną. Istniejące kursy Refining bez zmiany liczb.",
+      "source": "§6/§31; staff/refining training",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM07",
+      "scope": "P09-F03 (powrót po locku)",
+      "alias": "T09-L01",
+      "decision": "Czy po7 dniach resetuje się licznik porażek i bonus? Ustalić bez arbitralnego resetu, z testem czwartej próby.",
+      "source": "§6; training.max_failures_before_lock",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM08",
+      "scope": "P09-F03, P13-F04",
+      "alias": "T09-L03/DPL07-remis",
+      "decision": "Równość egzamin/koniec zatrudnienia oraz repair/escalation wymaga jawnego priorytetu zdarzeń przy identycznym logical_at.",
+      "source": "§6/§17.4/§23.6",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM09",
+      "scope": "P10-F02 (appeal)",
+      "alias": "T10-L01",
+      "decision": "Zwrot opłaty appeal i kolejność bonusu2p.p.×skill vs clamp podstawowy; nie dopisywać refundu ani wyższego cap bez decyzji.",
+      "source": "§7.3",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM10",
+      "scope": "P10-F03",
+      "alias": "T10-L02",
+      "decision": "Wzór wyceny regionu dla5% odnowienia i zachowanie aktywów w30d grace/po utracie uprawnienia.",
+      "source": "§19.4",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM11",
+      "scope": "P10-F04 (koszty odmów/appeal)",
+      "alias": "CAPEX-COST-01",
+      "decision": "Zakwalifikować koszt odrzuconego wniosku i appeal; ewidencja wpłaty nie oznacza automatycznie CAPEX uzyskanego pozwolenia.",
+      "source": "§19.1/OPEN03",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM12",
+      "scope": "P12-F04 (postojowe)",
+      "alias": "DPL01",
+      "decision": "30min w§11A.4 vs2h w§21/B2B: jawnie rozdzielić konteksty albo uzgodnić jedną wartość. Nie zmieniać2000PLN/h bez decyzji.",
+      "source": "§11A.4/§13/§21",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM13",
+      "scope": "P12-F04 (port)",
+      "alias": "DPL05",
+      "decision": "Port500/1500/4000bbl na przebieg potrzebuje stałej jednostki ekspozycji/czasu, aby requesty nie zwiększały przepustowości.",
+      "source": "§11A.5",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM14",
+      "scope": "P12-F01 (przepięcie)",
+      "alias": "DPL06",
+      "decision": "2przebiegi przepięcia muszą dostać logiczne sloty/due_at niezależne od liczby wejść gracza.",
+      "source": "§11A.2",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM15",
+      "scope": "P13-F03, P13-F04",
+      "alias": "DPL07-ekspozycja",
+      "decision": "Przypisać hazardom na tick ich kanoniczną bazę czasu; nie zamieniać ich po cichu na p_per_h.",
+      "source": "§9.5/§17.4/§23.6",
+      "status": "requires_rule_resolution"
+    },
+    {
+      "id": "DOM16",
+      "scope": "P07-F01 (płatny katalog rekrutacji)",
+      "alias": "RECRUITMENT-CATALOG-01",
+      "decision": "Potwierdzić kompletny koszt lokalnej/międzynarodowej rekrutacji i slotów ofert z parametrami; brak ceny oznacza niedostępny wariant, nie dopisany cennik.",
+      "source": "§3.1; staff params",
+      "status": "requires_rule_resolution"
+    }
+  ],
+  "x-balance-roots": [
+    "core",
+    "staff",
+    "legal",
+    "extraction",
+    "logistics",
+    "incidents"
+  ],
+  "x-lock-groups": {
+    "13": "Core",
+    "14": "Staff/Training",
+    "15": "Legal",
+    "16": "Technical/BHP",
+    "17": "Incidents",
+    "18": "TechnicalTasks",
+    "39": "Extraction surveys"
+  },
+  "x-storage-contracts": {
+    "employee_skills": {
+      "columns": [
+        "employee_id",
+        "skill_code",
+        "value",
+        "state_version"
+      ],
+      "unique": [
+        [
+          "employee_id",
+          "skill_code"
+        ]
+      ]
+    },
+    "employee_traits": {
+      "columns": [
+        "employee_id",
+        "trait_code",
+        "value",
+        "state_version"
+      ],
+      "unique": [
+        [
+          "employee_id",
+          "trait_code"
+        ]
+      ]
+    },
+    "employee_availability": {
+      "columns": [
+        "employee_id",
+        "active_job_type",
+        "active_job_id",
+        "state_version"
+      ],
+      "primary": [
+        "employee_id"
+      ],
+      "nullable_pair": [
+        "active_job_type",
+        "active_job_id"
+      ]
+    },
+    "pipeline_inbound_heads": {
+      "columns": [
+        "well_ref",
+        "pipeline_id"
+      ],
+      "primary": [
+        "well_ref"
+      ],
+      "unique": [
+        [
+          "pipeline_id"
+        ]
+      ]
+    },
+    "pipeline_outbound_heads": {
+      "columns": [
+        "hub_id",
+        "pipeline_id"
+      ],
+      "primary": [
+        "hub_id"
+      ],
+      "unique": [
+        [
+          "pipeline_id"
+        ]
+      ]
+    },
+    "stock_reservations": {
+      "columns": [
+        "id",
+        "source_type",
+        "source_id",
+        "owner_company_id",
+        "operation_id",
+        "purpose",
+        "quantity_bbl",
+        "state",
+        "created_at",
+        "state_version"
+      ],
+      "unique": [
+        [
+          "operation_id",
+          "source_type",
+          "source_id",
+          "purpose"
+        ]
+      ]
+    }
+  }
+}
