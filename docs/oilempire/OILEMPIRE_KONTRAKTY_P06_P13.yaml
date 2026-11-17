@@ -1131,5 +1131,29 @@
         ]
       ]
     }
+  },
+  "x-hr-extension": {
+    "document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md",
+    "status": "approved_scope_pending_parameters_and_contracts",
+    "affected_packages": [
+      "P07",
+      "P08",
+      "P09",
+      "P16"
+    ],
+    "open_gates": [
+      "HR-CFG01",
+      "HR-CFG02",
+      "HR-CFG03",
+      "HR-CFG04",
+      "HR-CFG05",
+      "HR-CONTRACT01"
+    ],
+    "existing_blockers_retained": [
+      "DOM01",
+      "DOM02",
+      "DOM16"
+    ],
+    "runtime_implemented": false
   }
 }
