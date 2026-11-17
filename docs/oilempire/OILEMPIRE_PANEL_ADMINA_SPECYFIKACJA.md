@@ -431,3 +431,7 @@ Zasady wspólne: wykonanie = jedna transakcja domenowa + `gm_action_log` + (dla 
 * v2 (2026-11-15): parytet legacy — reset hasła, komunikaty GM i newsletter TinyMCE; akcje i testy P20–P22.
 
 * v1 (2026-11-14): pierwsza pełna wersja — warstwa wizualna i szablony (§1), pulpit (§2), nawigacja parity+moduły (§3), kontrakt manifestu panelowego i łączenie modułów (§4), katalog ~45 zasobów z kolumnami/filtrami/akcjami/formularzami (§5), 40+ kodów akcji GM z capami (§6), macierz uprawnień (§7), testy P1–P15 (§8).
+
+## 9. Karty domeny P06–P13
+
+[Karty P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) definiują dane oraz te same akcje aplikacyjne, które wywołuje Filament. Widoki pracownika, szkolenia, pozwolenia, odwiertu, huba, kursu i naprawy pokazują stany i przyczyny odmów z kontraktu; nie zapisują statusów ręcznie. employee_skills/employee_traits są pojedynczym źródłem cech, employee_availability chroni zajętość. Procedury wymagające nierozstrzygniętej polityki DOM są oznaczone niedostępne wraz z przyczyną; administracyjny przycisk nie omija tej bramki.
