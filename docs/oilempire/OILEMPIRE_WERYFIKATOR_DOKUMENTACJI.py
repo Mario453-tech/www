@@ -60,7 +60,7 @@ check("D08 eighteen unique security acceptance scenarios", len(ids) == len(set(i
 check("D09 UTF-8 without BOM", all(not (BASE / f).read_bytes().startswith(bytes.fromhex("efbbbf")) for f in files))
 
 index = (BASE / "README.md").read_text(encoding="utf-8")
-indexed_packages = re.findall(r"^\\| (P\\d{2}) [^|]*\\|", index, re.M)
+indexed_packages = re.findall(r"^[|] (P[0-9]{2}) [^|]*[|]", index, re.M)
 check("D10 integrated index covers every work package once", len(indexed_packages) == len(cards) and set(indexed_packages) == set(cards))
 chapters = files[:-1] + ["OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md"]
 check("D11 every chapter links to shared specification index", all("](README.md)" in (BASE / f).read_text(encoding="utf-8") for f in chapters))
