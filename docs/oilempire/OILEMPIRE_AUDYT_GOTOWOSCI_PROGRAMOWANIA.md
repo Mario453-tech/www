@@ -54,3 +54,28 @@ Wypełnić szczegółowe karty P01–P05, zaczynając od rejestru kontraktów i 
 ## 6. Powiązanie w jedną specyfikację
 
 Wspólny README określa właścicieli reguł i mapę P01–P25 → domena/API/panel/bezpieczeństwo → testy/blokery. Każdy kanoniczny rozdział odsyła do indeksu. Zmiana wymaga aktualizacji wszystkich dotkniętych kontraktów; nowszy załącznik nie nadpisuje automatycznie innych reguł. Po integracji wykonano 12 kontroli dokumentacji: 12 PASS, 0 FAIL; symulator ekonomii: 73 PASS, 0 FAIL. Pierwszy test D10 ujawnił błąd wzorca w nowej kontroli indeksu; poprawiono wzorzec i ponowiono przebieg. Otwarte OPEN01–OPEN09 pozostają bez zmian.
+
+## 7. Drugi przegląd dokumentacji implementacji — 2026-11-17
+
+Zakres: pobrano komplet 11 aktualnych plików kanonicznych wraz z SHA. Ponownie przeanalizowano plan, standard modułu, kontrakt bezpieczeństwa i API; porównanie architektury i panelu było ukierunkowane na transakcje, wersjonowanie, approval i runtime. Nie jest to ponowny audyt każdej liczby i każdego wiersza całej domeny ani historycznych recenzji.
+
+| ID | Waga | Sprzeczność i korekta |
+|---|---|---|
+| REV01 | P1 | Manifest nadal deklarował key training mimo właściciela Staff; usunięto konieczność „zwinięcia przykładu” przez programistę. Przykład ma key staff, provider Staff i dostarczane kontrakty staff.employees/staff.training, bez samozależności. |
+| REV02 | P1 | Panel §4.4 natychmiast blokował wszystkie akcje po enabled=false. Opisano runtime active/draining/disabled/faulted oraz kontynuację i recovery. |
+| REV03 | P1 | Test panelu P3 wymagał identycznego stanu po re-enable, choć czas i procesy biegną. Test wymaga zachowania danych i historii oraz legalnego rozliczenia czasu. |
+| REV04 | P1 | API wymagało aktywnej balance_version dla wszystkich skutków, również trwających procesów. Nowa akcja bierze aktywną wersję, kontynuacja utrwaloną startową. |
+| REV05 | P0 | Warunek SQL przejęcia klucza dopuszczał każdy stary created_at, bez status=pending, więc po zmianie stanu mógł nadpisać committed. Ograniczono warunek do failed albo starego pending; committed nigdy nie podlega przejęciu. To wymaga implementacyjnego testu wyścigu, nie tylko kontroli tekstu. |
+| REV06 | P1 | API i bezpieczeństwo dopuszczały różny typ JSON pieniędzy. Ustalono jeden typ dziesiętnego stringa w jednostkach najmniejszych dla wszystkich kwot; baza i arytmetyka nadal BIGINT. |
+| REV07 | P1 | Graf statusów balansu mógł sugerować rejected → active. Wypisano jawne przejścia; rejected jest końcowy, rollback tworzy kandydaturę. |
+| REV08 | P1 | Tabela reason W sugerowała obowiązek również dla owner_admin. Doprecyzowano wyjątek §0.4; owner nie musi wpisywać wolnego powodu. |
+| REV09 | P1 | Zakres klucza FTS pomijał company_id i operation mimo zakresu API per aktor/operacja. Dodano firmę i operację do opisu wejścia hasha. Ostateczna karta musi również uwzględnić aktora, zgodnie z kontraktem API. |
+
+Weryfikacja po zmianach: 18 kontroli dokumentacji PASS, 0 FAIL; ekonomia 73 PASS, 0 FAIL. D13 parsuje przykład manifestu zamiast polegać tylko na opisie. Kontrole D14–D18 sprawdzają wskazane własności regresyjne; nie zastępują rzeczywistego wykonania SQL/HTTP ani testu współbieżności. Pierwszy przebieg nowej D13 ujawnił błąd ekstrakcji bloku YAML w weryfikatorze; poprawiono ekstrakcję przed publikacją.
+
+OPEN01–OPEN09 pozostają otwarte. Dodatkowe ograniczenia:
+- OPEN10 (P1/P03–P04): opis idempotencji łączy pending w jednej transakcji z przejmowaniem starych pending i stanem failed. Trzeba przed kodem ustalić, czy istnieje osobna trwała próba operacji/lease; nie wolno uznać, że niezatwierdzony pending innej transakcji jest widoczny. Dodać test 1062, timeout, rollback i CAS.
+- OPEN11 (P1/P05): append-only balance_versions jest opisane równolegle z aktualizowalnym statusem. Karta DDL ma rozdzielić niezmienny snapshot parametrów od historii przejść/aktualnego stanu aktywacji; brak edycji parametrów już zatwierdzonych.
+- OPEN12 (P1/P03): scope actor_id dla HTTP musi być zapisany w finalnym kluczu idempotencji; dla zdarzenia systemowego używa się stabilnej tożsamości domenowej, niezależnej od tego, czy wyzwolił je HTTP, job czy sweeper.
+
+Werdykt: nie wszystko jest jeszcze zgodne ani gotowe do bezpośredniej implementacji. Poprawiono konkretne błędy dokumentacji; 12 otwartych problemów nadal wymaga kart i decyzji przed wskazanymi pakietami. Wynik 18/73 PASS nie zamyka tych problemów.
