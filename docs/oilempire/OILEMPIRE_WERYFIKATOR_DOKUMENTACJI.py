@@ -76,9 +76,16 @@ check("D14 panel exposes draining runtime", "runtime draining" in panel and "sta
 api = (BASE / "OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md").read_text(encoding="utf-8")
 check("D15 API preserves process balance version", "kontynuacja procesu używa utrwalonej wersji startowej" in api)
 architecture = (BASE / "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md").read_text(encoding="utf-8")
-check("D16 idempotency reclaim excludes committed status", "(status='failed' OR (status='pending' AND created_at < NOW(3)−60s))" in architecture)
+check("D16 short transactions do not reclaim pending", "Nie przejmuje się niezatwierdzonego pending" in architecture and "fencing_token" in architecture)
 check("D17 rejected balance cannot activate", "Rejected jest końcowy" in architecture)
 check("D18 money serialization is uniform", 'dziesiętny string' in api and 'wszystkie kwoty w najmniejszej jednostce są dziesiętnymi stringami' in security)
+
+
+check("D19 all twelve decisions registered", len(re.findall(r"^[|] OPEN[0-9]{2} [|]", plan, re.M)) == 12)
+check("D20 refresh recovery is two minutes", "2 minuty" in api and "2 minuty" in security)
+check("D21 approved recovery objective", "RTO ≤60 minut" in architecture)
+check("D22 daily tax and current wealth separated", "company_wealth_state" in architecture and "client_key" in architecture)
+check("D23 approved purchase channels", "Google Play Billing" in api and "Apple In-App Purchase" in api)
 
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
