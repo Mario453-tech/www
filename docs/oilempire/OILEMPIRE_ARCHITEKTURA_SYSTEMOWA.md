@@ -113,7 +113,6 @@ flowchart TD
 
     Cred <--> CreditScore
     Cred --> B2BRep
-    Cred --> ContractRep
     BlackMarket -.->|Niszczy| Cred
     Cred -.->|Wpływa na marże| BankTrust
 ```
@@ -125,7 +124,7 @@ flowchart TD
    - **Wzrost wiarygodności:** terminowa spłata raty (+2), spłata kredytu (+8), przedterminowa spłata (+6), każde kolejne 7 dni bez incydentu (+3, faza 6 sweepa), włączenie 2FA (+5, jednorazowo — §14.3), wyjście z planu naprawczego (+8 — §17.3).
 2. **Reputacja B2B (`b2b_reputation_scores`) & Kontraktowa (`contract_reputation`):**
    - Realizacja dostaw na czas podnosi reputację; zerwanie umowy, porzucenie kontraktu lub brak dostawy skutkuje potrąceniem kaucji (`security_deposit`) i spadkiem reputacji, co blokuje dostęp do lukratywnych kontraktów rafinerii.
-   - **Zasada propagacji (ogólna):** każda zmiana `company_credibility` o Δ przenosi **50% Δ** na `b2b_reputation_scores` (w obie strony, clamp 0–100) — dotyczy WSZYSTKICH zdarzeń (bankructwo, katastrofa, czarny rynek, sabotaż), spójne z §21. `contract_reputation` zmienia się wyłącznie przez zdarzenia kontraktowe (§13) i nie dziedziczy propagacji.
+   - **Zasada propagacji (ogólna):** każda zmiana `company_credibility` o Δ przenosi **50% Δ** na `b2b_reputation_scores` (w obie strony, clamp 0–100) — dotyczy zdarzeń gospodarczych (bankructwo, katastrofa, czarny rynek, sabotaż), spójne z §21. Wyjątek §14.3: bonus i cofnięcie bonusu za 2FA nie propagują do B2B. Do propagacji używamy faktycznie zastosowanej delty po clamp, raz pod kluczem zdarzenia. `contract_reputation` zmienia się wyłącznie przez zdarzenia kontraktowe (§13) i nie dziedziczy propagacji.
 3. **Ślad Czarnorynkowy (`black_market_score`, 0–100):**
    - Wzrost: **+2 pkt** za każdą transakcję czarnorynkową. **Decay: −1 pkt/24h** od ostatniej transakcji (liniowy, do zera; faza 8 ticka §23.2).
    - Ryzyko kontroli skarbowej: przy `score > 30` szansa na godzinę = `(score − 30) × 0,02%`. Skutek kontroli: blokada 50% `PLN_BANK` na 24–72h, grzywna 10% niezadeklarowanych przychodów gotówkowych, `company_credibility` −12, wpis do `company_credibility_log`.
@@ -465,13 +464,13 @@ Wszystkie moduły automatycznie rejestrują swoje zasoby w Filament v5:
 | Moduł | Trasy gracza | Filament (grupa) | Kluczowe tabele |
 |---|---|---|---|
 | Core | `/dashboard`, `/profile`, `/help`, czat | Gracze, Logi, Alerty, Czat | `users`, `sessions`, `trusted_devices`, `financial_transaction_service` |
-| Extraction | `/map` | Odwierty | `wells`, `well_buffers`, `strata`, `licenses` |
+| Extraction | `/map` | Odwierty | `wells`, `well_buffers`, `strata` (koncesja przez Legal) |
 | Logistics | `/logistics` | Transport i porty, Huby, Rurociągi, Monitoring strat | `hubs`, `pipelines`, `trucks`, `trips` |
 | Incidents | (w `/technical`, `/map`) | Incydenty | `incidents`, `incident_repairs` |
 | Market | `/market` | Rynek ropy, Czarny Rynek, Balans gry | `market_offers`, `price_history`, `black_market_trades` |
 | Banking | `/bank` | Bank/Kredyty, Bank – konta, Kryzys finansowy, Wiarygodność | `loans`, `bailiff_proceedings`, `company_credibility_log` |
 | Staff | `/hr`, `/boardroom` | Dział kadr, Sala Zarządu, System szkoleń | `employees`, `employee_raise_requests`, `strikes`, `training_programs`, `training_certificates`, `employee_dialogue_templates` |
-| Legal | `/legal`, `/sabotage` | Zezwolenia, Łapówki, Sabotaże, Ochrona | `permits`, `sabotage_operations`, `protections` |
+| Legal | `/legal`, `/sabotage` | Zezwolenia, Łapówki, Sabotaże, Ochrona | `permit_applications`, `permit_grants`, `licenses`, `sabotage_operations`, `protections` |
 | Contracts (Market/B2B) | `/contracts` | Kontrakty długoterminowe | `system_contracts`, `b2b_offers`, `escrow_accounts` |
 | Finance | `/finance` | Dział finansowy | `player_finance_decisions`, `department_budgets` |
 | Monetization | `/shop` | FINANSE & SKLEP (§22.4) | `payment_orders`, `payment_transactions`, `gbbl_ledger`, `promo_codes` |
@@ -611,8 +610,8 @@ Trzy środki transportu ropy: **drogowy (cysterny)**, **rurociągi** i **morski 
    - odwiert morski: `odwiert → bufor morski → rejs tankowcem → PORT → HUB → (odcinek 2) → magazyn główny`.
 2. **Bilans baryłki:** każda strata (wyciek, kradzież, wypadek, rozlanie) to jawny wpis w niezmiennym rejestrze ruchów ropy `oil_movements` (`źródło, cel, wolumen, reason_code, sweep_no, idempotency_key`). Zawsze zachodzi: `wydobyte = magazyn + w transporcie + w buforach + udokumentowane straty`. Rekoncyliacja (§29.2) obejmuje ropę, nie tylko pieniądze.
 3. **Stany partii ropy:** `at_well → reserved_inbound → at_hub → reserved_outbound → at_storage → reserved_sale | reserved_b2b → consumed`; strata kończy część partii stanem `lost` z przyczyną. Partia zachowuje właściciela przez całą drogę.
-4. **Zero „cichej magii":** przerwany łańcuch zatrzymuje ropę w buforze poprzedniego ogniwa; po zapełnieniu kaskada: magazyn pełny → odcinek 2 staje (`paused_storage`) → bufor huba rośnie → przepełnienie huba = udokumentowane rozlanie (`hub_overflow_spill`) → bufor odwiertu pełny → odwiert w stanie `choked` (produkcja 0, pełny koszt utrzymania, powiadomienie kategorii `critical`). Istnieje jawny, drogi tryb awaryjny bez huba (`fallback_direct`, domyślnie WYŁĄCZONY): przepustowość 100 bbl/h, koszty ×2, strata 3%. Zwykłe nasycenie łańcucha NIE jest incydentem: rozlanie wyłącznie jako skutek awarii/sabotażu (§11A.7); w normalnej pracy kaskada zatrzymuje dopływ (`paused_storage`/`choked`) bez strat — także offline (§19.2).
-5. **Precyzja:** wolumeny `DECIMAL(16,4)` bbl we wszystkich tabelach logistyki, jedno zaokrąglenie przy kredycie do magazynu; kondycja `DECIMAL(9,5)` (przy rozliczeniu Δt zużycie 0,05%/h = 0,00083 na godzinę — mniejsza precyzja zerowałaby degradację, dosłowny błąd starej gry). Pieniądze wyłącznie `BIGINT` grosze przez FTS (§24.2).
+4. **Zero „cichej magii”:** przerwany łańcuch zatrzymuje ropę w poprzednim buforze. `choked` oznacza brak przekazu, lecz produkcja może trwać tylko do zapełnienia własnego bufora (§9.1). Po nasyceniu przechodzi w `paused_storage`: produkcja 0, OPEX jałowy 20% nominalnego zgodnie z §23.4, wzrost idle_hours. Zwykłe nasycenie zatrzymuje dopływ bez rozlania; strata jest wyłącznie udokumentowanym skutkiem awarii/sabotażu. Tryb fallback_direct pozostaje domyślnie wyłączony: przepustowość100 bbl/h, koszty×2, strata3% zgodnie z dotychczasowym kanonem; nie włącza się od samego nasycenia.
+5. **Precyzja:** wolumeny `DECIMAL(16,4)` bbl we wszystkich tabelach logistyki, jedno zaokrąglenie przy kredycie do magazynu; kondycja `DECIMAL(9,5)` (przy rozliczeniu Δt zużycie 0,05 punktu procentowego/h = około 0,00083 punktu procentowego/minutę — mniejsza precyzja zerowałaby degradację, dosłowny błąd starej gry). Pieniądze wyłącznie `BIGINT` grosze przez FTS (§24.2).
 6. **Rozliczenia:** logistyka działa w modelu delta-time (§23): ciągły przepływ rurociągów rozliczany z Δt, kursy i rejsy jako encje z czasem przybycia (ETA), plateau przy nasyceniu buforów (§23.4), zdarzenia dyskretne przez wspólną rutinę „zapadłych zdarzeń" (§23.6).
 
 ### 11A.2. Huby logistyczne
@@ -713,7 +712,7 @@ planowany → pozwolony → budowa → aktywny → zdegradowany(<70) → krytycz
 aktywny..krytyczny ⇄ wyciek (rzut | sabotaż) ; wyciek → uszkodzony (kondycja=0)
 aktywny ⇄ wstrzymany (gracz; utrzymanie ×0,5 nadal biegnie — wyłączenie nie znosi kosztów)
 uszkodzony → naprawa (TTS) → aktywny
-ZAKAZ: skrótu wstrzymany/uszkodzony → aktywny (błąd legacy „wskrzeszanie rurociągów" — przejście odrzucane i testowane)
+ZAKAZ: wstrzymany wraca wyłącznie do stanu wynikającego z zachowanej kondycji/wycieku po kontroli Technical; wznowienie nie leczy uszkodzenia. Uszkodzony wymaga naprawy. Pause nie resetuje incydentu, zużycia ani kosztów.
 ```
 
 ### 11A.4. Transport drogowy (cysterny)
@@ -812,7 +811,7 @@ Sabotaże graczy wyłącznie przez usługę §7 z limitami (5 udanych/7 dni na o
 
 ### 11A.8. Rozliczanie w silniku delta-time (§23)
 Kolejność podfaz w przebiegu rozliczeniowym logistyki (faza 2 §23.3): **2.1** wysyłka odcinka 1 (załadowanie cystern z buforów odwiertów; rezerwacja wolumenu + koszt przez FTS) → **2.2** rozliczenie przybyć (kursy i rejsy z ETA ≤ teraz; rzuty incydentów ziarnem §23.6; kredyt dwufazowy do bufora huba/magazynu) → **2.3** kolejki portowe (priorytet, limit przepustowości, opłata obsługi) → **2.4** przepływ rurociągów dopływowych (ciągły, straty/wycieki) → **2.5** przetwarzanie hubów (przepustowość skuteczna, opróżnianie bufora, przepełnienie → rozlanie, zużycie, incydenty — JEDNO źródło rzutu, nie dublować) → **2.6** odcinek 2 (rurociągi wypływowe + wysyłka cystern z bufora huba) → **2.7** kredyt do magazynu z limitem (nadmiar → `paused_storage` + kaskada; uzgodnienie bilansu bbl) → **2.8** zapis incydentów, statystyk, zdarzenia na zewnątrz dopiero po zatwierdzeniu transakcji (§23.8).
-**Kredyt dwufazowy (wzorzec legacy do zachowania):** przybycie przechodzi `w_trasie → kredytowany` (wolumen i incydenty utrwalone) → kredyt do magazynu/huba + `kredytowany → dostarczony` w JEDNEJ transakcji z kluczem `(sweep_no, trip_id)`. Pełny łańcuch stanów kursu: `załadowany → w_trasie → waiting_bay (kolejka u odbiorcy, §21) → kredytowany → dostarczony`; odgałęzienie `waiting_bay → odholowany` po 48h (§21) — właścicielem ładunku do receipt pozostaje nadawca. Restart: rekordy `kredytowany` na starcie = kredyt NIE zatwierdzony → ponowny kredyt BEZ ponownych rzutów. Zakaz stanów przejściowych poza transakcją (błąd legacy: utrata ropy przy awarii w stanie `opóźniony`).
+**Kredyt dwufazowy (wzorzec legacy do zachowania):** przybycie przechodzi `w_trasie → kredytowany` (wolumen i incydenty utrwalone) → kredyt do magazynu/huba + `kredytowany → dostarczony` w JEDNEJ transakcji z stabilnym kluczem domenowym `trip:{trip_id}:delivery_receipt` (bez sweep_no i bez identyfikatora wyzwalacza). Pełny łańcuch stanów kursu: `załadowany → w_trasie → waiting_bay (kolejka u odbiorcy, §21) → kredytowany → dostarczony`; odgałęzienie `waiting_bay → odholowany` po 48h (§21) — właścicielem ładunku do receipt pozostaje nadawca. Restart: rekordy `kredytowany` na starcie = kredyt NIE zatwierdzony → ponowny kredyt BEZ ponownych rzutów. Zakaz stanów przejściowych poza transakcją (błąd legacy: utrata ropy przy awarii w stanie `opóźniony`).
 **Dostawa między graczami (§13.2) = REALNY transport, nie sam licznik:** po `accepted` rezerwacja wolumenu z magazynu sprzedającego + escrow; sprzedający wybiera środek transportu (11A.6); `delivered` dopiero po fizycznym rozładunku u kupującego (`delivery_receipt` **wygrywa** z automatycznym zwrotem po przekroczeniu terminu — domknięcie luki §13.2). Strata częściowa w trasie → rozliczenie częściowe + ścieżka sporu; utrata całkowita → zwrot escrow kupującemu + opcjonalne ubezpieczenie kursu (płatne, `game_balance`). Termin dostawy = ETA + margines; magazyn kupującego pełny → kurs czeka w zatoce kupującego, opłata postojowa po stronie KUPUJĄCEGO (§21).
 
 ### 11A.9. Logistyka w panelu administratora
@@ -1521,7 +1520,7 @@ W menu administratora pojawia się dedykowany moduł **FINANSE & SKLEP**:
 
 - **Tabela `net_worth_snapshots`:** `company_id`, `snapshot_date` (data UTC), `net_worth_grosze`, `starter_value_grosze`, `drip_30d_grosze`, `tier_base_grosze`, `tier`, `sweep_no`, `balance_version`; UNIQUE(`company_id`, `snapshot_date`). Snapshot dobowy 00:00 UTC służy podatkowi. Tarcza i Tier otrzymują bieżący wynik tego samego serwisu, zapisany oddzielnie jako company_wealth_state z state_version/as_of/pricing_version; nie nadpisują historycznego snapshotu.
 - **Podstawa Tieru:** `tier_base = net_worth − wartość pakietu startowego (kanon) − drip_30d`, gdzie `drip_30d` = suma wpłat PLN z konwersji GBBL→PLN z ostatnich 30 dni (suma z KSIĘGI KONWERSJI `gbbl_conversions` — konwersja GBBL→PLN nie jest pojedynczym wpisem FTS (§24.3); indeks `(company_id, conversion_date_utc)`)`). Kapitał pokonwersyjny starszy niż 30 dni liczy się normalnie — nie ma osobnego pola salda ani znaczników pochodzenia na każdym groszu.
-- **Przedziały Tierów półotwarte:** I `<10M`; II `[10M, 50M)`; III `[50M, 200M)`; IV `[200M, 1B]`; V `>1B` (dokładnie 1 mld = Tier IV). Snapshot niezmiennikowy z polami: `net_worth_grosze`, `tax_base_grosze`, `shield_base_grosze`, `inventory_valuation_version` (§19.1.1) — trzej konsumenci (podatek/tarcza/Tier) czytają JEDEN rekord.
+- **Przedziały Tierów półotwarte:** I `<10M`; II `[10M, 50M)`; III `[50M, 200M)`; IV `[200M, 1B]`; V `>1B` (dokładnie 1 mld = Tier IV). Snapshot niezmiennikowy z polami: `net_worth_grosze`, `tax_base_grosze`, `shield_base_grosze`, `inventory_valuation_version` (§19.1.1) — jeden serwis wyceny publikuje niezmienny snapshot podatku oraz bieżący company_wealth_state dla tarczy/Tieru (OPEN02); nie czytają one na siłę jednego historycznego rekordu.
 - **Cel:** zakup GBBL i wymiana tego samego dnia NIE podnosi jutrzejszego limitu; anty-snieżna-kula (Kroplówka → majątek → wyższy Tier → większa Kroplówka) jest strukturalnie zamknięta 30-dniowym oknem.
 - **Potwierdzenie (OPEN02):** Tier jest wyliczany z bieżącego majątku przed decyzją. Zatwierdzona decyzja zastępuje wcześniejsze opóźnienie obniżki Tieru do następnego dnia. Dzienny limit wymiany i UNIQUE na dobę UTC pozostają; spadek Tieru nie cofa wykonanej wymiany. recovery_mode/Faza 2 egzekucji blokują nowe wymiany natychmiast.
 - **Równoległość:** max **1 żądanie oczekujące** na firmę; UNIQUE(`company_id`, `conversion_date_utc`) w księdze konwersji + `idempotency_key=drip:{...DD}` — równoległe kliknięcia dają dokładnie jedną wymianę na dobę (kanon 1/24h); duplikat = no-op z odpowiedzią „już wymieniono".
@@ -1573,14 +1572,21 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | 10 | companies: wszystkie objęte firmy rosnąco po ID |
 | 11 | company_settlement_state: rosnąco po company_id |
 | 12 | due_events: rosnąco po event_id; job nie blokuje eventu przed firmą |
+| 13 | Core: starter_identity_claims → company_starter_grants → company_wealth_state → company_shields → company_status_periods → company_time_pauses → company_reputation_state |
+| 14 | Staff: recruitment_requests → candidate_offers → employees → employee_skills → employee_traits → employee_availability → assignment_slots → employee_assignments → board_positions → employee_raise_requests → department_strikes → training_progress → training_enrollments → training_retry_state |
+| 15 | Legal: permit_region_scopes → permit_applications → permit_entitlement_heads → permit_grants → license_heads → licenses → license_renewals → permit_cost_pools → capex_allocations |
+| 16 | Technical/BHP: company_technical_state → procedure_jobs |
+| 17 | Incidents: incidents → repair_current → incident_repair_links → blowout_escalation_state |
+| 18 | TechnicalTasks: technical_tasks |
 | 20 | ledger_accounts: rosnąco po account_id, w tym SYS_* |
 | 21 | fund_reservations: rosnąco po account_id, potem reservation_id; zawsze po blokadzie konta rodzica |
 | 30 | obligations, potem loans: rosnąco po ID w każdej tabeli |
-| 40 | wells, potem well_buffers |
-| 50 | pipelines, potem pipeline_segments |
-| 60 | hubs, potem hub_buffers |
-| 70 | storages, potem product_storages |
-| 80 | trips |
+| 39 | Extraction: strata → survey_open_slots → geological_surveys → drilling_open_slots → drilling_projects |
+| 40 | wells → well_buffers → well_connection_state |
+| 50 | pipelines → pipeline_inbound_heads → pipeline_outbound_heads → pipeline_segments → pipeline_flow_state |
+| 60 | hubs → hub_leases → hub_well_assignments → well_assignment_current → hub_buffers → hub_bays → ports |
+| 70 | storages → product_storages → stock_reservations → oil_lots |
+| 80 | transport_vehicles → vehicle_use → trips → port_calls; receipt to niezmienny append rank140 pod lockiem trip |
 | 90 | escrow_accounts; escrow_movements są append-only |
 | 100 | market_offers |
 | 110 | contracts, potem contract_tranches |
@@ -1588,7 +1594,7 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | 130 | globalne wiersze płynności/slippage: spot i sweeper przez ten sam kontrakt |
 | 140 | append-only FTS, effect keys, oil/product/escrow movements, audit i outbox; CAS istniejących rekordów już zablokowanych |
 
-W każdej wymienionej tabeli domenowej kolejność po ID. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
+W każdej wymienionej tabeli domenowej kolejność po ID; brakujący jeszcze rekord slotu/availability tworzy się pod wcześniej zablokowanym rodzicem. Katalog i wersje kursów są niemutowalne w operacji gospodarczej. Wiersze historii/certyfikatu/wyniku/receipt, których nie blokujemy wcześniej, zapisuje się append rank140 pod blokadą nadrzędnego employee/trip/application, z deduplikacją. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
 
 Transakcje konfiguracji mają osobny porządek: balance_current (activation_gate) → users/role assignments → kandydatura/wersja/projekcje → module_runtime_states → audit/outbox. Nie łączymy ich z gospodarczym LockPlan. Szczegóły i testy: karty P04-F02/P05-F03.
 
