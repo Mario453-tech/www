@@ -1,5 +1,8 @@
 # OilEmpire — jedna specyfikacja techniczna gry
 
+Doprecyzowanie HR-CFG02/04: [Umowy, wynagrodzenia i odprawy — HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md). Zawiera kandydujące stawki, algorytmy i przykłady sprawdzone arytmetycznie; nie zmienia YAML v1. Pozostają kalibracja, grafiki/absencje, DOM02/DOM08 oraz kontrakty wykonawcze.
+
+
 > **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
 
 
