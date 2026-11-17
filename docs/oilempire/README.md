@@ -104,3 +104,8 @@ Oba narzędzia wymagają PyYAML. Weryfikator sprawdza wybrane własności strukt
 [Lista poprawek](OILEMPIRE_MASTER_LISTA_POPRAWEK.md), [audyt końcowy poprzedniego etapu](OILEMPIRE_AUDYT_FINAL_SYNTEZA.md), recenzje i propozycje modeli dokumentują genezę decyzji. Starszy OILEMPIRE_LARAVEL_ARCHITEKTURA_SYSTEMOWA.md jest materiałem historycznym. Te pliki nie stanowią alternatywnej implementacji i nie nadpisują rozdziałów z §1.
 
 Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i wskazania, które testy faktycznie wykonano.
+
+
+## Opcjonalne rozszerzenie przyszłe — Agencja pracy
+
+[Specyfikacja Agencji pracy](OILEMPIRE_AGENCJA_PRACY_SPECYFIKACJA.md): planowanie załogi, utrzymanie obsady i delegowana obsługa kadr. Właściciel WorkforceAgency, zależność do Staff/Finance; powiązania P07–P09/P16/P24/P25. Nie zmienia obecnej listy P01–P25 ani14korzeni balansu. Taryfy, kontrakty i testy AG-CFG/CONTRACT/ECON/RELEASE wymagane przed przyszłą aktywacją.
