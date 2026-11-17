@@ -5,6 +5,8 @@
 
 ## 1. Wprowadzenie i Założenia Systemowe
 
+Szczegółowy zakres fundamentu: [karty P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md). Karty rozwijają plan, nie stanowią oddzielnego wariantu silnika.
+
 Plan implementacji wszystkich obszarów: [OILEMPIRE_PLAN_PROGRAMOWANIA.md](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Błędy i otwarte decyzje przed kodowaniem: [OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md](OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md). Status zapisów projektowych nie oznacza wdrożenia; kartę pakietu i jego blokery sprawdza się przed programowaniem.
 
 Projekt stanowi kompleksową, nowoczesną implementację strategicznej gry korporacyjno-naftowej **OilEmpire (oilempire.pl)** w architekturze **Modular Monolith** z frontendem **SPA (Single Page Application)**:
@@ -1536,7 +1538,7 @@ W menu administratora pojawia się dedykowany moduł **FINANSE & SKLEP**:
 - **Background Sweeper (cron co 5 minut** — kadencja odziedziczona po legacy `cron-5min.php`**):** rozlicza (a) graczy nieaktywnych, (b) stany globalne (rynek, wydarzenia, podatki, decay), (c) materializuje zapadłe zdarzenia i powiadomienia. Nie istnieje stały „krok symulacji" — gracz klikający w interfejsie ma stan zawsze aktualny, rozliczony w locie.
 
 ### 23.2. Trzy wyzwalacze rozliczeń, JEDNA rutina, poprawność przez CAS
-- **Ścieżka LENIWA (gracz):** każdy request przechodzi przez middleware `SettlePlayer` — rozlicza encje gracza (wielkości ciągłe Δt + zapadłe zdarzenia dyskretne) w jednej transakcji, dopiero potem wykonuje akcję na świeżym stanie.
+- **Ścieżka LENIWA (gracz):** odczyt wymagający aktualnego stanu rozlicza encje przez SettlementService. Mutacja ekonomiczna wykonuje rozliczenie i komendę w JEDNEJ transakcji aplikacyjnej; middleware nie zatwierdza oddzielnego rozliczenia przed mutacją. Zestaw zasobów obejmuje obie części i stosuje globalny porządek blokad. Szczegóły: [karta P04-F01](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md).
 - **Ścieżka SWEEPER („śpiochy"):** kandydaci `WHERE last_calc_at < NOW() − INTERVAL 5 MINUTE`. Filtr jest WYŁĄCZNIE optymalizacją (zmniejsza zbiór i liczbę blokad) — **nie gwarantuje poprawności**: gracz może wrócić dokładnie w oknie między zapytaniem a rozliczeniem.
 - **Gwarancje poprawności (niezależne od filtru):** (1) rozliczenie encji w transakcji DB z `SELECT ... FOR UPDATE`; (2) **optymistyczny CAS na `last_calc_at`**: `UPDATE ... SET last_calc_at = :new WHERE id = :id AND last_calc_at = :old` — przegrana ścieżka cofa transakcję (no-op, zero podwójnych naliczeń); (3) `idempotency_key` per rozliczenie i per zdarzenie (§23.6).
 - **Ścieżka KOLEJKOWA (termin):** po zatwierdzeniu utworzenia zdarzenia dyskretnego planowany jest opóźniony job z `event_id` i `due_at`. Worker wywołuje tę samą rutinę due-events w `SettlementService`; job nie oblicza własnych skutków i nie jest źródłem prawdy.
