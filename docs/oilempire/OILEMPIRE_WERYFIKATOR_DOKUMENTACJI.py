@@ -85,7 +85,7 @@ check("D18 money serialization is uniform", 'dziesiętny string' in api and 'wsz
 check("D19 all twelve decisions registered", len(re.findall(r"^[|] OPEN[0-9]{2} [|]", plan, re.M)) == 12)
 check("D20 refresh recovery is two minutes", "2 minuty" in api and "2 minuty" in security)
 check("D21 approved recovery objective", "RTO ≤60 minut" in architecture)
-check("D22 daily tax and current wealth separated", "company_wealth_state" in architecture and "client_key" in architecture)
+check("D22 documented tax and wealth separation", "Snapshot dobowy 00:00 UTC służy podatkowi" in architecture and "company_wealth_state" in architecture and "bieżący wynik tego samego serwisu" in architecture)
 check("D23 approved purchase channels", "Google Play Billing" in api and "Apple In-App Purchase" in api)
 
 
@@ -96,6 +96,42 @@ check("D25 every foundation package has its cards", all(sum(x.startswith(p + "-"
 check("D26 plan links foundation cards", "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md" in plan)
 check("D27 mutation settlement shares transaction", "middleware nie zatwierdza oddzielnego rozliczenia przed mutacją" in architecture and "JEDNĄ transakcję" in foundation)
 check("D28 rollback permits repeated content hash", "identyczny hash treści jest dozwolony" in foundation and "yaml_hash BINARY(32) UNIQUE" not in foundation)
+
+
+login_row = next((line for line in foundation.splitlines() if line.startswith("**POST /api/v1/auth/login:**")), "")
+verify_row = next((line for line in foundation.splitlines() if line.startswith("**POST /auth/2fa/verify:**")), "")
+check("D29 challenge secret issued before verify", "202 z challenge_id, challenge_secret," in login_row and "challenge_secret" in verify_row and "challenge_secret" in api)
+check("D30 access token session revocation contract", "personal_access_tokens (Sanctum)" in foundation and "api_session_id FK" in foundation and "Każdy Bearer request" in foundation and "Każde żądanie Bearer" in api)
+check("D31 refresh reuse precedence", "także zmieniony payload pod tym samym kluczem" in foundation and "Dopiero dla niewykorzystanego tokenu" in api)
+op_row = next((line for line in foundation.splitlines() if line.startswith("**operations:**")), "")
+check("D32 current operation lease schema", all(field in op_row for field in ["operation_id PK", "current_attempt_no", "fencing_token", "lease_owner", "lease_until", "state_version"]))
+check("D33 global balance singleton", "**balance_current:** singleton world_id PK" in foundation and "active_version_id" in foundation and "SELECT FOR UPDATE tego rekordu" in foundation)
+rank_rows = {parts[1].strip(): parts[2].strip() for line in architecture.splitlines() if line.startswith("|") for parts in [line.split("|")] if len(parts) >= 4 and parts[1].strip().isdigit()}
+check("D34 lock order covers mutable roots", all(str(rank) in rank_rows and table in rank_rows[str(rank)] for rank,table in [(1,"operation_idempotency"),(5,"operations"),(11,"company_settlement_state"),(12,"due_events"),(21,"fund_reservations")]))
+reservation_row = next((line for line in foundation.splitlines() if line.startswith("**fund_reservations:**")), "")
+check("D35 reservation unique columns declared", "reservation_kind VARCHAR(32) NOT NULL" in reservation_row and "UNIQUE(operation_id, account_id, reservation_kind)" in reservation_row)
+check("D36 available balance guards transfer", "amount_minor <= available_minor" in foundation and "reservation_id i amount równego pełnej kwocie" in foundation)
+check("D37 activation outbox atomic insert", "Rekord outbox balance.activated zapisany w tej samej transakcji" in foundation)
+check("D38 slippage not sweeper exclusive", "| Cena ropy, matching limit, slippage, wydarzenia światowe |" not in architecture and "| Zużycie płynności NPC i okno slippage sprzedaży spot |" in architecture)
+shield_rule = next((line for line in architecture.splitlines() if "Nowo zarejestrowana korporacja posiada" in line), "")
+check("D39 shield uses undiscounted assets and empty storage", "100% systemowej wyceny" in shield_rule and "początkowa ropa = 0" in shield_rule and "× 0,70" not in shield_rule and "do rozstrzygnięcia produktowego" not in shield_rule)
+
+
+contract = yaml.load((BASE / "OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml").read_text(encoding="utf-8"), Loader=UniqueLoader)
+schemas = contract["components"]["schemas"]
+flow_errors = []
+for binding in contract["x-flow-bindings"]:
+    producer, consumer = schemas[binding["producer"]], schemas[binding["consumer"]]
+    for field in binding["fields"]:
+        if field not in producer["required"] or field not in consumer["required"] or producer["properties"].get(field) != consumer["properties"].get(field):
+            flow_errors.append(field)
+check("D40 machine contract satisfies challenge flow", not flow_errors, ",".join(flow_errors))
+storage_errors = []
+for name, table in contract["x-storage-contracts"].items():
+    for key in table.get("unique", []) + [table.get("primary", [])]:
+        storage_errors += [name + "." + field for field in key if field not in table["columns"]]
+check("D41 machine storage keys reference declared columns", not storage_errors, ",".join(storage_errors))
+check("D42 refresh policy ordering is explicit", contract["x-session-policy"]["refresh_priority"] == ["invalid_session","identical_replay","consumed_token_revoke","unused_token_key_conflict","rotate"])
 
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
