@@ -34,6 +34,7 @@ if balance:
     check("D03 source document exists", (BASE / balance["meta"]["source_document"]).is_file())
 
 files = ["OILEMPIRE_PLAN_PROGRAMOWANIA.md", "OILEMPIRE_STANDARD_MODULU_WDROZENIE.md", "OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md", "OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md", "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md", "OILEMPIRE_PANEL_ADMINA_SPECYFIKACJA.md", "README.md"]
+files.insert(-1, "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md")
 missing = []
 for name in files:
     text = (BASE / name).read_text(encoding="utf-8")
@@ -86,6 +87,15 @@ check("D20 refresh recovery is two minutes", "2 minuty" in api and "2 minuty" in
 check("D21 approved recovery objective", "RTO ≤60 minut" in architecture)
 check("D22 daily tax and current wealth separated", "company_wealth_state" in architecture and "client_key" in architecture)
 check("D23 approved purchase channels", "Google Play Billing" in api and "Apple In-App Purchase" in api)
+
+
+foundation = (BASE / "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md").read_text(encoding="utf-8")
+foundation_ids = re.findall(r"^### (P[0-9]{2}-F[0-9]{2})", foundation, re.M)
+check("D24 sixteen unique foundation cards", len(foundation_ids) == len(set(foundation_ids)) == 16)
+check("D25 every foundation package has its cards", all(sum(x.startswith(p + "-") for x in foundation_ids) == n for p,n in [("P01",3),("P02",4),("P03",3),("P04",3),("P05",3)]))
+check("D26 plan links foundation cards", "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md" in plan)
+check("D27 mutation settlement shares transaction", "middleware nie zatwierdza oddzielnego rozliczenia przed mutacją" in architecture and "JEDNĄ transakcję" in foundation)
+check("D28 rollback permits repeated content hash", "identyczny hash treści jest dozwolony" in foundation and "yaml_hash BINARY(32) UNIQUE" not in foundation)
 
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
