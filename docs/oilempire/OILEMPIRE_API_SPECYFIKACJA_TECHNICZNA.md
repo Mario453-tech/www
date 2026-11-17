@@ -21,7 +21,7 @@ Obowiązuje również [kontrakt bezpieczeństwa silnika](OILEMPIRE_BEZPIECZENSTW
 | Transport | HTTPS; odrzucenie niezabezpieczonego transportu poza lokalnym środowiskiem developerskim |
 | Format | JSON UTF-8, `Accept: application/json`; daty ISO 8601 UTC z milisekundami, np. `2026-11-15T12:30:00.000Z` |
 | Identyfikatory publiczne | losowe ULID/UUID, bez ujawniania sekwencyjnych kluczy bazy; identyfikator nie zastępuje polityki dostępu |
-| Pieniądze | liczba całkowita w najmniejszej jednostce jako `amount_minor` lub pole `*_minor`; jedna waluta gry, bez `float` i bez przewalutowania (§24) |
+| Pieniądze | kwota w najmniejszej jednostce jako dziesiętny string `amount_minor`/`*_minor`, np. `"1200000"`; stały typ także dla małych kwot, w bazie BIGINT, bez float i przewalutowania (§24) |
 | Ropa i produkty | wartości DECIMAL przesyłane jako ciągi dziesiętne, np. `"123.4567"` bbl; bez utraty precyzji przez JSON number |
 | Język | `Accept-Language: pl|en|de`; serwer zwraca `Content-Language`; kody błędów pozostają stabilne niezależnie od języka |
 | Wersja | zmiany kompatybilne w `/api/v1`; usunięcie/zmiana znaczenia pola wymaga `/api/v2` i okresu równoległej obsługi |
@@ -57,7 +57,7 @@ Odpowiedź sukcesu: `data` (obiekt lub lista), opcjonalne `meta` (paginacja, cza
 - Każda mutacja gospodarcza używa `Idempotency-Key` (UUID/ULID generowany przez klienta dla jednej intencji). Unikalność jest ograniczona do aktora, operacji i klucza; serwer zapisuje hash kanonicznego żądania, wynik oraz status. Ten sam klucz i identyczny payload zwracają poprzedni wynik; ten sam klucz z innym payloadem zwraca `409 IDEMPOTENCY_KEY_REUSED`.
 - Klucz jest rejestrowany w trwałej tabeli przed blokowaniem kont (§23.5a). Rozliczenie, rezerwacja, FTS, zmiana stanu i wynik idempotencji są atomowe. Odpowiedź utracona przez sieć nie może spowodować ponownego pobrania pieniędzy przy retry.
 - Mutacja może wymagać `If-Match` z `state_version`. Nieaktualna wersja daje `409 STATE_CHANGED` ze wskazaniem odświeżenia, bez częściowego wykonania.
-- Serwer wylicza cenę, koszt, limit, terminy i skutki z aktywnej `balance_version`; wartości przesłane przez klienta są co najwyżej oczekiwanym quote. Przy zmianie quote serwer zwraca konflikt i nową ofertę do świadomego potwierdzenia.
+- Dla nowej operacji serwer wylicza cenę, koszt, limit i terminy z aktywnej `balance_version`; kontynuacja procesu używa utrwalonej wersji startowej zgodnie z §29.5; wartości przesłane przez klienta są co najwyżej oczekiwanym quote. Przy zmianie quote serwer zwraca konflikt i nową ofertę do świadomego potwierdzenia.
 - Zadania odroczone zapisują rekord domenowy i `due_at` w transakcji, a job wysyłają po commicie. Klient dostaje `202 Accepted` z ID operacji i terminem, gdy wynik końcowy nastąpi później. `GET /api/v1/operations/{id}` zwraca status tylko właścicielowi.
 
 ## 6. Moduły i zasoby API
@@ -92,7 +92,7 @@ Odczyty kolekcji używają paginacji kursorowej, stabilnego sortowania oraz limi
 ```
 
 - `400` niepoprawny format; `401` brak/wygaśnięcie sesji; `403` brak uprawnienia; `404` brak dostępnego zasobu; `409` konflikt stanu, quote lub idempotencji; `422` walidacja pól; `429` limit żądań; `503` chwilowa niedostępność. Błąd `500` nie ujawnia stack trace ani danych wrażliwych.
-- `code` jest stabilny i lokalizowany przez klienta; `message` pochodzi z języka żądania i nadaje się do wyświetlenia. `details.fields` może zawierać błędy pól. UI dobiera własną ikonę SVG i komponent zgodnie z §27.2a; API nie przekazuje HTML ani zewnętrznego URL ikony.
+- `code` jest stabilnym identyfikatorem niezależnym od języka; klient lokalizuje jego prezentację; `message` pochodzi z języka żądania i nadaje się do wyświetlenia. `details.fields` może zawierać błędy pól. UI dobiera własną ikonę SVG i komponent zgodnie z §27.2a; API nie przekazuje HTML ani zewnętrznego URL ikony.
 - Rate limiting jest osobny dla logowania/2FA/resetu, odczytów, mutacji gospodarczych, czatu i wyszukiwania. Limity chronią przed bruteforce i kosztownym rozliczaniem na żądanie; `429` zawiera `Retry-After`. Limiter nie zastępuje idempotencji. Konkretne wartości startowe i klucze są w §10.
 - Każda odpowiedź ma `X-Request-Id`; logi przechowują kod operacji, identyfikator aktora i czas, ale nie hasła, tokeny, pełny payload ani treść prywatnych wiadomości. Metryki rozdzielają web/mobile, typ akcji, czas `SettlementService`, konflikty i błędy.
 
