@@ -273,6 +273,53 @@ R17:noc+nadgodziny sumują dodatki, bez podwójnej podstawy. R18:prognoza niczeg
 R19:pełna obsługa mobile/klawiaturą bez drag; PL/EN/DE. R20:starter i rafinerie po zatwierdzeniu mapy obsady.
 To scenariusze odbioru, nie wyniki testów działającego silnika.
 
+
+### 4.2. Urlopy — polityki w pełni konfigurowalne z panelu
+
+Status: zatwierdzone wymaganie funkcjonalne. Właściciel Staff. Panel Filament: Kadry → Polityki urlopowe. Wszystkie reguły biznesowe i wartości urlopów są edytowalne; nie oznacza możliwości wyłączenia integralności księgowania, audytu lub autoryzacji. Brak implementacji.
+
+| Obszar konfiguracji | Parametry |
+|---|---|
+| Rodzaje urlopów | Kod, nazwa PL/EN/DE, aktywność, kwalifikowalność, płatność, oddzielna pula; np. wypoczynkowy, bezpłatny, okolicznościowy |
+| Pula i naliczanie | Godziny bazowe, zależność od etatu/stażu/umowy/regionu, okres, moment nabycia, tempo, precyzja i zaokrąglenia |
+| Dostępność | Okres oczekiwania, urlop zaliczkowy, limit zaliczki, reguła rozliczenia zaliczki przy odejściu |
+| Wnioski | Wyprzedzenie, minimalna/maksymalna długość, liczba otwartych wniosków, dopuszczalne terminy |
+| Zatwierdzanie | Ręczne/automatyczne, wymagane pokrycie obsady, limit równoczesnych nieobecności i koszt zastępstwa |
+| Płatność | Procent podstawy, metoda wyceny, profil składników i obciążeń firmy; według HR-PAY-01 |
+| Przenoszenie | Limit przeniesienia, termin ważności, kolejność zużycia roczników, ostrzeżenia o wygaśnięciu |
+| Zmiana/anulowanie | Uprawnione role, terminy, wymagana zgoda, zwrot rezerwacji i skutki finansowe |
+| Kolizje | Choroba, inne urlopy, szkolenie, wypowiedzenie, pauza firmy; jawna macierz priorytetów |
+| Ekwiwalent | Kiedy należny, podstawa godzinowa, limity, termin płatności i profil obciążeń |
+| Morale | Skutki odmowy/przesunięcia/odwołania oraz braku wypoczynku; zdarzenia do istniejącego modelu, bez podwójnych kar |
+| Powiadomienia | Progi, terminy, odbiorcy i szablony PL/EN/DE, ikony z lokalnej allowlisty SVG |
+
+Konfiguracja używa walidowanych pól, słowników i zatwierdzonych strategii obliczeń, nie dowolnego PHP/JavaScript lub wykonywalnej formuły administratora. Nowy algorytm poza dostępnymi strategiami wymaga wydania kodu; jego parametry pozostają w panelu.
+
+**Kandydat domyślny do kalibracji:** urlop wypoczynkowy160h/rok pełnego etatu (40/80/120/160h dla1/4,1/2,3/4,1); proporcjonalne nabywanie,100% podstawy; niewykorzystane godziny przenoszone bez automatycznego kasowania. To wartości startowe, nie stałe w kodzie ani deklaracja rzeczywistych przepisów.
+Zmiana etatu wpływa na przyszłe nabywanie, bez cichego przeliczenia historycznej puli. Urlop zużywa zaplanowane godziny pracy, nie24h każdej doby.
+Wniosek: submitted → approved/rejected/alternative_proposed → used; cancelled jako osobne zakończenie zgodne z polityką. Zmiana terminu alternatywnego wymaga akceptacji i ponownego sprawdzenia dostępności.
+Zatwierdzenie rezerwuje godziny i utrwala objęte zmiany. Późniejsza edycja grafiku nie zwiększa lub zmniejsza samowolnie zużycia zaakceptowanego urlopu.
+Pula jest księgą zdarzeń: nabycie, przyznanie, rezerwacja, zwolnienie, wykorzystanie, przeniesienie, wygaśnięcie, korekta. Dostępne=nabyte+przyznane+korekty−wykorzystane−wygasłe−aktywne rezerwacje, z osobnym jawnym limitem zaliczki. Przeniesienie rocznika nie przyznaje godzin drugi raz.
+Anulowanie zwalnia rezerwację raz; wykorzystanie zamienia ją w zużycie, nie odejmuje drugi raz dostępności. Na styku choroby i urlopu zwracamy wyłącznie objęte kolizją godziny według wybranej polityki.
+Płatny urlop zastępuje należny składnik czasu nieobecności, nie dodaje drugiej pensji. Zastępstwo ma własny koszt. Ekwiwalent końcowy przechodzi przez Finance i idempotencję świadczenia.
+
+**Wersjonowanie i przejście:** draft → validated → approved → scheduled → active, zgodnie z istniejącą bramką balansu. Polityka ma version/hash, zakres i effective_from. Wersja aktywna jest niezmienna; edycja tworzy kandydata.
+Panel pozwala wybrać nowe zatrudnienia albo objęcie wskazanych obecnych pracowników. Dla obecnych wymagany preview: zmiana przyszłego nabywania, nabytych praw, rezerwacji, płatności, ekwiwalentu i konfliktów.
+Domyślnie historyczne naliczenia i zatwierdzone wnioski zachowują starą politykę. Ich zmiana wymaga jawnego planu przejścia z listą skutków, komunikatem i rewalidacją wersji przed wykonaniem. Nie działa wstecz przez zwykły zapis formularza.
+Reguła doboru polityki ma jednoznaczną kolejność zakresów; dwie równie szczegółowe nakładające się polityki blokują publikację. Brak pasującej polityki blokuje nowy wniosek zamiast zgadywania uprawnienia; wcześniej należne świadczenia nadal rozliczane.
+
+**Korekty indywidualne:** uprawniony administrator może przyznać/skorygować pulę, zatwierdzić wniosek, zmienić termin lub anulować zgodnie z prawami administracyjnymi. Powstaje odrębne zdarzenie z before/after, aktorem, czasem, wersją i powiązaniem z operacją. Nie nadpisujemy salda ani historii.
+Główny administrator NIE musi podawać komentarza ani uzasadnienia tekstowego. Rodzaj operacji wynika z akcji; audyt pozostaje automatyczny. Polityka komentarzy pozostałych ról zgodnie z uprawnieniami panelu.
+Masowa korekta wymaga podglądu i identyfikowalnych wyników per osoba; ponowienie nie powtarza przyznania. Nie wolno odebrać już zarezerwowanych godzin bez jawnego rozwiązania konfliktu.
+Uprawnienia osobno: odczyt polityk, edycja kandydata, aktywacja, korekta puli, decyzja o wniosku, masowa operacja. Każda akcja autoryzowana na serwerze, nie tylko ukryciem przycisku.
+
+**Dane/kontrakty do kart:** leave_policy_versions, leave_requests, leave_entitlements/leave_movements, leave_reservations, leave_transition_plans; jeden właściciel Staff. Kwoty/godziny z dokładną precyzją i resztami, UTC, wersje stanu, FK i trwałe klucze efektów.
+Publikacja konfiguracji korzysta z istniejącej kolejności blokad konfiguracyjnych. Migracja indywidualnych praw jest osobną operacją gospodarczą; nie łączyć obu kolejności w jednej transakcji. Pełne DDL/OpenAPI i wpis nowych tabel do LockPlan wymagają HR-CONTRACT01.
+Widok pracownika: nabyte, zarezerwowane, wykorzystane i dostępne godziny, roczniki/terminy ważności, wnioski i historia. Widok GM: edytor, porównanie wersji, preview skutków, korekty i audyt. Własne modale/SVG, PL/EN/DE, mobile i reduced-motion.
+
+**Odbiór do implementacji:** proporcja etatów; aneks w okresie; reszty nabywania; dwa równoległe wnioski bez nadrezerwacji; retry anulowania; częściowa kolizja choroby; zmiana grafiku po zgodzie; przełom roku bez podwójnego grantu; koniec umowy/ekwiwalent raz; wygasanie bez naruszenia zarezerwowanych praw; masowa korekta retry; odrzucenie obcej firmy; główny administrator bez komentarza; stara wersja zachowana; preview nie księguje.
+Następny krok: domknąć chorobowe i zastępstwa, w tym ich macierz kolizji z urlopem. Zasady liczbowe chorobowego omawiane w rozmowie pozostają kandydatem i nie stają się aktywne przez tę zmianę.
+
 ## 5. Płace i pełny koszt
 
 Koszt firmy = wynagrodzenie + obciążenia firmy + dodatki + świadczenia + odrębne koszty organizacyjne.
