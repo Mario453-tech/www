@@ -1,5 +1,8 @@
 # OilEmpire — Panel Administracyjny (Filament v5): Pełna Specyfikacja
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Interfejs GM i integracja panelu z modułami; uprawnienia i akcje podlegają wspólnej domenie oraz bezpieczeństwu. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 **Status:** KANONICZNY załącznik `OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md` (§18.5 wskazuje ten plik). Panel implementowany 1:1 z tą specyfikacją.
 **Zakres:** warstwa wizualna i szablony, pulpit, nawigacja, katalog WSZYSTKICH zasobów (kolumny, filtry, akcje wiersza, formularze edycji z wariantami), katalog akcji GM, macierz uprawnień, testy akceptacyjne panelu.
 **Zasada nadrzędna:** panel NIGDY nie zmienia reguł gry ad-hoc — każda mutacja to udokumentowana akcja GM (§18.3) lub wersja balansu (§29.7). RNG jest nietykalne (fair-play §22.6): GM koryguje skutki, nie przerzuca kości.
