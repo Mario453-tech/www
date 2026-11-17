@@ -309,7 +309,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 - Finance jest właścicielem budżetów i naliczania podatków/OPEX; Ledger w Core jest właścicielem zapisu księgi. Banking nie zapisuje FTS bez publicznego kontraktu Ledger.
 - Contracts odpowiada za umowy/escrow; Market za oferty i globalną cenę. Obie odpowiedzialności używają węzła market, bez powielania parametrów.
 - Simulation planuje rozliczenia, ale nie przejmuje tabel domenowych. Moduły udostępniają handlery faz i jawne kontrakty; handler nie sięga do prywatnych modeli innego modułu.
-- Rozbieżne nazwy transport_runs/trips i b2b_escrow_lock/escrow_transactions wymagają jednego rejestru DDL przed P12/P15. Nazwy w starszych tabelach i diagramach nie są automatycznie istniejącymi migracjami.
+- OPEN04 zatwierdzone: users = tożsamość; companies = firma gospodarcza; trips = kurs fizyczny; contracts/contract_tranches = umowy/transze; escrow_accounts/escrow_movements = depozyt i jego niezmienna historia. players, transport_runs, b2b_escrow_lock i escrow_transactions są nazwami historycznymi lub aliasami pojęciowymi w starszych diagramach; nowy DDL/DTO używa słownika powyżej. Adapter migracji mapuje stare dane, nie dodaje równoległych tabel o tym samym znaczeniu.
 - Kanoniczna ścieżka to Modules/<Name>/manifest.yaml; pozostałe przykłady katalogów są historyczne i podlegają aktualizacji przed wygenerowaniem kodu.
 
 ## 7. Pierwszy pionowy zakres wykonawczy
@@ -326,7 +326,7 @@ Poziom D2: ręczne przejście kontraktów i stanów, porównanie liczb z YAML, s
 
 Poziom D3: istniejący symulator Python — dowód wyłącznie dla asercji, które faktycznie wykonuje. Nie dowodzi poprawności transakcji MySQL, API, panelu ani 90-dniowej stabilności.
 
-Poziom D4 po implementacji: golden-master PHP na prawdziwym SettlementService, współbieżność MySQL, awarie workerów i outbox, testy kontraktu starej aplikacji, E2E web/mobile/admin, restore oraz 90 dni symulacji. Próg inflacji <5%/miesiąc wymaga jawnej definicji wskaźnika i scenariusza populacji przed zatwierdzeniem testu.
+Poziom D4 po implementacji: golden-master PHP na prawdziwym SettlementService, współbieżność MySQL, awarie workerów i outbox, testy kontraktu starej aplikacji, E2E web/mobile/admin, restore oraz 90 dni symulacji. Próg inflacji <5%/miesiąc dotyczy stałego koszyka cen; emisja netto jest osobną metryką zgodnie z architekturą §29.8. Karta P25 ustala wagi koszyka i profile agentów przed testem.
 
 Wynik audytu trafia do OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md z identyfikatorem problemu, wagą, dowodem i statusem. „Nie znaleziono błędu” nie jest gwarancją, że dokument nie zawiera błędów.
 
@@ -335,3 +335,24 @@ Wynik audytu trafia do OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md z identyfikato
 Gotowość dokumentacji do rozpoczęcia fundamentu: plan, kontrakty bezpieczeństwa i jawne blokery. Gotowość konkretnego pakietu do kodowania: karta §3 bez otwartego P0/P1 dla jego zakresu. Gotowość do produkcji: wszystkie wymagane pakiety odebrane, implementacyjne testy zaliczone, blokery ekonomii/integracji zamknięte i podpisany raport wydania.
 
 Nie obiecujemy dat na podstawie liczby dokumentów. Po pierwszym pionowym zakresie szacujemy kolejne pakiety na podstawie rzeczywistego czasu, liczby migracji i ryzyk.
+
+## 10. Zatwierdzone rozstrzygnięcia OPEN01–OPEN12
+
+Właściciel zaakceptował wszystkie propozycje w rozmowie 2026-11-17. Poniższy rejestr zastępuje wcześniejszy status „otwarte” w historycznych częściach audytu. Zatwierdzenie projektu nie oznacza wykonania kart, kodu ani testów implementacji.
+
+| ID | Przyjęta decyzja | Źródło szczegółów / odbiór |
+|---|---|---|
+| OPEN01 | spot natychmiast przez wspólny serwis; globalna cena i automatyczny matching tylko sweeper | A §23.3/§23.5a; konkurencja zapasu i płynności |
+| OPEN02 | podatek na snapshot 00:00; tarcza i Tier na bieżącym stanie, wspólny serwis wyceny | A §19.1/§22.6.1; test północy i zmiany własności |
+| OPEN03 | pozwolenie raz, równa alokacja kosztu do odwiertów, deterministyczna reszta | A §19.1; suma alokacji = koszt i brak dublowania |
+| OPEN04 | users/companies/trips/contracts/contract_tranches/escrow_accounts/escrow_movements | plan §6; słownik obowiązuje nowe migracje |
+| OPEN05 | refresh: szyfrowany wynik na 2 minuty, jedno równoległe odświeżenie | API §3; replay tego samego requestu i revokacja innego |
+| OPEN06 | karta funkcji obowiązkowa przed kodem, początek P01–P05 i pionowy transfer | plan §3/§7; komplet wejścia, DDL, stanów i testów |
+| OPEN07 | Android Google Play Billing, iOS Apple IAP, web operator przez adapter | A §22/API §10; serwer weryfikuje zakup i refund |
+| OPEN08 | inflacja stałego koszyka + osobny bilans emisji, trzy scenariusze 90 dni | A §29.8; karta miernika ustalona przed testem |
+| OPEN09 | RPO≤5 min, RTO≤60 min, test na docelowym serwerze | A §29.2/B §9; pełne restore i walidacja |
+| OPEN10 | krótka operacja: jedna transakcja; długie zadanie: osobny lease i fencing | A §29.4a/B §3; stary worker nie zapisuje skutku |
+| OPEN11 | edytowalny szkic, niezmienny snapshot/hash, historia decyzji i projekcja statusu | A §29.7; zatwierdzenie dokładnego hasha |
+| OPEN12 | HTTP: konto+firma+operacja+klucz; domena: typ+encja+slot bez wyzwalacza | A §29.4a/API §5; HTTP/job/sweeper deduplikują razem |
+
+A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w README. Otwarte pozostaje wykonanie kart §3, DDL, OpenAPI i testów — są to zadania realizacyjne, nie ponowne negocjowanie przyjętych reguł.
