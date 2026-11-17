@@ -165,3 +165,44 @@ Po korekcie: **42 PASS/0 FAIL** weryfikatora dokumentacji, **73 PASS/0 FAIL** sy
 TEAM12 ma ograniczony, jawny zakres: OILEMPIRE_KONTRAKTY_FUNDAMENTU.yaml jest wycinkiem OpenAPI3.1 plus schematami storage/polityki. D40 porównuje wymagane pola/typy producenta wyzwania i odbiorcy verify; D41 sprawdza istnienie kolumn użytych w kluczach; D42 kolejność reguł refresh. To nie jest pełna walidacja OpenAPI wszystkich funkcji, wykonanie DDL ani dowód współbieżności MySQL. D22 jest kontrolą zgodności określonych zapisów, nie modelem ekonomii.
 
 Agent API potwierdził TEAM01–03; agent transakcji potwierdził TEAM04–09. Obaj zaznaczyli granicę dowodu dokumentacyjnego. Pełne testy sesji, SQL, blokad i dostarczania pozostają wymagane po implementacji; nie przywracamy fikcyjnej deklaracji „PASS = gotowy silnik”.
+
+## 12. Karty domeny P06–P13 — opracowanie i przegląd agentów
+
+Dodano [31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) oraz [kontrakty i rejestr gotowości](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Razem z fundamentem to47kart. Trzej agenci opracowali odpowiednio P06–P08, P09–P10 i P11–P13 na aktualnym snapshotcie GitHub; każdy zakres ma dane, publiczne akcje/API, stany, transakcje, księgowanie/zdarzenia oraz odbiór. Następnie wykonali read-only porównanie integracji z kartami pozostałych zakresów.
+
+### Naprawy integracyjne
+
+- Wspólny employee_availability zapewnia wyłączną zajętość training/TTS i bezpieczny release po typie/ID; jeden employee_skills oraz employee_traits, bez drugich mutowalnych kopii cech w employees.
+- Dodano pełny porządek rank13–18 i39 oraz dzieci aktywów40–80 w jednej tabeli §23.5a; karty nie utrzymują własnej konkurencyjnej kolejności.
+- Usunięto błędny UNIQUE inbound(hub,leg), który ograniczał hub do jednej rury; osobne pipeline_inbound_heads i pipeline_outbound_heads chronią właściwe końce.
+- Naprawiono indeks pojazdu wskazujący nieistniejące company/status, zadeklarowano call_no w porcie oraz usunięto podwójne prefiksy API i uszkodzony słownik role_code wykryte podczas scalania.
+- W źródle ujednolicono: brak automatycznej propagacji do contract_reputation; wyjątek2FA; dwa widoki wyceny; właściciel licenses=Legal; stabilny receipt bez sweep_no; nasycenie z idleOPEX20%; resume nie leczy rury; jednostki zużycia0.05p.p./h. Nie zmieniono wartości parametrów YAML.
+
+### Jawne luki źródeł blokujące konkretne akcje
+
+Nie oznaczamy kart jako wdrożonych ani wszystkich jako gotowych do literalnej implementacji. Następujące16punktów zostało znalezionych w źródłach przy doprecyzowaniu; są odrębne od zamkniętych OPEN01–OPEN12 i TEAM01–TEAM12.
+
+| ID | Karta / zakres | Co trzeba rozstrzygnąć | Źródło |
+|---|---|---|---|
+| DOM01 | P08-F01 | PLN/miesiąc bez dzielnika czasu; wybrać kalendarz UTC albo inną jawną podstawę, reguły reszt i test sumy miesięcznej. | §4.1/§23; staff.params.morale.salary_satisfaction |
+| DOM02 | P07-F02, P08-F03 | Natychmiastowe zakończenie vs24h populacji sporu; −10 instant vs−8/os14dni cap−24. Ustalić jeden employment_ended_at oraz osobno znaczenie kar, bez automatycznego sumowania. | §4.2/§4.3/§5 |
+| DOM03 | P08-F04 | Brak pełnej formuły rund zbiorowych i etapów eskalacji; ustalić współczynniki i koszt oferty przed produkcyjną negocjacją. | §5.2; staff params |
+| DOM04 | P08-F02 | Próg/deadline kontroferty istnieją, brak formuły żądanej kwoty podwyżki; potrzebna wersjonowana polityka generatora. | §4.2 |
+| DOM05 | P06-F02 (wyłącznie event sankcji P21) | Jawne −15cred/−15B2B vs propagacja50%; określić czy B2B finalne czy dodatkowe. Pozostałe reputacje i wyjątek2FA są rozpisane. | §2/§26.3 |
+| DOM06 | P09-F01, P09-F02 | Uzupełnić wersjonowany cennik i parametry każdego bazowego kursu/poziomu; przedział10–100k nie jest ceną. Istniejące kursy Refining bez zmiany liczb. | §6/§31; staff/refining training |
+| DOM07 | P09-F03 (powrót po locku) | Czy po7 dniach resetuje się licznik porażek i bonus? Ustalić bez arbitralnego resetu, z testem czwartej próby. | §6; training.max_failures_before_lock |
+| DOM08 | P09-F03, P13-F04 | Równość egzamin/koniec zatrudnienia oraz repair/escalation wymaga jawnego priorytetu zdarzeń przy identycznym logical_at. | §6/§17.4/§23.6 |
+| DOM09 | P10-F02 (appeal) | Zwrot opłaty appeal i kolejność bonusu2p.p.×skill vs clamp podstawowy; nie dopisywać refundu ani wyższego cap bez decyzji. | §7.3 |
+| DOM10 | P10-F03 | Wzór wyceny regionu dla5% odnowienia i zachowanie aktywów w30d grace/po utracie uprawnienia. | §19.4 |
+| DOM11 | P10-F04 (koszty odmów/appeal) | Zakwalifikować koszt odrzuconego wniosku i appeal; ewidencja wpłaty nie oznacza automatycznie CAPEX uzyskanego pozwolenia. | §19.1/OPEN03 |
+| DOM12 | P12-F04 (postojowe) | 30min w§11A.4 vs2h w§21/B2B: jawnie rozdzielić konteksty albo uzgodnić jedną wartość. Nie zmieniać2000PLN/h bez decyzji. | §11A.4/§13/§21 |
+| DOM13 | P12-F04 (port) | Port500/1500/4000bbl na przebieg potrzebuje stałej jednostki ekspozycji/czasu, aby requesty nie zwiększały przepustowości. | §11A.5 |
+| DOM14 | P12-F01 (przepięcie) | 2przebiegi przepięcia muszą dostać logiczne sloty/due_at niezależne od liczby wejść gracza. | §11A.2 |
+| DOM15 | P13-F03, P13-F04 | Przypisać hazardom na tick ich kanoniczną bazę czasu; nie zamieniać ich po cichu na p_per_h. | §9.5/§17.4/§23.6 |
+| DOM16 | P07-F01 (płatny katalog rekrutacji) | Potwierdzić kompletny koszt lokalnej/międzynarodowej rekrutacji i slotów ofert z parametrami; brak ceny oznacza niedostępny wariant, nie dopisany cennik. | §3.1; staff params |
+
+### Wyniki kontroli
+
+Weryfikator dokumentacji:52PASS/0FAIL; symulator ekonomii:73PASS/0FAIL/0INFO. Testy negatywne:25/25celowych mutacji wykrytych, źródła przywrócone. Nowe kontrole obejmują31unikalnych kart, ich maszynowy rejestr/właścicieli,16jawnych blokad, zgodność kluczy storage,8wejść OpenAPI z kartami, wspólną dostępność/skille, rangi i brak uszkodzonych ścieżek. Kontrole nie wykonują SQL, hazardów i gospodarki w Laravelu, a historyczne PASS nie zamykają nowych polityk DOM.
+
+Zakres przeglądu agentów: ponownie odczytane właściwe sekcje, nie pełny audyt całej przyszłej gry. Poprawione braki availability/skills i duplikaty danych zostały naniesione centralnie. Kolejny etap: rozstrzygnięcie polityk DOM i ich testów przed aktywacją dotkniętych funkcji, następnie karty P14–P25. Karty obecnego zakresu pozostają użyteczne do schematów, kontraktów, read-only UI i nieblokowanych działań.
