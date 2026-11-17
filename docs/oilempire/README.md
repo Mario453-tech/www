@@ -2,6 +2,8 @@
 
 Ten dokument jest głównym wejściem do całej specyfikacji. Pliki poniżej są rozdziałami jednego projektu, a nie niezależnymi wariantami silnika. Czytamy je razem zgodnie z zakresem zadania. Dokumentacja opisuje wymagania do implementacji; wdrożenie potwierdzają kod i testy.
 
+**Aktualne decyzje:** OPEN01–OPEN12 są zatwierdzone; [rejestr i zakres realizacji w planie §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Wzmianki o otwartych OPENxx w poprzednich przebiegach audytu są historyczne. Karty funkcji i testy implementacji nadal są wymagane.
+
 ## 1. Mapa specyfikacji i właściciele reguł
 
 | Dokument | Jest źródłem prawdy dla | Powiązanie |
@@ -83,7 +85,7 @@ python OILEMPIRE_WERYFIKATOR_DOKUMENTACJI.py
 python OILEMPIRE_SYMULATOR_BALANSU.py
 ```
 
-Oba narzędzia wymagają PyYAML. Weryfikator sprawdza wybrane własności strukturalne, a symulator swoje asercje ekonomiczne. Ręczny audyt stanów i testy implementacyjne MySQL/API/mobile są nadal wymagane. Otwarte problemy są widoczne w audycie; zielony wynik skryptów ich nie zamyka.
+Oba narzędzia wymagają PyYAML. Weryfikator sprawdza wybrane własności strukturalne, a symulator swoje asercje ekonomiczne. Ręczny audyt stanów i testy implementacyjne MySQL/API/mobile są nadal wymagane. Status decyzji i historia problemów są widoczne w audycie; zielony wynik skryptów nie zastępuje kart i testów implementacyjnych.
 
 ## 6. Materiały historyczne
 
