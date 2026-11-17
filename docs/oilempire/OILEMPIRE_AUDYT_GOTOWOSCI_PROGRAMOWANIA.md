@@ -1,5 +1,8 @@
 # OilEmpire — audyt gotowości do programowania
 
+> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+
+
 
 **BIEŻĄCY STATUS:** właściciel zatwierdził wszystkie propozycje OPEN01–OPEN12. Decyzje projektowe są rozstrzygnięte i wdrożone do dokumentacji źródłowej; rejestr: [plan §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Poniższe określenia „otwarte” i liczniki dotyczą historycznych przebiegów audytu. Nie oznacza to gotowego kodu ani kompletu kart DDL/OpenAPI.
 
@@ -206,3 +209,10 @@ Nie oznaczamy kart jako wdrożonych ani wszystkich jako gotowych do literalnej i
 Weryfikator dokumentacji:52PASS/0FAIL; symulator ekonomii:73PASS/0FAIL/0INFO. Testy negatywne:25/25celowych mutacji wykrytych, źródła przywrócone. Nowe kontrole obejmują31unikalnych kart, ich maszynowy rejestr/właścicieli,16jawnych blokad, zgodność kluczy storage,8wejść OpenAPI z kartami, wspólną dostępność/skille, rangi i brak uszkodzonych ścieżek. Kontrole nie wykonują SQL, hazardów i gospodarki w Laravelu, a historyczne PASS nie zamykają nowych polityk DOM.
 
 Zakres przeglądu agentów: ponownie odczytane właściwe sekcje, nie pełny audyt całej przyszłej gry. Poprawione braki availability/skills i duplikaty danych zostały naniesione centralnie. Kolejny etap: rozstrzygnięcie polityk DOM i ich testów przed aktywacją dotkniętych funkcji, następnie karty P14–P25. Karty obecnego zakresu pozostają użyteczne do schematów, kontraktów, read-only UI i nieblokowanych działań.
+
+
+## Rozszerzenie HR — przegląd 2026-11-17
+
+Dodano OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md, powiązania w architekturze, kartach, planie, API, panelu i indeksie. Agent niezależnie przeczytał karty P07–P09 i właściwe sekcje domeny; uwzględniono notice, ponowne zatrudnienie, porównywalne płace, segmentację obsady, kursy i mandat dyrektora.
+
+Kontrole izolowanej kopii: weryfikator52 PASS, symulator73 PASS/0 FAIL/0 INFO, mutacje25/25 DETECTED i RESTORED PASS. Są to istniejące kontrole bazowe, nie walidacja nowego modelu kosztów. Nowy rozdział zawiera16 scenariuszy HR-T oraz uzupełniające przypadki review. HR-CFG01–05 i HR-CONTRACT01 otwarte; DOM01/02/16 niezamknięte. Kod, migracje, uprawnienia runtime i aktywny YAML bez zmian. Laravel/MySQL/Vite/Pint/PHPStan/composer audit nie uruchamiano: zmiana wyłącznie dokumentacji. Wycofanie: odwrócić zmiany dokumentacji z tej rundy bez cofania obcych commitów. Następnie przygotować tabele parametrów i karty delta.
