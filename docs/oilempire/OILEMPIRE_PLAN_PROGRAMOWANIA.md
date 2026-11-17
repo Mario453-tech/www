@@ -29,6 +29,8 @@ To kolejność budowy i testów; nie zmienia faz rozliczeń §23.3. Wspólne kon
 
 ## 3. Obowiązkowa karta implementacyjna funkcji
 
+Pierwszy zestaw jest rozpisany w [kartach P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md): P01-F01–F03, P02-F01–F04, P03-F01–F03, P04-F01–F03, P05-F01–F03. Każda karta jest częścią odpowiadającego pakietu; dalsze pakiety wymagają kolejnych kart.
+
 Dla każdej akcji i query w pakiecie programista zapisuje przed kodowaniem:
 1. ID wymagania i odnośnik do paragrafu; aktor i uprawnienie; właściciel danych.
 2. Tabele/kolumny, typy, jednostki, nullability, FK, indeksy i UNIQUE; migracja expand oraz plan danych.
