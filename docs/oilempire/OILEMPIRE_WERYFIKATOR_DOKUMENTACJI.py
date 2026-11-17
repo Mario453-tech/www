@@ -35,6 +35,7 @@ if balance:
 
 files = ["OILEMPIRE_PLAN_PROGRAMOWANIA.md", "OILEMPIRE_STANDARD_MODULU_WDROZENIE.md", "OILEMPIRE_BEZPIECZENSTWO_SILNIKA.md", "OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md", "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md", "OILEMPIRE_PANEL_ADMINA_SPECYFIKACJA.md", "README.md"]
 files.insert(-1, "OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md")
+files.insert(-1, "OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md")
 missing = []
 for name in files:
     text = (BASE / name).read_text(encoding="utf-8")
@@ -132,6 +133,39 @@ for name, table in contract["x-storage-contracts"].items():
         storage_errors += [name + "." + field for field in key if field not in table["columns"]]
 check("D41 machine storage keys reference declared columns", not storage_errors, ",".join(storage_errors))
 check("D42 refresh policy ordering is explicit", contract["x-session-policy"]["refresh_priority"] == ["invalid_session","identical_replay","consumed_token_revoke","unused_token_key_conflict","rotate"])
+
+
+domain_text = (BASE / "OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md").read_text(encoding="utf-8")
+domain = yaml.load((BASE / "OILEMPIRE_KONTRAKTY_P06_P13.yaml").read_text(encoding="utf-8"), Loader=UniqueLoader)
+domain_ids = re.findall(r"^### (P[0-9]{2}-F[0-9]{2})", domain_text, re.M)
+check("D43 thirty one unique domain cards", len(domain_ids) == len(set(domain_ids)) == 31)
+registered = [entry["id"] for entry in domain["x-cards"]]
+check("D44 machine registry matches domain cards", len(registered) == len(set(registered)) and set(registered) == set(domain_ids))
+expected_domain_counts = {"P06":4,"P07":4,"P08":4,"P09":3,"P10":4,"P11":4,"P12":4,"P13":4}
+check("D45 domain packages and balance owners", all(sum(x.startswith(package + "-") for x in domain_ids) == count for package,count in expected_domain_counts.items()) and set(domain["x-balance-roots"]).issubset(balance["modules"]))
+blocker_ids = [entry["id"] for entry in domain["x-blockers"]]
+check("D46 blockers are explicit and referenced", len(set(blocker_ids)) == len(blocker_ids) == 16 and all(entry["decision"] and entry["status"] == "requires_rule_resolution" and entry["id"] in domain_text for entry in domain["x-blockers"]) and all(set(entry["blocked_scenarios"]).issubset(blocker_ids) for entry in domain["x-cards"]))
+domain_storage_errors = []
+for name, table in domain["x-storage-contracts"].items():
+    for key in table.get("unique", []) + [table.get("primary", [])]:
+        domain_storage_errors += [name + "." + field for field in key if field not in table["columns"]]
+check("D47 domain storage keys reference declared columns", not domain_storage_errors, ",".join(domain_storage_errors))
+check("D48 shared skills and exclusive availability exist", all(term in domain_text for term in ["employee_skills(employee_id", "employee_availability(employee_id PK", "active_job_type", "ReleaseAvailability", "spóźniony callback"]))
+check("D49 reputation and wealth canonical corrections", "Cred --> ContractRep" not in architecture and "bonus i cofnięcie bonusu za 2FA nie propagują" in architecture and "trzej konsumenci (podatek/tarcza/Tier) czytają JEDEN rekord" not in architecture)
+check("D50 domain lock groups registered in architecture", all(str(rank) in rank_rows for rank in domain["x-lock-groups"]))
+domain_api_errors = []
+operation_ids = []
+for path, methods in domain["paths"].items():
+    if not path.startswith("/api/v1/") or path.count("/api/v1/") != 1 or path not in domain_text:
+        domain_api_errors.append(path)
+    for method, endpoint in methods.items():
+        operation_ids.append(endpoint["operationId"])
+        schema_ref = endpoint["requestBody"]["content"]["application/json"]["schema"]["$ref"].split("/")[-1]
+        schema = domain["components"]["schemas"].get(schema_ref, {})
+        if not set(schema.get("required", [])).issubset(schema.get("properties", {})) or endpoint["x-card-id"] not in domain_ids:
+            domain_api_errors.append(path)
+check("D51 partial domain API maps to cards and schemas", not domain_api_errors and len(operation_ids) == len(set(operation_ids)) == 8, ",".join(domain_api_errors))
+check("D52 no API prefix corruption or duplicate trait authority", "/api/v1/logistics/api/v1/" not in domain_text and "finance/api/v1/" not in domain_text and "To jedyne mutowalne źródło cech" in domain_text)
 
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
