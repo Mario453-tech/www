@@ -1,5 +1,8 @@
 # OilEmpire: Kompletna Architektura Modularna (Laravel 13 + Inertia.js + Vue 3)
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Reguły domeny i kolejność rozliczeń. API, panel, bezpieczeństwo, standard modułu i plan są rozdziałami tej samej specyfikacji. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 ## 1. Wprowadzenie i Założenia Systemowe
 
 Plan implementacji wszystkich obszarów: [OILEMPIRE_PLAN_PROGRAMOWANIA.md](OILEMPIRE_PLAN_PROGRAMOWANIA.md). Błędy i otwarte decyzje przed kodowaniem: [OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md](OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md). Status zapisów projektowych nie oznacza wdrożenia; kartę pakietu i jego blokery sprawdza się przed programowaniem.
