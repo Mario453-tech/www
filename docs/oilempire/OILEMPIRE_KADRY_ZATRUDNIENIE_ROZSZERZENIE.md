@@ -261,3 +261,8 @@ Odbiór: szybkie przełączanie zakładek, filtrowanie podczas wyboru osoby, kol
 
 Powstał lokalny interaktywny prototyp Vue3: lista i filtr, szczegóły, formularz pensji, symulacja wypowiedzenia i szkic kampanii. Dane demonstracyjne w pamięci, interfejs PL, bez API i trwałego zapisu. Istnieją jedynie podstawowe efekty przycisków i wejścia modalu; zakres12.1 nadal czeka na realizację.
 Nie jest to ukończony moduł gry. Docelowe PL/EN/DE, autoryzacja, serwerowa wycena, zapis oraz testy integracyjne pozostają w zakresie implementacji.
+
+
+## 13. Opcjonalna Agencja pracy — przyszły moduł
+
+[Specyfikacja Agencji pracy](OILEMPIRE_AGENCJA_PRACY_SPECYFIKACJA.md) opisuje kompletowanie załogi, utrzymanie obsady i obsługę kadrową. Podstawowe Kadry działają bez tej usługi. Agencja korzysta z tych samych publicznych akcji Staff, kandydatów, ocen HR i ograniczeń; nie ma dostępu do ukrytego profilu. Zarządza wyłącznie w granicach mandatu i limitów gracza. Rezygnacja zachowuje pracowników/umowy i przekazuje procesy do ręcznej obsługi. Nie należy utożsamiać tego modułu z kanałem rekrutacji „agencja rekrutacyjna”. Pierwszy zakres: NPC, bez agencji graczy. Ceny i wdrożenie pozostają przyszłe.
