@@ -1,5 +1,8 @@
 # OilEmpire — kontrakt bezpieczeństwa i niezawodności silnika
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Gwarancje bezpieczeństwa, transakcji i niezawodności obowiązujące wszystkie kanały i pakiety. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 **Status:** obowiązująca specyfikacja do implementacji, nie potwierdzenie wdrożenia. Obejmuje Laravel, Inertia, API mobilne, Filament, Artisan, kolejki i sweeper. Rozszerza specyfikację główną §14, §23, §24 i §29 oraz specyfikację API; nie zmienia ustalonego balansu. Każdy moduł musi spełnić poniższe gwarancje przed aktywacją.
 
 ## 1. Odpowiedzialności i granice
