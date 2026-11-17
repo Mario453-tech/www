@@ -1,6 +1,9 @@
 # OilEmpire — standard modułu i specyfikacja wdrażania
 
-**Status:** obowiązujący projekt do implementacji. Rozwija §8 i §29.6–29.7 architektury, §4 panelu oraz kontrakt bezpieczeństwa silnika. Nie oznacza, że opisane klasy lub polecenia już istnieją. W razie rozbieżności dotyczącej struktury manifestu i cyklu życia ten dokument doprecyzowuje wcześniejsze przykłady.
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Struktura modułu, manifest, zależności i cykl wdrożenia. Reguły gry pozostają w architekturze. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
+**Status:** obowiązujący projekt do implementacji. Rozwija §8 i §29.6–29.7 architektury, §4 panelu oraz kontrakt bezpieczeństwa silnika. Nie oznacza, że opisane klasy lub polecenia już istnieją. Schemat manifestu i cykl życia są tu opisane szczegółowo; sprzeczne przykłady w innych rozdziałach należy poprawić wraz z tym standardem, bez automatycznego nadawania pierwszeństwa jednemu plikowi.
 
 ## 1. Wersje i źródła prawdy
 
