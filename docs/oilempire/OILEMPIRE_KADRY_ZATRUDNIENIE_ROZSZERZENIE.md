@@ -38,6 +38,48 @@ Zmęczenie/stres są stanami eksploatacyjnymi, nie losowym obciążeniem kandyda
 Ocena HR ujawnia przedziały lub informacje oznaczone jako nieocenione; test nie zmienia rzeczywistych cech. Endpoint nie ujawnia ukrytych wartości.
 Wyniki są utrwalone raz; odczyt, retry i rezygnacja z oferty nie przerzucają losowania. Zatrudnienie kopiuje ten sam profil. Ponowne zatrudnienie zachowuje tożsamość i historię.
 
+
+### 2.1. Ukryte cechy i obserwacje HR
+
+Zatwierdzony zakres: kandydat ma trwały profil, którego szczególne cechy są początkowo ukryte. Podatność na niedyspozycję jest oddzielna od morale. Chorobowe nie jest dowodem niezadowolenia, nielojalności lub symulowania choroby.
+Przy rekrutacji nie pokazujemy dokładnego przyszłego morale w firmie: pole publiczne ma stan „Nieocenione”. Nie maskujemy liczby wyłącznie CSS — ukryta wartość nie opuszcza serwera.
+
+| Cecha | Efekt domenowy | Etap |
+|---|---|---|
+| Podatność na niedyspozycję | Modyfikator prawdopodobieństwa krótkiej absencji, bez gwarancji zdarzenia | Pierwszy |
+| Dokładność | Mniej błędów/strat; ewentualny koszt czasu wyłącznie wg zatwierdzonej polityki zadania | Pierwszy |
+| Współpraca | Lepsza współpraca zespołu i wdrażanie nowych osób | Pierwszy |
+| Inicjatywa | Szansa wykrycia problemu lub zaproponowania usprawnienia | Pierwszy |
+| Niedbałość | Więcej błędów przy przeciążeniu; wariant tej samej osi co dokładność, nie drugi nakładający się modyfikator | Kolejny |
+| Konfliktowość | Napięcia w zespole, bez automatycznego strajku | Kolejny |
+| Talent mentorski | Wpływ na wdrożenie podopiecznego przy rzeczywiście zarezerwowanym czasie mentora | Kolejny |
+| Stosunek do ryzyka | Ostrożność/brawura wpływa na czas i bezpieczeństwo właściwych zadań | Kolejny |
+
+Lojalność, ambicja i odporność na stres korzystają z istniejących atrybutów. Nie tworzymy ich drugiej wersji. Nowe kody cech rozszerzają istniejący słownik Staff; parametry neutralne i mapowanie skali1–10 wymagają katalogu.
+Profil nie musi zawierać szczególnej cechy. Rozkład startowy do symulacji:60% bez dodatkowej cechy,30% z jedną,10% z dwiema. To liczba szczególnych cech, nie brak podstawowych skills/traits. Nowe parametry są kandydatem do kalibracji, nie zmianą aktywnego YAML.
+Cechy korzystne, niekorzystne i mieszane; katalog wyklucza sprzeczne kombinacje. Wagi poszczególnych cech, intensywność i zależność od źródła rekrutacji wymagają HR-CFG01. Droższy kanał nie gwarantuje odkrycia cech ani ich braku.
+
+**Ujawnianie:** rozmowa/referencje/test mogą dostarczyć dowodów dla cech zawodowych z jawnej allowlisty. Podatność na niedyspozycję pozostaje nieoceniona w rekrutacji; jest obserwowana dopiero podczas zatrudnienia. Jedna absencja nie ujawnia cechy.
+Obserwacja HR ma employee/person ref, observer_company_id, trait_code, evidence_refs, okres obserwacji, poziom pewności i assessment_version. To ocena, nie druga rzeczywista cecha.
+Stany publiczne: nieocenione → obserwacja wstępna → ocena poparta obserwacjami. Liczba i rodzaj niezależnych dowodów, czas minimalny i progi pewności są wersjonowaną polityką; nie przyznajemy100% pewności przez sam upływ czasu.
+Kolejny GET nie dodaje dowodu. Ta sama nieobecność ma jedno źródłowe zdarzenie, niezależnie od liczby dni/workera. Ocena może być korygowana nowymi obserwacjami; historia pozostaje.
+Powrót tej samej osoby do tej samej firmy zachowuje jej profil i historię ocen. Inna firma nie dziedziczy prywatnych obserwacji poprzedniej bez jawnego kontraktu referencji. Stan rozpoznania nie jest globalnym publicznym polem osoby.
+
+**Nieobecności:** także osoba bez szczególnej podatności może zachorować. Prawdopodobieństwo zależy od bazowej polityki, profilu, odpoczynku, zmęczenia i warunków pracy; niskie morale nie zastępuje modelu choroby.
+Częstość, długość, cooldown, limit w oknie czasu, podstawa ekspozycji oraz zachowanie podczas urlopu/szkolenia wymagają HR-CFG03. Brak tych parametrów blokuje aktywację generatora, nie tworzy domyślnych chorób.
+RNG musi być niezależny od częstości wejść do gry: stabilne sloty logicznego czasu/ekspozycji, utrwalone losowanie i idempotentny klucz person+event_type+slot. Odczyt leniwy, job i sweeper odtwarzają te same sloty oraz tę samą kolejność. Nie losować raz na request.
+Limit kontrolowany pod blokadą; jedna osoba nie otrzymuje nakładających się epizodów. Obsługa granic aktywnej absencji i pauzy firmy musi być wspólna z Settlement. Reset zatrudnienia lub zmiana grafiku nie resetuje cooldownu osoby.
+Absencja rezerwuje niedostępność przez Staff. Grafik/zastępstwo, produkcja i płace reagują przez istniejące kontrakty; bez dodatkowej kary morale za sam fakt choroby.
+Dokładność/inicjatywa nie tworzą drugiego generatora awarii obok Incidents. Staff przekazuje kontekst do właściciela zadania; skutek ma jedno źródło i deduplikację. Współpraca/konfliktowość korzystają z istniejącego modelu morale, bez drugiej równoległej średniej.
+Inicjatywa nie naprawia obiektu i nie wydaje pieniędzy bez uprawnionej akcji. Wykrycie problemu tworzy obserwację/powiadomienie, nie darmową naprawę.
+
+**UI i API:** osobne sekcje „Morale”, „Dostępność”, „Obserwacje HR”. Przy kandydacie brak odgadniętych liczb i ikon zdradzających rzeczywistą cechę. DTO, sortowanie, filtry, eksport, WebSocket i logi dostępne graczowi używają wyłącznie ujawnionej oceny. Brak v-html, ukrytych pól payloadu i surowego profilu w analityce.
+GM widzi rzeczywiste cechy tylko z osobną capability i audytem. Kandydat ani klient Vue nie wybierają wyniku RNG.
+Wyświetlenie obserwacji to komponent z lokalnym SVG, PL/EN/DE. Powiadomienie opisuje fakt („kolejna nieobecność”), nie diagnozę ani pewną etykietę na podstawie pojedynczego zdarzenia.
+
+**Testy do wykonania:** neutralny kandydat nadal może mieć absencję; pojedynczy epizod nie ujawnia cechy;1 vs100 odczytów ten sam wynik; retry i równoległe triggery bez drugiego epizodu; cooldown i cap; przerwy/pauzy; profil po rehire; oceny izolowane między firmami; brak wycieku przez DTO/filtr; jeden modyfikator dokładności; koszty zastępstw i brak obsady w symulacji90dni.
+Status: decyzja funkcjonalna zapisana; wagi/progi i generator nie są zaimplementowane ani przetestowane. Powiązania: HR-CFG01/03/05, HR-CONTRACT01, P07-F01/F02/F03, P08-F03, P09, P13.
+
 ## 3. Umowy i aneksy
 
 Formy: employment (umowa o pracę), mandate (zlecenie), business_service (B2B), management (kontrakt menedżerski z jawną podstawą).
