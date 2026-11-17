@@ -23,14 +23,14 @@ Przy uruchomieniu release zapisuje: release_id, commit_sha, artifact_hash, manif
 Wybieramy katalog Modules/ (wielka litera), namespace Modules\\, mapowanie Composer PSR-4 do Modules/. Dotychczasowe przykłady modules/<Nazwa>/module.json traktujemy jako wcześniejszy szkic; kanoniczny manifest to Modules/<Name>/manifest.yaml. Jeden centralny ModuleRegistry ładuje manifesty dostarczone z wydaniem; nie wymaga dopisywania warunków dla każdego modułu.
 
 Przykład:
-- Modules/Training/manifest.yaml
+- Modules/Staff/manifest.yaml
 - Contracts/ — publiczne interfaces, DTO i zdarzenia z wersją schematu
 - Application/Actions/ i Application/Queries/ — komendy i odczyty
 - Domain/ — reguły, wartości i dozwolone przejścia
 - Infrastructure/ — repozytoria, adaptery i implementacje kontraktów
 - Http/Controllers/, Http/Requests/, Http/Resources/
 - Models/, Policies/, Jobs/, Listeners/
-- Providers/TrainingServiceProvider.php
+- Providers/StaffServiceProvider.php
 - Routes/web.php, Routes/api.php, Routes/console.php
 - Database/Migrations/, Database/Factories/, Database/Seeders/
 - Filament/Resources/, Filament/Pages/, Filament/Widgets/
@@ -49,17 +49,17 @@ Manifest zawiera dane, nie wykonywalny kod. YAML jest parsowany bez własnych ta
 Przykład struktury (wartości kontraktów ilustracyjne):
 ```yaml
 manifest_schema_version: 1
-key: training
-namespace: Modules\Training
-provider: Modules\Training\Providers\TrainingServiceProvider
-label_key: training.module.name
+key: staff
+namespace: Modules\Staff
+provider: Modules\Staff\Providers\StaffServiceProvider
+label_key: staff.module.name
 requires:
   all:
     - { module: core, contract: core.access, version: "^1.0" }
-    - { module: staff, contract: staff.employees, version: "^1.0" }
     - { module: core, contract: core.ledger, version: "^1.0" }
 provides:
-  - { contract: training.courses, version: "1.0.0" }
+  - { contract: staff.employees, version: "1.0.0" }
+  - { contract: staff.training, version: "1.0.0" }
 balance_schema: Schemas/balance.schema.json
 routes:
   web: Routes/web.php
@@ -74,7 +74,7 @@ panel:
   resources: [TrainingCourseResource]
 ```
 
-Kontrakty core.access, staff.employees i core.ledger są docelowymi interfejsami. Training jest podmodułem Staff: przykład zależności należy zwinąć do właściciela Staff, usuwając zależność do samego siebie. Nie tworzymy osobnego korzenia training w game_balance. Pola panel mają pełny kontrakt w specyfikacji panelu §4.
+Kontrakty core.access i core.ledger są zewnętrznymi zależnościami Staff. staff.employees i staff.training są kontraktami dostarczanymi przez Staff; brak zależności do samego siebie. Training jest obszarem wewnątrz Modules/Staff, bez własnego manifestu, korzenia balansu i stanu runtime. Pola panel mają pełny kontrakt w specyfikacji panelu §4.
 
 Enabled, premium i params_version pochodzą z zatwierdzonego snapshotu balansu, a nie z edytowanego manifestu produkcyjnego. Manifest rejestruje możliwości kodu; runtime przechowuje stan wykonania. Brak węzła balansu dla modułu ekonomicznego blokuje aktywację.
 
@@ -132,11 +132,11 @@ Wdrożenie dla grupy testowej dopuszczalne dla prezentacji i funkcji izolowanych
 ## 8. Narzędzia do zaprogramowania
 
 Poniższe komendy są projektowane, nie istnieją automatycznie w Laravelu:
-- modules:make Training — generator katalogu, manifestu i minimalnych testów; nie aktywuje i nie wykonuje migracji.
+- modules:make Staff — generator katalogu, manifestu i minimalnych testów; nie aktywuje i nie wykonuje migracji.
 - modules:validate — manifesty, graf zależności, kontrakty, schematy i kolizje; exit 0 tylko przy braku błędów.
 - modules:status — rzeczywisty stan, wersje i blokery; odczyt.
-- modules:plan-disable training — lista procesów, zależności i zasobów do domknięcia; odczyt.
-- modules:reconcile training — raport niezgodności bez samodzielnego naprawiania ksiąg.
+- modules:plan-disable staff — lista procesów, zależności i zasobów do domknięcia; odczyt.
+- modules:reconcile staff — raport niezgodności bez samodzielnego naprawiania ksiąg.
 
 Aktywacja, draining i wznowienie są akcjami aplikacyjnymi wywoływanymi przez panel i autoryzowane CLI, z tym samym approval, step-up i audytem. CLI nie stanowi obejścia procedury §29.7. Wgrywanie ZIP i instalowanie kodu przez panel nie jest częścią systemu.
 
@@ -146,8 +146,8 @@ CI wykonuje właściwe testy jednostkowe, procesowe, uprawnień, MySQL i kontrak
 
 EnrollEmployeeInCourse:
 - wejście: aktor, employee_id, course_type, idempotency_key i oczekiwana wersja stanu;
-- warunki: Training active, własny pracownik, właściwe kwalifikacje, brak kolidującego kursu i dostępne środki;
-- wykonanie: rozliczenie, blokady w porządku §23, opłata przez Finance, rekord szkolenia z due_at i balance_version, outbox — jedna transakcja;
+- warunki: Staff active, własny pracownik, właściwe kwalifikacje, brak kolidującego kursu i dostępne środki;
+- wykonanie: rozliczenie, blokady w porządku §23, opłata przez kontrakt core.ledger, rekord szkolenia z due_at i balance_version, outbox — jedna transakcja;
 - wynik: identyfikator i stan kursu, cena serwera, termin i wersja stanu.
 
 CompleteCourse:
@@ -155,10 +155,10 @@ CompleteCourse:
 - jedna zmiana kwalifikacji/wyniku pod kluczem due_slot, jeden wynik finansowy i zdarzenie completed;
 - strajk, zwolnienie pracownika i brak obecności są obsługiwane zgodnie z główną specyfikacją; dokument nie ustala nowych liczb.
 
-Draining Training:
+Draining Staff (obszar szkoleń):
 - nowe zapisy odrzucone; rozpoczęte kursy, egzaminy i rozliczenia kończą się normalnie;
 - status pokazuje remaining_courses, pending_due_events, pending_outbox i zależności;
-- disabled dopiero po zakończeniu wymaganej obsługi; historia i certyfikaty pozostają dostępne przez publiczny kontrakt;
+- disabled Staff dopiero po zakończeniu obsługi wszystkich obszarów Staff, także płac i strajków; historia i certyfikaty pozostają dostępne przez publiczny kontrakt;
 - powrót przez ready ponownie weryfikuje zgodność migracji, kontraktów i parametrów.
 
 ## 10. Backlog programistyczny i odbiór
@@ -171,9 +171,9 @@ Draining Training:
 | M04 | Wspólny kontekst aktora i ModuleAvailability | jednakowa odmowa web/API/GM/job dla niedozwolonej operacji |
 | M05 | Runtime states + audyt/CAS | konkurencyjne przejścia nie gubią decyzji, enabled=false rozpoczyna draining |
 | M06 | ActivationGuard + istniejący proces balansu | approval i testy dotyczą dokładnego snapshotu/artefaktu; brak obejścia CLI |
-| M07 | Generator i walidator | nowy Training przechodzi walidację, ma PL/EN/DE i podstawowe testy |
+| M07 | Generator i walidator | nowy Staff przechodzi walidację, ma PL/EN/DE i podstawowe testy |
 | M08 | Integracja API/panel/settlement/outbox | brak ręcznej edycji rdzenia dla zasobu zgodnego z kontraktami |
-| M09 | Pilotaż Training | zapis, zakończenie kursu i draining działają na MySQL z testami awarii |
+| M09 | Pilotaż Training | zapis, zakończenie kursu i draining całego Staff działają na MySQL z testami awarii |
 | M10 | Proces wydania | raport gotowości, expand/contract, zgodność workerów i przetestowany rollback |
 
 Dodatkowe scenariusze: zależny moduł blokuje wyłączenie dostawcy; job uruchomiony podczas draining kończy istniejący proces; disabled nie kasuje danych; zmiana balansu nie zmienia wersji rozpoczętego kursu; niedostępna klasa/kontrakt blokuje wydanie przed aktywacją. Obowiązują też S01–S18 z kontraktu bezpieczeństwa.
