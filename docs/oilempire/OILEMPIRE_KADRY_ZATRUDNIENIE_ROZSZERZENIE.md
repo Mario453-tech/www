@@ -191,4 +191,31 @@ Na komputerze lista + szczegóły obok; na telefonie lista kart i osobny ekran s
 Nazwy komponentów proponowane: StaffPage, StaffSummary, StaffFilters, EmployeeList, EmployeeDetails, ContractBreakdown, TerminationQuoteDialog, RecruitmentWizard, StaffRoster.
 Stan API/autoryzacja i wszystkie obliczenia finansowe pozostają w Laravel. Vue prezentuje odpowiedzi i obsługuje formularze; nie wylicza autorytatywnej odprawy. Kwoty API jako string w najmniejszej jednostce, formatowane z locale.
 CSS modułu w osobnym pliku; SVG w lokalnych plikach; teksty PL/EN/DE. Obsłużyć loading/empty/error/403/409/offline i ponowne pobranie wygasłego quote. Nie używać v-html do treści użytkownika.
-Makieta to dane demonstracyjne i propozycja wyglądu; nie działający frontend Vue, nie wdrożenie i nie dowód testów przeglądarkowych.
+Wygenerowana makieta pozostaje propozycją wyglądu. Osobny lokalny prototyp Vue opisano w §12.2; nie jest wdrożeniem modułu gry.
+
+
+### 12.1. Animacje i przejścia — plan do implementacji
+
+Uzgodnione rozszerzenie istniejącej wizualizacji, bez nowego dokumentu. Status: zaplanowane; nie oznacza wykonania animacji w prototypie.
+Ruch ma pomagać śledzić zmianę stanu, bez ciągłego migania, pulsowania i dekoracyjnych pętli.
+
+| Element | Zachowanie | Docelowy czas |
+|---|---|---|
+| Zakładki i szczegóły osoby | Krótkie przenikanie treści i przesunięcie do8px; brak nakładania aktywnych formularzy | 160–220ms |
+| Filtrowanie i kolejność listy | Vue TransitionGroup z trwałym employee_id; płynne wejście, wyjście i przesunięcie wierszy | 180–240ms |
+| Morale | Zmiana długości paska od poprzedniej wartości do nowej, bez startu od zera przy każdym odczycie | 250–350ms |
+| Koszt i podsumowania | Delikatne wyróżnienie zmiany; licznik może interpolować wyłącznie warstwę wizualną | 250–350ms |
+| Szczegóły na telefonie | Wysunięcie panelu, przy powrocie przywrócenie miejsca na liście i fokusu | 200–260ms |
+| Modal i powiadomienie | Opacity oraz krótkie przesunięcie; wspólne zachowanie w grze i panelu administracyjnym | 160–220ms |
+
+Vue3: Transition/TransitionGroup; style i tokeny czasu w osobnym CSS modułu. Preferować transform/opacity; brak animowania całego layoutu strony. Ikony pozostają lokalnymi SVG.
+Nowa odpowiedź API podczas animacji zastępuje poprzedni cel; nie odtwarzamy kolejki nieaktualnych wartości. Zmiana sortowania/filtra nie zmienia wybranego employee_id na innego pracownika.
+Kwoty dokładne z serwera są natychmiast dostępne dla formularza, potwierdzenia, kopiowania i technologii asystujących. Interpolowany licznik jest aria-hidden i nie jest źródłem wyceny ani stanu finansowego. Nie konwertować kwot BIGINT do niedokładnego Number w logice finansowej.
+Focus trap i aria-modal obowiązują od otwarcia; zamknięcie i powrót fokusu nie zależą od zakończenia animacji. Ukryte/wychodzące widoki nie mogą przechwytywać klawiatury. Toast nie odczytuje każdej klatki przez aria-live.
+prefers-reduced-motion: wyłączyć przesunięcia, liczniki i animowane paski; pokazywać od razu końcowy stan. Brak opóźnienia operacji lub potwierdzenia ze względu na efekt wizualny.
+Odbiór: szybkie przełączanie zakładek, filtrowanie podczas wyboru osoby, kolejne odpowiedzi API, Escape i focus, reduced-motion, brak overflow320px oraz pełna ścieżka mobilna. To scenariusze do wykonania po implementacji, nie obecny wynik PASS.
+
+### 12.2. Stan prototypu
+
+Powstał lokalny interaktywny prototyp Vue3: lista i filtr, szczegóły, formularz pensji, symulacja wypowiedzenia i szkic kampanii. Dane demonstracyjne w pamięci, interfejs PL, bez API i trwałego zapisu. Istnieją jedynie podstawowe efekty przycisków i wejścia modalu; zakres12.1 nadal czeka na realizację.
+Nie jest to ukończony moduł gry. Docelowe PL/EN/DE, autoryzacja, serwerowa wycena, zapis oraz testy integracyjne pozostają w zakresie implementacji.
