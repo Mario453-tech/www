@@ -97,3 +97,9 @@ Właściciel zaakceptował wszystkie 12 propozycji. Status każdego: **decyzja z
 Zmiana OPEN02 jawnie zastępuje poprzedni zapis o obniżeniu Tieru dopiero następnego dnia. Podatek pozostaje dobowy, limity dobowe i już wykonana wymiana nie są cofane. Wartości ekonomiczne YAML nie były zmieniane. Do kart wykonawczych pozostają m.in. konkretne kolumny/indeksy, wagi koszyka, profile agentów, konfiguracja kluczy i produktów sklepów; to nie są nierozstrzygnięte warianty opisanych decyzji.
 
 Kontrola po wprowadzeniu zatwierdzonych decyzji: dokumentacja 23 PASS/0 FAIL; symulator 73 PASS/0 FAIL. Zmieniono wyłącznie komentarze opisowe YAML, bez zmiany wartości parametrów. Testy kodu Laravel, współbieżności MySQL, płatności i restore pozostają do wykonania po implementacji.
+
+## 9. Karty wykonawcze P01–P05
+
+Dodano [16 kart fundamentu](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md): P01 3, P02 4, P03 3, P04 3, P05 3. Karty określają dane, indeksy, kontrakty, transakcje, odmowy i testy. Uzgodniono jedną transakcję settlement+mutacja oraz możliwość nowej wersji balansu z identycznym hashem treści podczas rollbacku. Blokada activation_gate obejmuje również zmiany ról, aby liczba administratorów nie ścigała się z approval.
+
+Wyniki kontroli: dokumentacja 28 PASS/0 FAIL, symulator 73 PASS/0 FAIL. Kontrole są strukturalne i regresyjne; nie wykonano jeszcze kodu SQL/HTTP kart. Karty P06–P25 oraz pełne wykonywalne migracje/OpenAPI pozostają pracą następnych etapów. Migracje wymagają porównania ze szkieletem i docelowym MySQL; brak twierdzenia o wdrożeniu fundamentu.
