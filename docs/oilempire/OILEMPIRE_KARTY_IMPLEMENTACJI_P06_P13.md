@@ -80,6 +80,8 @@ Jeśli zależności P11/P12 nie są gotowe, provisioning produkcyjny jest niedos
 
 ### P07-F01 — Proces rekrutacji i oferty
 
+**Rozszerzenie profilu:** [Kadry §2.1](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md) określa ukryte cechy i obserwacje HR. Rzeczywiste traits pozostają serwerowe; publiczny DTO zwraca tylko ocenione dane, a morale kandydata jest nieocenione. Rozkład60/30/10 jest kandydatem do kalibracji. Generator cech/absencji wymaga HR-CFG01/03/05; zatrudnienie i rehire nie losują osoby ponownie.
+
 **Właściciel Staff; dane:** recruitment_requests: id, company_id FK, market local/international/headhunter, region_code, role_code, status searching/ready/closed, requested_at, due_at, balance_version_id, secret_id, offer_slot, state_version, operation_id UNIQUE. INDEX(company_id,status,due_at).
 candidate_offers: id, recruitment_id FK, candidate_key UNIQUE, role_code, salary_expected_minor, traits_json (zamknięty schemat), skills_json (słownik), personality_code, offer_slot, generated_at, consumed_at nullable, state_version; UNIQUE(recruitment_id,offer_slot). Pojedyncze trait/skill przy często używanym wyszukiwaniu ma kolumnę/indeks; JSON nie zastępuje tożsamości kandydata i procesu.
 
@@ -141,6 +143,8 @@ raise_decisions: id, request_id FK, action_code, offered_salary_minor nullable, 
 **Odbiór:** jedna otwarta prośba; dwa kliknięcia accept nie podnoszą pensji drugi raz; drugi defer409; HTTP vs job na deadline jeden wynik; RNG po retry identyczne.
 
 ### P08-F03 — Dobowy model morale i populacja działu
+
+**Rozdzielenie stanu:** ukryta podatność na niedyspozycję nie jest morale. Absencja nie uruchamia automatycznej kary morale ani nowego modelu strajku. Wpływ współpracy/konfliktowości integrujemy przez pojedyncze zdarzenia istniejącego modelu, zgodnie z Kadry §2.1.
 
 **Dane:** employee_morale_events: id, employee_id FK, company_id FK, department_code, event_type, amount_pts DECIMAL, occurred_at, decays_until nullable, source_event_id, balance_version_id; UNIQUE(employee_id,source_event_id,event_type). employee_morale_daily_snapshots: employee_id,date_utc,morale_before,target,morale_after,inputs_hash,policy_version; UNIQUE(employee_id,date_utc). department_morale_snapshots: company_id,department_code,date_utc,population_count,employee_mean,lagged_company_mean,morale; UNIQUE(company_id,department_code,date_utc).
 
