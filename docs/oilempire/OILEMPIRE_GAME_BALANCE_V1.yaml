@@ -1386,9 +1386,11 @@ modules:
         max_conversions_per_24h: 1                             # §22.3, §22.6.1 — UNIQUE(company_id, conversion_date_utc) + idempotency_key; duplikat = no-op
         max_pending_requests_per_company: 1                    # §22.6.1 — max 1 żądanie oczekujące na firmę
         drip_window_days: 30                                   # §22.6.1 — drip_30d (suma DRIP_IN z 30 dni) odejmowany od tier_base; anty-snieżna-kula
-        snapshot_time_utc: "00:00"                             # §22.6.1 — jeden snapshot na dobę, faza 5 sweepa; UNIQUE(company_id, snapshot_date); zasila podatek (§19.1), tarczę (§19.2), Tier (§22.6)
+        snapshot_time_utc: "00:00"                             # PL: Snapshot podatkowy; tarcza i Tier uzywaja stanu biezacego (OPEN02).
+        # EN: Tax snapshot; shield and Tier use current wealth (OPEN02).
         tier_base_formula: "net_worth - starter_value - drip_30d" # §22.6.1
-        # Zmiana Tieru w dół obcina limit od NASTĘPNEGO dnia; recovery_mode / Faza 2+ egzekucji blokuje wymianę NATYCHMIAST (§22.3, §22.6.1)
+        # PL: Zmiana Tieru wplywa na nowe decyzje od razu; recovery blokuje wymiane.
+        # EN: Tier changes affect new decisions immediately; recovery blocks conversion.
         tiers:                                                 # §22.6 — majątek netto z WYŁĄCZENIEM pakietu startowego
           - tier: 1                                            # §22.6
             net_worth_below_pln: 10000000
