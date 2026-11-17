@@ -1,5 +1,8 @@
 # OilEmpire — plan programowania i wdrożenia całego silnika
 
+> Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Zakres i kolejność pakietów P01–P25. Wymagania domeny, API, panelu i bezpieczeństwa pozostają powiązane przez macierz w indeksie. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
+
+
 Status: plan wykonawczy v1 do implementacji. Zakres obejmuje 14 węzłów game_balance i wszystkie sekcje funkcjonalne głównej specyfikacji, panel, API, mobile i eksploatację. Ten dokument nie potwierdza gotowej implementacji. Dokumenty źródłowe: architektura gry, panel, API, bezpieczeństwo i standard modułu. Liczby bierze się z kanonu i YAML; propozycje historyczne nie nadpisują ich.
 
 ## 1. Zasady wykonania od początku
