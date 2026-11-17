@@ -58,5 +58,13 @@ security = (BASE / files[2]).read_text(encoding="utf-8")
 ids = re.findall(r"^\| (S\d{2}) \|", security, re.M)
 check("D08 eighteen unique security acceptance scenarios", len(ids) == len(set(ids)) == 18)
 check("D09 UTF-8 without BOM", all(not (BASE / f).read_bytes().startswith(bytes.fromhex("efbbbf")) for f in files))
+
+index = (BASE / "README.md").read_text(encoding="utf-8")
+indexed_packages = re.findall(r"^\\| (P\\d{2}) [^|]*\\|", index, re.M)
+check("D10 integrated index covers every work package once", len(indexed_packages) == len(cards) and set(indexed_packages) == set(cards))
+chapters = files[:-1] + ["OILEMPIRE_AUDYT_GOTOWOSCI_PROGRAMOWANIA.md"]
+check("D11 every chapter links to shared specification index", all("](README.md)" in (BASE / f).read_text(encoding="utf-8") for f in chapters))
+check("D12 index links every canonical chapter", all(f"]({f})" in index for f in chapters))
+
 print(json.dumps(results, ensure_ascii=False, indent=2))
 raise SystemExit(1 if any(r["status"] == "FAIL" for r in results) else 0)
