@@ -552,3 +552,13 @@ Obowiązkowe przypadki: zapis szkicu/klonowanie, odmowa edycji aktywnej wersji, 
 Testy UI: formularz i potwierdzenie na320/360/390/768/1024/1440px, klawiatura, SVG, trzy języki, animacje z reduced-motion.
 Testy backendu: uprawnienia pozytywne/negatywne, współbieżność MySQL, kontrakty, księgowania, audyt i outbox. To plan testów, nie raport PASS.
 Kolejność implementacji: odczyt/profile → katalogi i szkice → wnioski/pule → preview i aktywacja → korekty → masowe operacje → automatyzacja. Blokery ekonomiczne HR-CFG pozostają widoczne; ekran nie uruchamia niezatwierdzonej reguły.
+
+
+### Uzupełnienie Kadr — chorobowe, zastępstwa, rekrutacja i rozwój
+
+Szczegółowe procesy i granice: [Kadry §14–§17](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md).
+- Chorobowe/zastępstwa: edytor ryzyka, długości, cooldown/cap, wynagrodzenia, kolizji i dostępności ofert. Zatwierdzony mnożnik pracownika tymczasowego250% pełnego kosztu bazowego godziny, edytowalny; brak gwarancji natychmiastowej dostępności. Quote ujawnia czas przyjazdu i pełny koszt, nie dolicza ponownie bazowych składek.
+- Rekrutacja: kanał/zasięg/region/rola, cennik, rozkłady profili, limity i ważność ofert, selekcja i relokacja; kampanie i historia rezultatów bez przycisku re-roll.
+- Ukryte cechy: wagi, mapy wpływu, dowody i progi ocen. Oddzielnie rzeczywisty profil GM oraz ocena znana firmie; osobna capability i audyt. Nie wysyłać ukrytych wartości w zwykłym DTO.
+- Rozwój: wersje kursów i tryby czasu, pauzy, mentoring, awanse oraz odnowienia uprawnień. Walidacja grafiku i kosztu obowiązkowa. Braki DOM06/07/08 blokują zależne nowe warianty.
+Wszystkie zmiany parametrów przez wersjonowany kandydat/preview/aktywację. Główny administrator bez obowiązku komentarza; audyt i integralność pozostają. Taryfy niepodane w domenie nie mają cichej wartości0.
