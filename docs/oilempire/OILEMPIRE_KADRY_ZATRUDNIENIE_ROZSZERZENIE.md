@@ -103,6 +103,176 @@ Szkolenie ma osobno czas kalendarzowy kursu i zajętość pracownika. Mapowanie 
 Wygasłe uprawnienia blokują nowe wymagające ich czynności. Dla trwającej pracy katalog określa bezpieczne przekazanie/zatrzymanie; nie porzucamy cysterny w tranzycie.
 Urlop/choroba pracownika uruchamia zastępstwo, nie zatrzymuje zegara firmy. Urlop firmy zachowuje istniejące reguły zamrożenia; wyjątki podatkowe/fakturowe nowego modelu wymagają jawnego mapowania.
 
+
+### 4.1. Grafiki i obsada — szczegółowy projekt HR-ROSTER-01
+
+Status: specyfikacja kandydujących zasad gry. Podane normy są propozycją do symulacji, nie odwzorowaniem przepisów prawa pracy. Nie aktywuje nowego balansu ani nie zmienia liczebności obsady zapisanej w architekturze.
+Cel: gracz wybiera tryb pracy i priorytety instalacji, Staff układa legalny grafik, a właściciel instalacji rozlicza skutki faktycznie dostępnej obsady. Agencja nie jest wymagana do zwykłego automatycznego układania grafiku.
+
+#### 4.1.1. Trzy odrębne pojęcia
+
+- Umowa: ile czasu osoba może/ma pracować i za jakie wynagrodzenie.
+- Grafik: konkretne przedziały pracy, odpoczynku, szkolenia i nieobecności.
+- Przydział: zadanie/obiekt i udział dostępnej osoby w danym przedziale.
+
+Pełny etat nie oznacza dostępności24/7. Pół etatu nie obniża umiejętności. Suma alokacji dotyczy czasu, w którym osoba rzeczywiście jest dostępna;100% alokacji na pół etatu nie tworzy pełnego etatu.
+Zapisany grafik nie jest dowodem wykonania pracy. Staff wyznacza effective availability z umowy, grafiku, kwalifikacji, absencji, strajku i zajętości.
+B2B ma kalendarz uzgodnionej dostępności, a nie etat. Zatrudnienie zewnętrzne nie daje tej samej osobie nieograniczonego czasu.
+
+#### 4.1.2. Zegar i zakres planowania
+
+Czasy UTC, przedziały półotwarte [start,end). Prezentacja może używać lokalnej strefy, lecz ta sama zmiana nie przesuwa się wskutek zmiany języka lub strefy klienta.
+Kandydat: siatka edycji15min, podstawowy horyzont14dni, podgląd7dni. Terminy choroby/awarii i Settlement zachowują dokładność silnika, nie są zaokrąglane do siatki.
+Tydzień normy umownej: poniedziałek00:00UTC → kolejny poniedziałek. Limity bezpieczeństwa sprawdzamy również w ruchomym oknie168h, żeby przełom tygodnia nie pozwalał obejść odpoczynku.
+Publikacja obejmuje konkretny przedział i wersję wejściową. Szablon służy generowaniu przyszłego grafiku, nie oznacza nieskończonej, bezwarunkowej dostępności.
+Dla włączonego powtarzania generujemy następny tydzień z wyprzedzeniem7dni; job i sweeper mogą wznowić tę samą operację idempotentnie. Niepowodzenie publikuje blokery, nie fałszywą obsadę.
+Jeśli brak opublikowanego grafiku na dany okres, osoba nie daje operacyjnej obsady. Pensja miesięczna nie znika. Jedna informacja o luce na obiekt/rolę/okres, nie powiadomienie przy każdym GET.
+Pauza firmy jest obsługiwana przez istniejący company_time_pauses. Podczas pauzy brak wykonanej pracy; po powrocie zachowujemy historię i przeliczamy przyszły grafik. Nie przesuwamy istniejących przydziałów w niekontrolowane nakładanie. URLop pracownika to odrębna nieobecność.
+
+#### 4.1.3. Tryby pracy instalacji
+
+| Tryb | Domyślny szablon kandydujący | Zastosowanie |
+|---|---|---|
+| Jedna zmiana | 06:00–14:00 | Praca dzienna |
+| Dwie zmiany | 06:00–14:00 i14:00–22:00 | Wydłużona praca |
+| Całodobowy | 06:00–14:00,14:00–22:00,22:00–06:00 | Ciągła obsługa |
+| Zadaniowy | Przedziały właściwego zadania | Kierowca, naprawa, inspekcja |
+
+Dni pracy osobno: np. pon.–pt. lub7dni. Praca na3zmiany przez5dni nie jest24/7.
+Użytkownik może zmienić godziny w zakresie katalogu. Zmiana trybu nie przełącza od razu urządzenia: najpierw plan, koszt, sprawdzenie procesu i zatwierdzenie przyszłej daty.
+Każdy zasób ma operating calendar oraz personnel requirements. Instalacja może działać poza grafikiem własnej załogi tylko wtedy, gdy jej jawny model automatyzacji/usługi zewnętrznej na to pozwala.
+Przerwa między zmianami daje rzeczywistą lukę. Przedziały06–14 i14–22 stykają się bez luki i nie liczą minuty14:00 dwukrotnie.
+
+#### 4.1.4. Kandydat norm czasu
+
+| Parametr gry | Wartość startowa do kalibracji |
+|---|---:|
+| Zwykła zmiana | 8h |
+| Maksimum ciągłego bloku pracy z nadgodzinami | 12h |
+| Nominał pełnego etatu | 40h/tydzień |
+| Limit całej pracy w ruchomych168h | 48h/osobę |
+| Minimalny odpoczynek pomiędzy blokami | 12h |
+| Minimalny nieprzerwany odpoczynek w każdym ruchomym oknie168h | 36h |
+| Noc | 22:00–06:00UTC |
+| Dodatek za godzinę ponad wymiar/nominał w modelu gry | +50% podstawy godzinowej |
+| Dodatek nocny | +20% podstawy godzinowej |
+
+Przylegające zmiany tej samej osoby łączymy w jeden blok przed kontrolą limitu12h. Nie wolno nazwać16h pracy dwiema zmianami i ominąć odpoczynku.
+Przydziały do różnych działów, mentorowanie, zadania i płatne szkolenia sumują czas tej samej osoby. Nie sumować dwukrotnie nakładających się reprezentacji tego samego zadania; odrębne nakładające się zadania wymagające pełnej uwagi są kolizją.
+Niepełny etat: nominał tygodnia40h×wymiar, np.20h dla1/2. Godziny ponad umowny nominał wymagają jawnego limitu extra_hours i zgody na automatyczne nadgodziny. Domyślnie extra_hours=0, nie automatyczna praca do48h.
+Proponowane uproszczenie: +50% dla godzin ponad umowny wymiar, również niepełnego etatu. To celowa reguła gry, nie utożsamienie wszystkich godzin ponadwymiarowych z ustawowymi nadgodzinami.
+Godzina spełniająca dwa warunki nadgodzin jest liczona raz; noc i nadgodziny mogą dać łącznie+70% tej samej podstawy. Nie mnożymy1,5×1,2.
+W pierwszej wersji twardych limitów nie da się obejść ręcznym grafikiem, automatyzacją HR ani Agencją. Nie wprowadzamy oddzielnego trybu łamania norm.
+Walidacja odpoczynku uwzględnia co najmniej168h przed i po zmienianym okresie; nieznane przyszłe dane nie mogą posłużyć do deklaracji, że opublikowano grafik zgodny z limitem. Końcowy odcinek planu pozostawia wymagany odpoczynek.
+
+#### 4.1.5. Przykłady etatu i koszt dodatków
+
+1etat:5×8h. Pół etatu:5×4h albo2×8h+4h; wybór zależy od stanowiska i realnej potrzeby zmianowej. Krótszy dyżur nie daje obsady przez resztę dnia.
+Cztery osoby po40h dają160h; do jednego stanowiska24/7 potrzeba168h.4,2etatu to matematyczne minimum godzin, nie dowód ułożenia legalnego grafiku. Pięć etatów daje200h, czyli32h rezerwy przed absencjami, szkoleniem i ograniczeniami odpoczynku.
+Dla2 stanowisk24/7 zapotrzebowanie336h. Nie wolno rozdzielić jednego pracownika pełniącego dwa wyłączne stanowiska jako dwóch osób.
+Dla wspólnego technika trzech odwiertów używamy ograniczenia domenowego „max3”, a nie zaokrąglonego33,33%, które dawałoby99,99%. W danych pojemność całkowita/licznik slotów albo dokładny ułamek. Ponad3 obsługiwane odwierty odrzucone.
+
+Podstawa dodatków: actual_monthly_minor / nominal_contract_hours_in_month. Nominał wyznacza wersjonowany kalendarz umowy, nie opublikowany grafik ani godziny po odjęciu choroby. Dla bazowego kalendarza gry pon.–pt.8h dziennie×etat; święta regionalne nie występują bez jawnego katalogu.
+Przykład miesiąca20dni roboczych:15000PLN/160h=93,75PLN/h.8 zwykłych godzin nocnych: dodatek150PLN;4 dodatkowe godziny nocne: podstawa za pracę375PLN +50%187,50PLN +20%75PLN =637,50PLN przed narzutami.
+Pensja miesięczna pokrywa nominalne godziny; dodatkowa praca otrzymuje podstawę plus dodatek, nie sam dodatek. Zmiana położenia nominalnych godzin na noc daje tylko nocny dodatek. Zlecenie godzinowe płaci podstawę raz za wykonane godziny i właściwe umowne dodatki.
+Dodatki idą przez HR-PAY-01 jako osobne składniki z resztami, nie drugi silnik płac. Sposób naliczania pierwszego/ostatniego niepełnego tygodnia i wpływ absencji na próg nadgodzin wymagają HR-ROSTER-CFG02 przed aktywacją kosztów.
+
+#### 4.1.6. Mapa obsady — zachowanie istniejącej domeny
+
+| Obszar | Kanon istniejący | Wymaganie dla grafiku |
+|---|---|---|
+| Odwiert | 1operator + technik współdzielony maks.3odwierty; brak=paused_staff | Operator i pojemność technika dostępne w tym samym przedziale produkcji |
+| Hub mały/średni/duży | Obsada1/2/4; brak:70% przepustowości i ryzyko×2 | Zachować minimum i ten tryb degradacji; krzywa częściowej obsady wymaga doprecyzowania, nie wymyślać proporcji |
+| Rurociąg | Inżynier; brak zwiększa zużycie/ryzyko×2; specjalista logistyki opcjonalny | Nie zatrzymywać całego przesyłu tylko z powodu końca zmiany; limity współdzielenia odcinków wymagają katalogu |
+| Cysterna | Konkretny kierowca i skończony pojazd | Wyłączna rezerwacja na czas zadania, bez równoległej trasy/szkolenia |
+| Rafineria | Minimalna załoga4+1/10+3/24+8; zewnętrzna obsługa/automatyzacja w OPEX | Rozdzielić własną załogę specjalistyczną od obsługi zewnętrznej; nie mnożyć istniejącej tabeli przez liczbę zmian bez decyzji |
+| Naprawa/inspekcja | Uprawnienia i rezerwacja TTS | Zadanie musi zmieścić się w dostępności albo mieć jawny bezpieczny handover |
+| Centrala i zarząd | Mandat/uprawnienie dyrektora osobno od zadania operacyjnego | Koniec zmiany nie kasuje mandatu ani awaryjnych uprawnień gracza |
+
+Niezdefiniowane reguły dzielenia operatora między odległe obiekty nie oznaczają dowolnego współdzielenia. Jeden operator odwiertu obsługuje jedną pozycję w danym czasie. Wyjątki wymagają jawnej automatyzacji w domenie.
+Przemieszczenie osoby między obiektami potrzebuje wersjonowanego transit_time. Brak polityki odległości blokuje automatyczne przenoszenie między lokalizacjami, nie dodaje teleportacji.
+Suma czasu+przemieszczenia+przekazania mieści się w dostępności; handover personelu nie jest drugim wykonaniem tego samego zadania.
+
+#### 4.1.7. Algorytm układania grafiku
+
+Wejście: wersje umów, kompetencji, kalendarzy operacyjnych, potrzeb obsady, absencji, szkoleń, zajętości i limitów budżetu.
+1. Zbuduj demand slots role+asset/group+interval z krytycznością, kwalifikacjami, liczbą stanowisk i allow_share.
+2. Zachowaj ręcznie przypięte przyszłe pozycje, jeśli nadal legalne. Nieprawidłową oznacz konfliktem, nie wykonuj jej tylko dlatego, że przypięta.
+3. Odfiltruj osoby bez umowy/kwalifikacji/dostępności lub z kolizją. Sprawdź całkowitą pracę osoby, nie osobno każdego działu.
+4. Obsadzaj najpierw stanowiska krytyczne i te, do których jest najmniej uprawnionych osób.
+5. Spośród legalnych rozwiązań preferuj już przypisany zespół, mniejszy koszt dodatkowy, mniej zmian grafiku i równy rozkład nocy. Remis rozstrzyga stabilne person_id.
+6. Jeśli brakuje czasu nominalnego, proponuj nadgodziny tylko w mandacie i limicie. Nie uruchamiaj automatycznego płatnego zastępstwa, zanim nie istnieje jego zatwierdzona polityka.
+7. Zwróć plan, koszt nominalny/dodatkowy, rezerwę godzin i luki z przyczynami. Nie udawaj optymalnego rozwiązania, jeśli użyta heurystyka nie znalazła obsady; status „nie znaleziono planu” różni się od dowodu niewykonalności.
+8. Gracz zatwierdza wersję; publikacja rewaliduje dane i koszty pod blokadą. Konflikt zwraca PLAN_STALE zamiast nadpisania zmian.
+
+Tryby: rekomendacje, autopublikacja w granicach mandatu, ręczny grafik. Pierwszy domyślnie pokazuje plan do zatwierdzenia.
+Zwykły autoplan nie zatrudnia/zwalnia ludzi i nie podnosi pensji. Może proponować te kroki; szersza delegacja należy do osobnego mandatu, ewentualnie Agencji.
+Koszt porównujemy z limitem nadgodzin; nie rezerwujemy drugi raz podstawowych pensji już wynikających z umów.
+
+#### 4.1.8. Życie planu, konflikty i ręczne zmiany
+
+Stany wersji: draft → validated → published → superseded/closed. Historia niezmienna. Osobno derived coverage: covered/partial/uncovered/conflict.
+Publikacja stosuje future effective_from; przeszłego grafiku nie edytujemy. Rozliczenie poprzedniego stanu do granicy następuje przed nowym wpływem.
+Jedna aktywna wersja dla firmy/zakresu/czasu. Równoległe publikacje CAS dają jedną wygraną. Szerokie zakresy nie mogą przykrywać części planu bez kontroli przecięć.
+Nowa choroba, strajk, koniec umowy i wygaśnięcie uprawnienia natychmiast zmieniają effective availability, nawet jeśli ekran pokazuje wcześniejszy plan.
+Zadania nieprzerywalne: start wymaga pokrycia przewidywanego czasu z rezerwą albo zdefiniowanej zmiany wykonawcy. Nie odcinać kierowcy na środku trasy arbitralnym końcem grafiku.
+Nieprzewidziane przekroczenie czasu trasy/naprawy wymaga polityki safe-stop/handover w Logistics/Incidents. Do jej zdefiniowania nie dopuszczać wariantu bez legalnej ścieżki końca; automatyzacja nie obiecuje „kontynuacji bez limitu”.
+Krytyczne luki mają trwały incident_ref do powiadomienia, deduplikację i zamknięcie po odzyskaniu obsady. Nie karzemy kilkakrotnie za tę samą godzinę absencji.
+
+#### 4.1.9. Settlement i współbieżność
+
+Przedział rozliczenia dzielimy na granicach zmian, przydziałów, nieobecności, kwalifikacji, kontraktów, zadań i pauz. Obliczenia fizyczne w fazie1 korzystają z obsady właściwej dla podprzedziału, nie wyłącznie obecnego statusu osoby.
+Przykład: brak operatora10:00–11:00 w odczycie09:00–12:00 daje produkcję tylko09–10 i11–12; późniejsza faza HR nie odkręca całego okresu.
+Właściciel obiektu łączy coverage z istniejącymi mnożnikami strajku i budżetu. Ten sam powód utraty dostępności nie tworzy dodatkowej kopii kary. Strajk mający szczególny skutek domenowy nadal stosuje ten kanon.
+Job granicy zmiany jest przyspieszeniem, nie jedynym mechanizmem. Lazy settlement i sweeper5min odtwarzają identyczne granice, także po długim offline. Brak workerów nie daje darmowej produkcji.
+Opublikowanie nowego przyszłego grafiku nie nadpisuje historycznej wersji użytej przez rozliczenie; źródłowe wersje i logical_at są utrwalone.
+LockPlan: standard idempotency/company/settlement → Staff14 → dalsze obiekty/konta → append140. Dokładną kolejność nowych tabel dopisujemy wspólnie do kanonu w HR-CONTRACT01 przed implementacją. Nie lockować obiektu, a dopiero później pracownika.
+Wynik publikacji, rezerwacje, zdarzenie i outbox atomowo; retry bez drugiej wersji lub podwójnej opłaty.
+
+#### 4.1.10. Dane, kontrakty i ekran
+
+Docelowe encje Staff: roster_templates, roster_versions, roster_entries, staffing_demands, coverage_findings. Nie zastępują employment_contracts, employee_assignments, employee_availability ani training_enrollments.
+roster_entry: osoba/okres zatrudnienia, wersja, start/endUTC, typ pracy, rola, asset/group_ref, alokacja/sloty, status przypięcia i źródłowe wersje. Dla braku obsady demand bez person_id, nie sztuczny pracownik.
+Unikalność intencji i aktywnej wersji; indeksy firma+przedział i osoba+przedział. MySQL nie rozwiązuje nakładania czasu zwykłym UNIQUE: blokada trwałego rodzica osoby oraz zapytanie o przecięcie [start,end) w transakcji. Plan wielu osób blokuje ID w stałej kolejności.
+Kontrakty: BuildRoster, ValidateRoster, QuoteRoster, PublishRoster, PinRosterEntry, ResolveAvailability, GetCoverageForecast. Aktor+firma, Idempotency-Key i expected_state_version; DTO nie ujawnia ukrytych traits.
+Ekran Grafik: tydzień/dzień, filtr dział/obiekt, osoby i godziny, luki, koszt dodatków, przyciski „Ułóż grafik”, „Sprawdź”, „Opublikuj”. Przeciąganie opcjonalne; każda akcja dostępna także formularzem/klawiaturą.
+Mobile: agenda zmian i formularz, bez wymuszania szerokiej siatki. Status opisany tekstem+SVG; wspólne animacje §12.1, PL/EN/DE.
+Podsumowanie: wymagane godziny, pokryte godziny, luki krytyczne, nadgodziny, rezerwa i prognoza kosztu. Nie utożsamiać pokrytych godzin z liczbą zatrudnionych osób.
+
+#### 4.1.11. Starter i bramki aktywacji
+
+Starter musi dać pierwszy legalny kurs i działający odwiert na warunkach istniejącej domeny. Obecny pakiet wymienia kierowcę, ale nie rozstrzyga pełnej zmianowej obsady operatora/technika. To luka do decyzji, nie powód dopisania darmowej załogi w kodzie.
+Proponowany kierunek do osobnej kalibracji: jawny ograniczony pakiet obsługi szkoleniowej albo startowy grafik z zatrudnieniem. Oba muszą pokazać datę końca i przyszły koszt; żadnej niewidocznej nieograniczonej pracy NPC.
+Rafineria: najpierw rozstrzygnąć, które wymagania tabeli są jednoczesnymi stanowiskami zmianowymi, a które przypisanym zespołem specjalistycznym. Płacenie za własną i już zawartą w OPEX tę samą obsługę jest błędem.
+| Bramka | Co nadal wymaga decyzji/testu |
+|---|---|
+| HR-ROSTER-CFG01 | Ostateczne normy8/12/40/48h, odpoczynek12/36h, horyzont i siatka; symulacja legalnego planu |
+| HR-ROSTER-CFG02 | Częściowy tydzień/miesiąc, absencje a nadgodziny, nominalny kalendarz i dodatki |
+| HR-ROSTER-CFG03 | Rafinerie/starter, częściowa obsada hubów, liczba odcinków na inżyniera, transit/handover |
+| HR-ROSTER-CFG04 | Opóźnione trasy i zadania nieprzerywalne: safe-stop, zastępstwo i koszty |
+| HR-ROSTER-CONTRACT01 | DDL, pełne API, snapshot obsady, globalny lock order i karty delta |
+| HR-ROSTER-ECON01 | Test90dni: ciągła praca, jedno/dwie zmiany, kryzys, absencje i marża startera |
+
+Kolejny podtemat: chorobowe, urlopy i zastępstwa. Ten rozdział definiuje ich punkt integracji, nie losuje ani nie ustala jeszcze kompletnych zasad nieobecności.
+
+#### 4.1.12. Testy do implementacji
+
+R01:4 osoby×40h nie pokrywają168h. R02:5×40h to200h podaży, lecz planner nadal sprawdza odpoczynek.
+R03:pół etatu5×4h i2×8h+4h mają20h, normalny skill, brak drugiego×0,5.
+R04:przylegające8h+8h tworzą16h i są odrzucone. R05:przełom tygodnia nie omija48h/168h ani odpoczynku.
+R06:zmiana22–06 poprawnie przecina dobę i miesiąc. R07:styki14:00 bez luki/podwójnego naliczenia.
+R08:technik obsługuje maks.3odwierty; czwarte zadanie nie przechodzi równolegle.
+R09:hub bez obsady zachowuje70%/×2, odwiert paused_staff; brak globalnej jednej kary.
+R10:choroba po publikacji unieważnia obsadę tylko od logical_at. R11:kurs i naprawa nie zużywają tej samej dostępności.
+R12:publikacje równoległe i ręcznie przypięte wpisy; brak nadpisania/cyklu automatycznych zmian.
+R13:1odczyt vs100 i brak workera dają ten sam wolumen, czas pracy i koszt.
+R14:delegacja Agencji nie omija norm; odczyt cudzej firmy/ukrytych cech odrzucony.
+R15:niezmienna historia po aneksie i zmianie grafiku; korekty tylko jawne.
+R16:pauza firmy, długi offline, brak przyszłego planu, restart i częściowo wykonane zadania.
+R17:noc+nadgodziny sumują dodatki, bez podwójnej podstawy. R18:prognoza niczego nie księguje.
+R19:pełna obsługa mobile/klawiaturą bez drag; PL/EN/DE. R20:starter i rafinerie po zatwierdzeniu mapy obsady.
+To scenariusze odbioru, nie wyniki testów działającego silnika.
+
 ## 5. Płace i pełny koszt
 
 Koszt firmy = wynagrodzenie + obciążenia firmy + dodatki + świadczenia + odrębne koszty organizacyjne.
