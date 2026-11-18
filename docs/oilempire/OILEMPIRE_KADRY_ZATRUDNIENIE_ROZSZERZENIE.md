@@ -3,6 +3,8 @@
 Doprecyzowanie HR-CFG02/04: [Umowy, wynagrodzenia i odprawy — HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md). Zawiera kandydujące stawki, algorytmy i przykłady sprawdzone arytmetycznie; nie zmienia YAML v1. Pozostają kalibracja, grafiki/absencje, DOM02/DOM08 oraz kontrakty wykonawcze.
 
 
+Kontrakt do programowania wariantu A: [HR-CONTRACT01 — tabele, akcje, API, uprawnienia i migracja](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md). Ten rozdział pozostaje źródłem mechaniki i wartości; kontrakt wykonawczy uszczegóławia jej zapis oraz transport.
+
 Status: zatwierdzony zakres funkcjonalny z rozmowy właściciela, specyfikacja do programowania; brak implementacji. Wartości nowych stawek i końcowe kontrakty wykonawcze pozostają bramką gotowości.
 Właściciel: Staff. Powiązania: [architektura](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) §3–§6, §19, §23; [karty](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) P07–P09; P06 reputacja, P11–P13 obsada, P16 finanse, P24 interfejs.
 Ten rozdział jest źródłem wymagań dla rozszerzenia HR, nie zmianą aktywnego YAML v1. DOM01, DOM02 i DOM16 otrzymują szerszy zakres; pozostałe propozycje DOM nie zostają automatycznie zatwierdzone.
