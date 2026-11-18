@@ -580,3 +580,26 @@ Kontrakt tabel, akcji i uprawnień: [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMP
 ### Granice implementacji panelu Kadr
 
 Filament dzieli nawigację i formularze według części Staff: Recruitment, Employment, Scheduling, Absences, Payroll, Training i Assessments. Resource, Page i Action Filament wywołują odpowiednie akcje aplikacyjne opisane w [podziale Staff §19.8](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md); nie zapisują bezpośrednio reguł domenowych w komponentach panelu. Widoki mogą łączyć dane z kilku części przez uprawnione zapytania, lecz mutacja ma jednego właściciela. Ta sama akcja obsługuje panel, web i API przy odrębnych uprawnieniach transportu.
+
+## Załącznik wykonawczy P14–P25 — po audycie kompletności
+
+Ten załącznik wskazuje ekran Filament, Action, odczyt, audyt i zabezpieczenie. [Manifest](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) i [kontrakt providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml) są źródłem nazw DTO/ID. Filament wywołuje te same Actions; nie zapisuje prywatnych tabel sąsiedniego modułu.
+
+| Moduł | Ekrany i akcje personelu | Odczyt/odmowa i audyt |
+|---|---|---|
+| P14 Market | ceny/snapshoty, oferty limit, slippage, czarny rynek; GM publikuje tylko wersjonowane zdarzenie, nie edytuje historii trade | podgląd płynności, rezerwacji i konfliktów; każdy override z before/after i capability |
+| P15 Contracts | ofert NPC/B2B, escrow, spór, refund/receipt i korekta GM po terminalnym escrow | dwie firmy i trip, receipt ma pierwszeństwo; GM award poza escrow przez jawny wpis |
+| P16 Finance | budżet, OPEX, wycena, snapshot podatku, wyjątki | podgląd formuły i balance_version, bez bezpośredniego UPDATE FTS |
+| P17 Banking | scoring, raty, restrukturyzacja, egzekucja, bankructwo, aukcje | widoczność zajęcia i wartości z timestampem; korekta tylko przez Action |
+| P18 Legal | sabotaż, ochrona, łapówki, raporty nadużyć | moderator nie widzi RNG ani prywatnego celu bez capability; każda decyzja ma audit |
+| P19 Refining | działki, EPC, etapy, receptury, flara, claim/pula | rekomendacja receptury z serwerowym popytem/kontraktami, historia snapshotu i limitu |
+| P20 Monetization | katalog, promo, zamówienia, receipt mobile, refund, chargeback, recovery | 2FA; nie pokazuje danych kart ani surowego receipt/tokena; refund po grant jako nowy wpis kompensujący |
+| P21 Social | czat, wątki, kartel, dyplomacja, flagi i sankcje | moderacja z historią, revokacja WS natychmiast, brak cichej edycji wiadomości |
+| P22 Onboarding | kroki, osiągnięcia, powiadomienia, adapter push, DLQ | push token ukryty; retry identycznym key, preferencje użytkownika respektowane |
+| P23 CorePrivacy | CMS, menu, polityki, zgody, eksport/anonimizacja, TinyMCE newsletter PL/EN/DE | publikacja immutable, sanitizacja, self-service osobno od operacji personelu |
+| P24 ClientDelivery | wersje kontraktów, min_app_version, kompatybilność Vue/Flutter | brak własnej ekonomii; test 320–1440 px i deep linków |
+| P25 Operations | health, kolejki/DLQ, reconciliation, backup/restore, release, rollback | 2FA, lease/fencing i raport RPO/RTO; green CI bez deploy nie oznacza gotowości |
+
+**Wspólne reguły UI:** każdy komunikat, alert i potwierdzenie w panelu używa dostępnego komponentu z lokalną ikoną SVG, etykietą PL/EN/DE i przyciskami ≥44×44 px; nie używa alert/confirm/prompt przeglądarki. Każdy ekran ma loading, empty, error, conflict i offline/ponowienie. Moderator widzi tylko przyznane zasoby i nie zmienia historii. Główny administrator może zatwierdzić bez komentarza zgodnie z przyjętą regułą produktu; audyt zachowuje kto/co/kiedy oraz hash decyzji. Wymagane 2FA i polityka obiektu obowiązują także przy wywołaniu Action bez UI.
+
+**Balans i wersje:** wszystkie edytowalne parametry przechodzą przez P05 balance draft → immutable snapshot/hash → symulator 0 FAIL → zatwierdzenie/aktywacja. DOM bez decyzji pozostaje POLICY_NOT_APPROVED tylko w zależnej mechanice. Wydanie nie aktywuje propozycji samoistnie.
