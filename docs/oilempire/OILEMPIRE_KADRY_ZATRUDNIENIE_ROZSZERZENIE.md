@@ -1,6 +1,6 @@
 # OilEmpire — rozszerzenie kadr i zatrudnienia
 
-Doprecyzowanie HR-CFG02/04: [Umowy, wynagrodzenia i odprawy — HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md). Zawiera kandydujące stawki, algorytmy i przykłady sprawdzone arytmetycznie; nie zmienia YAML v1. Pozostają kalibracja, grafiki/absencje, DOM02/DOM08 oraz kontrakty wykonawcze.
+[HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md) opisuje płace i odprawy, a §19 wybiera wariant A dla DOM01/DOM02/DOM16. Wcześniejsze wzmianki o tych decyzjach jako otwartych są historycznym stanem rozdziałów 1–18; przed aktywacją nadal wymagane są kalibracja, finalne migracje/OpenAPI i testy. Aktywny YAML v1 pozostaje bez zmian.
 
 
 Kontrakt do programowania wariantu A: [HR-CONTRACT01 — tabele, akcje, API, uprawnienia i migracja](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md). Ten rozdział pozostaje źródłem mechaniki i wartości; kontrakt wykonawczy uszczegóławia jej zapis oraz transport.
@@ -332,7 +332,7 @@ Płatny urlop w pensji miesięcznej nie generuje drugiej pensji. Zastępca jest 
 Kwoty BIGINT w najmniejszej jednostce, stawki/precyzyjne reszty bez float. Segmenty na granicach umowy, taryfy, grafiku i nieobecności. Rachunek całego okresu równy sumie rozliczeń przy wielu odczytach.
 Naliczenie nie oznacza zapłaty. Finance prowadzi zobowiązanie i spłaty; saldo należne=naliczone−spłacone−jawne korekty. Niedobór środków nie usuwa długu.
 Zaległość emituje jeden identyfikowalny sygnał do istniejącego modelu morale/sporu. Spłata długu nie nalicza drugi raz wynagrodzenia.
-Nie dodajemy nowego dzielnika miesiąca ani procentu składek w kodzie: DOM01/HR-CFG02 wymagają tabel i przykładów obliczeniowych.
+Wariant A dzielnika miesiąca i profilu kosztów opisują HR-PAY-01 oraz §19.3. W kodzie nie tworzymy innej podstawy ani procentu składek; wymagane są testy naliczenia i finalne migracje.
 
 ## 6. Zakończenie współpracy i odprawa
 
@@ -348,7 +348,7 @@ Redukcja przez firmę może rodzić odprawę; wygaśnięcie umowy i odejście pr
 To zasady modelu gry do parametryzacji, nie deklaracja obowiązku prawnego w każdej rzeczywistej sytuacji.
 Odsunięcie od pracy może być natychmiastowe, ale należne koszty pozostają. Brak gotówki nie blokuje rejestracji wymaganego końca umowy; tworzy dług według Finance.
 Historia i zobowiązania pozostają po odejściu. Nie kasujemy osoby, certyfikatów ani zdarzeń.
-DOM02 nadal blokuje aktywację kar: trzeba uzgodnić −10 instant, −8/os14dni cap−24 oraz historyczne24h populacji sporu. Nie nazywać24h ustawowym okresem wypowiedzenia.
+Dla wariantu A rozstrzygnięcie kar i populacji sporu znajduje się w §19.3; ten wcześniejszy punkt oznaczał brak decyzji przed wyborem A. Aktywację blokują jeszcze testy i kalibracja, nie wybór pomiędzy −10 i −8.
 
 ## 7. Rozwój i automatyzacja HR
 
@@ -538,7 +538,7 @@ Accept/hire sprawdza własność, ważność, wersję, budżet i brak zużycia. 
 Relokacja: potrzeba, kwota, płatnik i czas do rozpoczęcia zapisane w ofercie. Koszt i brak dostępności przed przyjazdem jawne; brak teleportacji do pracy. Mapowanie regionów wymaga katalogu.
 Anulowanie kampanii nie odzyskuje automatycznie wykonanej usługi; zasady zwrotu/rezerwacji określa taryfa. Brak kandydatów nie oznacza nowego darmowego losowania.
 
-Do ustalenia tabelami HR-CFG01: PLN dla kanałów, czasy kanał×zasięg, liczba/wagi kandydatów, ważność oferty, refundy, relokacja i efekt reputacji. Nie dopisujemy arbitralnego cennika jako zaakceptowanego.
+Wariant A dla kanałów, cen, czasów, liczby ofert, refundów i relokacji określa §19.2. Szczegółowe modyfikatory reputacji i rozszerzenia B pozostają do kalibracji; nie dopisujemy ich jako aktywnych wartości.
 Panel: edytor katalogu, schemat kombinacji, preview kosztów i rozkładów, kampanie/oferty, ślad losowania bez sekretu, statystyki skuteczności. Testy: koszt raz, brak re-roll, wygasanie, konkurencja hire, zgodność pensji/etatu, brak ofert i brak wycieku.
 
 ## 16. Ukryte cechy — model oceny i poznawania
