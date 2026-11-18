@@ -30,6 +30,8 @@ Przed programowaniem pakietu powstaje karta implementacyjna według §3. Brak ko
 
 To kolejność budowy i testów; nie zmienia faz rozliczeń §23.3. Wspólne kontrakty są dostępne wcześniej niż pełne moduły. Testowy adapter innego modułu jest dozwolony w testach, ale nie może udawać gotowej integracji produkcyjnej.
 
+Dla P07–P09/P16 obowiązuje [kontrakt implementacyjny Kadr HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md), powiązany z mechaniką [wariantu A](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Jest deltą do starszych kart, nie dowodem ukończenia migracji ani OpenAPI 3.1.
+
 ## 3. Obowiązkowa karta implementacyjna funkcji
 
 P06–P13 są rozpisane w [31 kartach domenowych](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), powiązanych z [kontraktem maszynowym](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Warunki gotowości obejmują DOM01–DOM16: operacje wymagające nieuzgodnionej polityki nie mają domyślnej wartości produkcyjnej. P06 powstaje wcześniej kodowo, lecz aktywacja pełnego startera czeka na wymagane kontrakty downstream; to nie cykl providers.
