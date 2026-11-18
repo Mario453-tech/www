@@ -15,7 +15,9 @@ Ten dokument jest głównym wejściem do całej specyfikacji. Pliki poniżej są
 | Dokument | Jest źródłem prawdy dla | Powiązanie |
 |---|---|---|
 | [Architektura i domena](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) | mechanika gry, stany ekonomiczne, kolejność faz, świat i balans opisowy | podstawa wszystkich pakietów |
-| [Kontrakt implementacyjny Kadr](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) | docelowe tabele, akcje, API, uprawnienia i plan migracji wariantu A | delta P07–P09/P16; ceny i mechanika nadal w specyfikacji Kadr |
+| [Kontrakt implementacyjny Kadr](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) | akcje, uprawnienia i plan migracji wariantu A | delta P07–P09/P16; ceny i mechanika w specyfikacji Kadr |
+| [DDL Staff A](OILEMPIRE_KADRY_DDL_MYSQL84.sql) | 46 tabel, fizyczne kolumny, FK, indeksy i guardy MySQL 8.4 | wymaga fundamentu P01/P06; nie jest migracją danych produkcyjnych |
+| [OpenAPI Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml) | 36 operacji HTTP, request/response, błędy i bezpieczne DTO | transport akcji HR-CONTRACT01; polityki DOM03/04 nadal bramkowane |
 | [Parametry balansu](OILEMPIRE_GAME_BALANCE_V1.yaml) | wersjonowane wartości parametrów wykonawczych | zgodność z domeną sprawdza symulator; konflikt liczby jest błędem do wyjaśnienia |
 | [API](OILEMPIRE_API_SPECYFIKACJA_TECHNICZNA.md) | protokół HTTP, sesje mobile, formaty danych i limity API | transport dla tych samych akcji domenowych |
 | [Panel](OILEMPIRE_PANEL_ADMINA_SPECYFIKACJA.md) | ekrany GM, zasoby, nawigacja i UX akcji administracyjnych | akcje podlegają domenie, politykom i §29.7 architektury |
