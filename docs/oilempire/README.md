@@ -1,9 +1,9 @@
 # OilEmpire — jedna specyfikacja techniczna gry
 
-Doprecyzowanie HR-CFG02/04: [Umowy, wynagrodzenia i odprawy — HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md). Zawiera kandydujące stawki, algorytmy i przykłady sprawdzone arytmetycznie; nie zmienia YAML v1. Pozostają kalibracja, grafiki/absencje, DOM02/DOM08 oraz kontrakty wykonawcze.
+[HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md) ustala kandydatów płac i odpraw, a Kadry §19 wybierają uproszczony wariant A także dla DOM01/DOM02/DOM16. Pozostają kalibracja, końcowe migracje/OpenAPI i testy przed aktywacją; aktywny YAML v1 pozostaje bez zmian.
 
 
-> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+> **Kadry — wariant A do implementacji:** [mechanika i parametry §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md) oraz [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) ustalają kierunek P07–P09/P16. DOM01/DOM02/DOM16 mają decyzje A, ale wymagają propagacji do kontraktów maszynowych, kalibracji i testów przed aktywacją. Starsze karty opisują bazowy model historyczny; przy wdrażaniu A stosuje się wskazaną deltę. Aktywny game_balance v1 nie został zmieniony.
 
 
 Ten dokument jest głównym wejściem do całej specyfikacji. Pliki poniżej są rozdziałami jednego projektu, a nie niezależnymi wariantami silnika. Czytamy je razem zgodnie z zakresem zadania. Dokumentacja opisuje wymagania do implementacji; wdrożenie potwierdzają kod i testy.
@@ -28,7 +28,7 @@ Nie ma zasady „nowszy plik automatycznie wygrywa”. Dokument właściwy dla o
 
 ## 2. Jak czytać i programować
 
-Dalszy rozdział wykonawczy: [31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), [kontrakty i rejestr gotowości](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Razem z fundamentem to47kart. Ujawnione luki ekonomiczne dotyczą wskazanych akcji, nie są po cichu wypełniane nowymi wartościami; rejestr DOM01–DOM16 jest na końcu kart i w audycie.
+Dalszy rozdział wykonawczy: [31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), [kontrakty i rejestr gotowości](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Razem z fundamentem to 47 kart. Ujawnione luki ekonomiczne dotyczą wskazanych akcji, nie są po cichu wypełniane nowymi wartościami; rejestr DOM01–DOM16 jest na końcu kart i w audycie.
 
 Szczegółowy rozdział wykonawczy: [karty implementacyjne P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md). Zawiera 16 kart danych, kontraktów i transakcji. Rozwija standard i plan; źródłem reguł gry pozostaje architektura.
 
