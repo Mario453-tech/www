@@ -1399,3 +1399,29 @@ Etap5: kontrolowane przełączenie, backup i punkt odcięcia. Rollback wymaga uz
 Testy wymagane: kolizje ID między źródłami, mirror bez podwójnej pensji, rehire tej samej osoby, przejście między firmami bez ujawnienia ocen, mapowanie obu enumów źródła, precyzja kwot, zerowe daty, rollback/backfill retry, aktywne szkolenie/strajk/negocjacje zachowane, brak kaskadowej utraty certyfikatów.
 
 Wynik tej rundy: mapa oparta na statycznych definicjach i fragmentach kodu. Nie wykonano SHOW CREATE TABLE na działającej bazie, migracji, testów Laravel/MySQL ani wdrożenia. Testy runtime/build nie dotyczą zmiany dokumentacyjnej. Wycofanie: odwrócenie wyłącznie commitu dokumentacji; dane pozostają nietknięte.
+
+
+### 18.19. Weryfikacja pełnego eksportu schematu — HR-DB-REUSE-02
+
+Źródło: lokalny eksport `01240275_oil (1).sql` z 18.11.2026, 222590 bajtów, SHA-256 `7b74ad35a5a316b37e3279fe85c435487380c5569c978398de9f091d96878c1c`. Plik kończy się COMMIT i zawiera 180 definicji CREATE TABLE oraz 368 instrukcji ALTER TABLE. Poprzedni plik `01240275_oil.sql` miał 188811394 bajtów, ale kończył się w instrukcji INSERT po 79 tabelach; nie używamy go do dowodzenia braku tabel. Eksport jest schematem, nie potwierdzeniem bieżącego stanu serwera ani zawartości rekordów.
+
+Potwierdzono 34 tabele związane z kadrami według nazw. W szczególności istnieją również: `technical_staff`, `staff_trainings`, `technical_staff_skills`, `training_programs`, `training_certificates`, `staff_specializations`, `headhunter_searches`, `headhunter_candidates`, `recruitment_requests` i `well_staff_assignments`. Uzupełnia to statyczny przegląd §18.18; tamtejsze stwierdzenie o niepełnym dumpie dotyczy poprzedniego pliku, nie tego eksportu.
+
+| Obszar | Potwierdzone kolumny/indeksy | Wniosek dla migracji |
+|---|---|---|
+| Tożsamość | `board_members`, `technical_staff`, `employee_source_links` z UNIQUE dla obu lustrzanych ID | Zachować i mapować; osobę wspólną tworzyć tylko tam, gdzie mapowanie jest pewne |
+| Stan | `employee_state` z UNIQUE(source_type,source_id), morale, workload i version | Zachować stan bieżący; historię zatrudnień oraz oceny odseparować |
+| Umowy | `employee_contracts` z FK do `board_members`, contract_type długości6m/1y/2y | Rozszerzyć i uwzględnić, że obecny FK nie obejmuje `technical_staff` |
+| Historia | `employment_history` z FK do `board_members` | Zachować dane; nowe zdarzenia techników wymagają wspólnego odniesienia osoby |
+| Przydziały | `employee_assignments` i `well_staff_assignments` | Uzgodnić oba zapisy jako jeden stan operacyjny; nie liczyć obsady dwa razy |
+| Szkolenia | `staff_trainings` z UNIQUE(staff_type,staff_id,active_guard), `technical_staff_skills`, `training_programs`, `training_certificates` | Ponownie wykorzystać; kalendarz i kolizje czasu nadal wymagają rozszerzenia |
+| Certyfikaty | `employee_certificates` dla board member oraz `training_certificates` dla board/technical | Nie scalać bez mapy osiągnięcie/uprawnienie; sprawdzić retencję przy FK |
+| Rekrutacja | `recruitment_requests`, `candidates`, `candidate_reviews`, `headhunter_searches/candidates` | Rozszerzyć o kanał/budżet/wersję i mapować ścieżkę headhuntera |
+| Role | `board_roles`, `staff_specializations`, `employee_role_effects` | Zachować kody, ustalić mapowanie funkcji analityka HR |
+| Idempotencja | `employee_action_receipts`, UNIQUE(player_id,action_key,idempotency_token) | Wykorzystać lub jawnie zintegrować ze wspólnym rejestrem akcji |
+
+W tym kompletnym eksporcie NIE znaleziono definicji tabel `employee_traits`, `employee_availability`, rejestru urlopów, grafiku zmian ani `staff_assessment_*`. Nazwy z §18.9 pozostają logiczne. Trwałe ukryte cechy można zapisać w rozszerzeniu osoby lub osobnym wąskim rejestrze; decyzja wynika z mapowania tożsamości, a nie założenia o istniejącej tabeli.
+
+Potwierdzone ograniczenia schematu: `technical_staff` ma salary jako INT, `board_members` i `employee_contracts` jako DECIMAL; `employee_contracts.member_id` oraz `employment_history.member_id` wskazują board_members. `training_certificates` przechowuje staff_type/staff_id, a `employee_certificates` member_id. Indeksy i FK są w sekcjach ALTER eksportu, więc same CREATE TABLE nie wystarczają do odtworzenia schematu.
+
+Następne zadanie implementacyjne: katalog mapowania fizycznych PK/FK i jednostek, syntetyczny test deduplikacji lustrzanych pracowników, projekt addytywnych migracji i adapterów. Nie importowano dumpa, nie wykonywano DDL ani testów Laravel/MySQL. Historia i kwoty pozostają nietknięte.
