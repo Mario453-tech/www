@@ -12,7 +12,7 @@
 
 ## DOM04 — Kwota żądanej podwyżki
 
-- **Propozycja:** Wniosek pracownika/grupy podaje target w p.p. 2–15; propozycja systemu to 4 p.p. + 1 p.p. za każdy pełny punkt niezadowolenia ponad próg, cap 15. Oferta pracodawcy 0–target; decyzja i cooldown według HR-CONTRACT01.
+- **Propozycja:** Wniosek pracownika/grupy podaje target w p.p. 2–15; propozycja systemu to 4% + 1 p.p. × max(0,60−salary_satisfaction), cap 15. Oferta pracodawcy 0–target; decyzja i cooldown według HR-CONTRACT01.
 - **Przykład:** Płaca 120 000 gr/dzień, żądanie 8% → 9 600 gr/dzień; oferta 5% → 6 000 gr/dzień.
 - **Wpływ na balans:** Górny limit umożliwia wycenę ryzyka; brak podwójnego kosztu przy grupie.
 - **Testy graniczne:** 0/2/15/16%, brak środków, retry, jednoczesna zmiana płacy.
@@ -45,7 +45,7 @@
 
 ## DOM09 — Apelacja: koszt i prawdopodobieństwo
 
-- **Propozycja:** Opłata odwołania nie podlega zwrotowi po rozpatrzeniu; opłata zwracana przy błędzie technicznym przed przyjęciem. Szansa = clamp(kanoniczna baza + 2 p.p. × poziom kompetencji prawnej, 5%, 90%); losowanie raz na case_id.
+- **Propozycja:** Opłata odwołania nie podlega zwrotowi po rozpatrzeniu; opłata zwracana przy błędzie technicznym przed przyjęciem. Szansa apelacji = clamp(kanoniczna baza + min(10 p.p., 2 p.p. × skill_law), 5%, 90%); losowanie raz na case_id. Limit bonusu +10 p.p. pochodzi z §7.3; limit 5–90% nie zmienia pierwotnego wniosku P1/P2.
 - **Przykład:** Baza 30%, kompetencja 3 → 36%; opłata 100 000 gr → koszt niezależnie od wyniku.
 - **Wpływ na balans:** Podnosi wartość HR Legal; koszt i cap wymagają kalibracji.
 - **Testy graniczne:** Baza 0/100, kompetencja 0/max, dwa joby, anulowanie przed i po przyjęciu.
