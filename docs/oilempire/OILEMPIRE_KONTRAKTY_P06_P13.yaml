@@ -937,17 +937,19 @@
       "id": "DOM06",
       "scope": "P09-F01, P09-F02",
       "alias": "T09-L02",
-      "decision": "Uzupełnić wersjonowany cennik i parametry każdego bazowego kursu/poziomu; przedział10–100k nie jest ceną. Istniejące kursy Refining bez zmiany liczb.",
+      "decision": "Wariant A: kurs techniczny I/II/III koszt 20k/50k/100k PLN, czas 24/48/72h, próg 70 i cap 10 według Kadry §19.5. Pozostałe role/skill wymagają jawnych wpisów w wersjonowanym katalogu; brak wpisu = PROGRAM_UNAVAILABLE. Refining bez zmian.",
       "source": "§6/§31; staff/refining training",
-      "status": "requires_rule_resolution"
+      "status": "partially_resolved_for_variant_a_pending_catalog_and_tests",
+      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19.5"
     },
     {
       "id": "DOM07",
       "scope": "P09-F03 (powrót po locku)",
       "alias": "T09-L01",
-      "decision": "Czy po7 dniach resetuje się licznik porażek i bonus? Ustalić bez arbitralnego resetu, z testem czwartej próby.",
+      "decision": "Wariant A: po 7 aktywnych dniach blokady licznik kolejnych porażek resetuje się do 0; historia, skill i poprzedni bonus pozostają historyczne, lecz nowa próba nie dostaje automatycznego bonusu. Test czwartej próby przed aktywacją.",
       "source": "§6; training.max_failures_before_lock",
-      "status": "requires_rule_resolution"
+      "status": "resolved_for_variant_a_pending_verification",
+      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19.5"
     },
     {
       "id": "DOM08",
@@ -1139,6 +1141,31 @@
       ],
       "overlap_guard": "employment row lock plus interval check",
       "contract_document": "OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md"
+    },
+    "staff_termination_quotes": {
+      "columns": [
+        "id",
+        "public_ulid",
+        "employment_id",
+        "company_id",
+        "request_hash",
+        "contract_version_no",
+        "amount_minor",
+        "components_json",
+        "policy_version",
+        "expires_at",
+        "consumed_at",
+        "source_key"
+      ],
+      "unique": [
+        [
+          "source_key"
+        ],
+        [
+          "public_ulid"
+        ]
+      ],
+      "contract_document": "OILEMPIRE_KADRY_DDL_MYSQL84.sql"
     }
   },
   "x-hr-extension": {
@@ -1154,24 +1181,34 @@
     "variant_a_resolved_decisions": [
       "DOM01",
       "DOM02",
-      "DOM16"
+      "DOM16",
+      "DOM07"
     ],
     "remaining_design_gates": [
-      "HR-CFG03",
-      "HR-CFG05",
-      "full_ddl",
-      "full_openapi",
-      "safe_stop_integration"
+      "HR-CFG03 role_baselines",
+      "HR-CFG05 evidence_producers",
+      "safe_stop_integration",
+      "DOM03 negotiation_policy",
+      "DOM04 raise_amount_policy",
+      "DOM06 nontechnical_course_catalog"
     ],
     "activation_gates": [
+      "mysql84_ddl_smoke",
+      "openapi_contract_tests",
       "mysql_concurrency_tests",
       "ninety_day_economy_test",
       "balance_candidate_simulator_zero_fail"
     ],
-    "runtime_implemented": false
+    "runtime_implemented": false,
+    "ddl_document": "OILEMPIRE_KADRY_DDL_MYSQL84.sql",
+    "openapi_document": "OILEMPIRE_KADRY_OPENAPI_V1.yaml",
+    "variant_a_partial_decisions": [
+      "DOM06",
+      "DOM08"
+    ]
   },
   "x-staff-lock-order": {
-    "version": "staff-a-v1",
+    "version": "staff-a-v2",
     "rank": 14,
     "sort_key": [
       "type_rank",
@@ -1213,86 +1250,90 @@
       },
       {
         "table_order": 9,
-        "table": "staff_roster_versions"
+        "table": "staff_termination_quotes"
       },
       {
         "table_order": 10,
-        "table": "staff_roster_intervals"
+        "table": "staff_roster_versions"
       },
       {
         "table_order": 11,
-        "table": "staff_time_reservations"
+        "table": "staff_roster_intervals"
       },
       {
         "table_order": 12,
-        "table": "staff_assignments"
+        "table": "staff_time_reservations"
       },
       {
         "table_order": 13,
-        "table": "staff_leave_accounts"
+        "table": "staff_assignments"
       },
       {
         "table_order": 14,
-        "table": "staff_leave_requests"
+        "table": "staff_leave_accounts"
       },
       {
         "table_order": 15,
-        "table": "staff_absences"
+        "table": "staff_leave_requests"
       },
       {
         "table_order": 16,
-        "table": "staff_replacement_orders"
+        "table": "staff_absences"
       },
       {
         "table_order": 17,
-        "table": "staff_pay_entitlements"
+        "table": "staff_replacement_orders"
       },
       {
         "table_order": 18,
-        "table": "board_positions"
+        "table": "staff_pay_entitlements"
       },
       {
         "table_order": 19,
-        "table": "employee_raise_requests"
+        "table": "board_positions"
       },
       {
         "table_order": 20,
-        "table": "employee_morale_daily_snapshots"
+        "table": "employee_raise_requests"
       },
       {
         "table_order": 21,
-        "table": "department_morale_snapshots"
+        "table": "employee_morale_daily_snapshots"
       },
       {
         "table_order": 22,
-        "table": "department_strikes"
+        "table": "department_morale_snapshots"
       },
       {
         "table_order": 23,
-        "table": "strike_members"
+        "table": "department_strikes"
       },
       {
         "table_order": 24,
-        "table": "training_progress"
+        "table": "strike_members"
       },
       {
         "table_order": 25,
-        "table": "training_retry_state"
+        "table": "training_progress"
       },
       {
         "table_order": 26,
-        "table": "staff_trainings"
+        "table": "training_retry_state"
       },
       {
         "table_order": 27,
-        "table": "staff_analysis_work"
+        "table": "staff_trainings"
       },
       {
         "table_order": 28,
-        "table": "staff_assessment_runs"
+        "table": "staff_analysis_work"
       },
       {
         "table_order": 29,
+        "table": "staff_assessment_runs"
+      },
+      {
+        "table_order": 30,
         "table": "staff_assessment_current"
       }
     ],
