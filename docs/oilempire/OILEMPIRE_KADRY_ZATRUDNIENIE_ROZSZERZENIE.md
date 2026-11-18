@@ -228,7 +228,7 @@ Przykład: brak operatora10:00–11:00 w odczycie09:00–12:00 daje produkcję t
 Właściciel obiektu łączy coverage z istniejącymi mnożnikami strajku i budżetu. Ten sam powód utraty dostępności nie tworzy dodatkowej kopii kary. Strajk mający szczególny skutek domenowy nadal stosuje ten kanon.
 Job granicy zmiany jest przyspieszeniem, nie jedynym mechanizmem. Lazy settlement i sweeper5min odtwarzają identyczne granice, także po długim offline. Brak workerów nie daje darmowej produkcji.
 Opublikowanie nowego przyszłego grafiku nie nadpisuje historycznej wersji użytej przez rozliczenie; źródłowe wersje i logical_at są utrwalone.
-LockPlan: standard idempotency/company/settlement → Staff14 → dalsze obiekty/konta → append140. Dokładną kolejność nowych tabel dopisujemy wspólnie do kanonu w HR-CONTRACT01 przed implementacją. Nie lockować obiektu, a dopiero później pracownika.
+LockPlan: standard idempotency/company/settlement → Staff14 → dalsze obiekty/konta → append140. Dokładną kolejność 29 tabel Staff A podaje architektura §23.5a.1; kontrakt maszynowy `x-staff-lock-order` zawiera tę samą listę. Nie lockować obiektu, a dopiero później pracownika.
 Wynik publikacji, rezerwacje, zdarzenie i outbox atomowo; retry bez drugiej wersji lub podwójnej opłaty.
 
 #### 4.1.10. Dane, kontrakty i ekran
@@ -316,7 +316,7 @@ Masowa korekta wymaga podglądu i identyfikowalnych wyników per osoba; ponowien
 Uprawnienia osobno: odczyt polityk, edycja kandydata, aktywacja, korekta puli, decyzja o wniosku, masowa operacja. Każda akcja autoryzowana na serwerze, nie tylko ukryciem przycisku.
 
 **Dane/kontrakty do kart:** leave_policy_versions, leave_requests, leave_entitlements/leave_movements, leave_reservations, leave_transition_plans; jeden właściciel Staff. Kwoty/godziny z dokładną precyzją i resztami, UTC, wersje stanu, FK i trwałe klucze efektów.
-Publikacja konfiguracji korzysta z istniejącej kolejności blokad konfiguracyjnych. Migracja indywidualnych praw jest osobną operacją gospodarczą; nie łączyć obu kolejności w jednej transakcji. Pełne DDL/OpenAPI i wpis nowych tabel do LockPlan wymagają HR-CONTRACT01.
+Publikacja konfiguracji korzysta z istniejącej kolejności blokad konfiguracyjnych. Migracja indywidualnych praw jest osobną operacją gospodarczą; nie łączyć obu kolejności w jednej transakcji. Pełne DDL/OpenAPI pozostają do wykonania według HR-CONTRACT01; lista nowych tabel LockPlan jest już w architekturze §23.5a.1.
 Widok pracownika: nabyte, zarezerwowane, wykorzystane i dostępne godziny, roczniki/terminy ważności, wnioski i historia. Widok GM: edytor, porównanie wersji, preview skutków, korekty i audyt. Własne modale/SVG, PL/EN/DE, mobile i reduced-motion.
 
 **Odbiór do implementacji:** proporcja etatów; aneks w okresie; reszty nabywania; dwa równoległe wnioski bez nadrezerwacji; retry anulowania; częściowa kolizja choroby; zmiana grafiku po zgodzie; przełom roku bez podwójnego grantu; koniec umowy/ekwiwalent raz; wygasanie bez naruszenia zarezerwowanych praw; masowa korekta retry; odrzucenie obcej firmy; główny administrator bez komentarza; stara wersja zachowana; preview nie księguje.
@@ -373,7 +373,7 @@ Kontrakty aplikacyjne: QuoteRecruitment, StartRecruitment, AssessCandidate, Quot
 Komendy wymagają actor/ownership, Idempotency-Key, expected_state_version; wyceny są serwerowe. Statusy i granice kwot walidowane po stronie serwera.
 Brak opublikowanych nowych endpointów: OpenAPI wymaga uzupełnienia request/response/errors przed kodowaniem klientów.
 Due-event, odczyt leniwy i sweeper uruchamiają tę samą akcję. Trwały klucz zdarzenia obejmuje rodzaj, encję i slot; nie źródło wywołania.
-LockPlan zachowuje rank14 Staff przed kontami20/21 i append140. Pełną kolejność nowych tabel trzeba dodać do rejestru przed migracjami; nie dopisujemy lokalnego order w jednym serwisie.
+LockPlan zachowuje rank14 Staff przed kontami20/21 i append140. Pełna kolejność 29 tabel A jest w globalnym rejestrze architektury §23.5a.1 i w kontrakcie maszynowym; migracje muszą użyć tych nazw lub najpierw zaktualizować oba rejestry.
 Outbox/audyt/skutek finansowy atomowo; push po commicie. Retry zwraca wcześniejszy rezultat.
 Draining kończy istniejące umowy i naliczenia; wyłączenie modułu nie likwiduje zobowiązań.
 
