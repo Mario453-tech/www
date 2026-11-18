@@ -30,7 +30,7 @@ Przed programowaniem pakietu powstaje karta implementacyjna według §3. Brak ko
 
 To kolejność budowy i testów; nie zmienia faz rozliczeń §23.3. Wspólne kontrakty są dostępne wcześniej niż pełne moduły. Testowy adapter innego modułu jest dozwolony w testach, ale nie może udawać gotowej integracji produkcyjnej.
 
-Dla P07–P09/P16 obowiązuje [kontrakt implementacyjny Kadr HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md), powiązany z mechaniką [wariantu A](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Jest deltą do starszych kart, nie dowodem ukończenia migracji ani OpenAPI 3.1.
+Dla P07–P09/P16 obowiązuje [kontrakt implementacyjny Kadr HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md), powiązany z mechaniką [wariantu A](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Jest deltą do starszych kart. [DDL MySQL 8.4](OILEMPIRE_KADRY_DDL_MYSQL84.sql) i [OpenAPI 3.1](OILEMPIRE_KADRY_OPENAPI_V1.yaml) są zapisanymi artefaktami projektowymi; nie potwierdzają wykonania migracji ani testów kontraktowych.
 
 ## 3. Obowiązkowa karta implementacyjna funkcji
 
