@@ -1477,7 +1477,7 @@ Nowy grafik wymaga wersjonowanych przedziałów zmian i rezerwacji czasu. Sam al
 M1: snapshot metadanych z docelowego środowiska, typy PK/FK/signedness, indeksy, collation, tryb SQL; tylko odczyt. Porównanie z SHA eksportu §18.19.
 M2: addytywne staff_persons, staff_person_legacy_refs i staff_employments oraz indeksy; bez zmian starego payroll/obsady.
 M3: deterministyczny backfill z checkpointem, walidacją mirror links, raportem unresolved i sumami kontrolnymi. Zero automatycznego scalania po podobieństwie.
-M4: adapter odczytu osoby i rozliczenia czasu; porównanie shadow z istniejącymi listami pracowników, wynagrodzeń i przydziałów.
+M4: adapter odczytu osoby i rozliczenia czasu w nowym silniku; przy przenoszeniu istniejących kont porównanie wyników z danymi źródłowymi, bez uruchamiania starego kodu jako warunku projektowania.
 M5: wersjonowanie umów, grafiki, absencje i oceny HR z odrębnymi migracjami. Aktywacja funkcji dopiero po testach MySQL i symulacji.
 M6: przełączenie pojedynczego właściciela zapisu. Legacy zapis wyłączamy tylko w kontrolowanym cutover; żadnego swobodnego dual-write. Usunięcie starych struktur to odrębny przyszły projekt.
 
@@ -1485,4 +1485,4 @@ Warunki wejścia do M4: kompletna mapa wszystkich aktywnych rekordów, zero niew
 
 Testy: para board+technical→jedna osoba; dwa takie same ID z różnych tabel→dwie osoby bez linku; dangling/cross-company link→unresolved; retry backfill→ten sam wynik; rehire→nowe employment bez zmiany person; umowa technika bez board_member; status/kwota/FK zachowane; dwa źródła przydziału jednego odwiertu→jedna obsada; nieznany związek→brak sztucznego scalenia; stara firma nie widzi nowej oceny i odwrotnie; rollback nie usuwa starej historii.
 
-Pozostaje do zweryfikowania w rzeczywistym kodzie: wszystkie ścieżki zapisujące salary, umowy, przydziały, hiring i firing. Bez tego projekt M5/M6 nie jest gotowym zestawem migracji. Nie wykonano migracji ani testów MySQL w tej rundzie.
+Nowy silnik Laravel projektujemy na podstawie zatwierdzonych zasad gry i docelowego schematu. Pełny przegląd starych ścieżek zapisu salary, umów, przydziałów, zatrudniania i zwalniania nie jest bramką projektowania ani przygotowania migracji. Stary kod sprawdzamy punktowo wyłącznie wtedy, gdy eksport schematu nie wyjaśnia znaczenia pola lub gdy przygotowujemy przeniesienie istniejących kont i historii. Dla przeniesienia danych wymagane są mapy źródło→cel, walidacja liczności i kwot oraz testy na kopii; nie wymaga to odtwarzania dawnych mechanizmów zapisu w Laravelu. Nie wykonano migracji ani testów MySQL w tej rundzie.
