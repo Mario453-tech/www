@@ -364,4 +364,16 @@ Właściciel zaakceptował wszystkie propozycje w rozmowie 2026-11-17. Poniższy
 | OPEN11 | edytowalny szkic, niezmienny snapshot/hash, historia decyzji i projekcja statusu | A §29.7; zatwierdzenie dokładnego hasha |
 | OPEN12 | HTTP: konto+firma+operacja+klucz; domena: typ+encja+slot bez wyzwalacza | A §29.4a/API §5; HTTP/job/sweeper deduplikują razem |
 
-A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w README. Otwarte pozostaje wykonanie kart §3, DDL, OpenAPI i testów — są to zadania realizacyjne, nie ponowne negocjowanie przyjętych reguł.
+A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w README. Karty i projekty kontraktów są dokumentacją do implementacji; testy MySQL, PHP, UI i symulacja 90 dni nadal wymagają działającego silnika.
+
+
+## 11. Mapa wykonawcza P14–P25
+
+| Fala | Pakiety i kolejność | Karty | Kontrakty i dane | Bramka przed kodem |
+|---|---|---|---|---|
+| E3 | P14 Market → P15 Contracts → P16 Finance → P17 Banking → P18 Legal/PvP | [P14–P18](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md) | [manifest](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) | zamknięcie DOM i test współbieżności: matching/sprzedaż, escrow/refund, egzekucja/transfer |
+| E4 | P19 Refining/EPC/Insurance → P20 Monetization | [P19–P20](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md) | te same kontrakty i LockPlan §23.5a | test receptury popyt/kontrakty, ubezpieczenia, webhook/chargeback |
+| E5 | P21 Social → P22 Onboarding/Notifications → P23 CMS/Privacy → P24 Web/Mobile | [P21–P24](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md) | API v1, PL/EN/DE, lokalne SVG, panel Filament | autoryzacja kanału, retry powiadomień, wersje klienta i dostępność 320–1440 px |
+| E6 | P25 Operations | [P25](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md) | release/restore/reconciliation | backup+restore, rollback, 90 dni i raport gotowości |
+
+Manifest mapuje 56 kart na 27 publicznych operacji OpenAPI oraz komendy wewnętrzne. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05, DOM06/08 i DOM09–15](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) są propozycjami do zatwierdzenia. Zależna akcja zwraca `POLICY_NOT_APPROVED` do zatwierdzenia i aktywacji wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
