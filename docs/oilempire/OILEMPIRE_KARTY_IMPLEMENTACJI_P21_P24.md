@@ -263,6 +263,7 @@ Poniższe ID należą do odpowiednich pakietów i korzystają z tych samych kont
 - **Migracja/rollback:** odczyt istniejących tabel; indeksy i migracje właściciela wskazuje DDL, bez własnego backfill. Wycofanie przez feature gate/draining i forward-fix, bez DROP historii.
 
 ### P21-F10 — ApplyCartelSanction
+- **DOM05:** [decyzja właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md): finalne −15 credibility i −15 B2B z jednego event_id, bez wtórnej propagacji; aktywacja po wersjonowanym balansie.
 - **Kanon i aktor:** pakiet P21; wewnętrzny handler z due_slot i fencing. Właściciel tabel: Social.
 - **Interface / DTO:** 3 oflagowane transakcje/7 dni z różnych source_event_id → sanction state + 30 dni zawieszenia. Komenda wewnętrzna lub Filament Action bez publicznej trasy. OpenAPI/manifest definiują wymagane pola, błędy i wersje.
 - **Dane:** cartels(name,founder_company_id,invite_policy); cartel_memberships(cartel_id,member_company_id,joined_at,left_at). Typy, nullability, FK, UNIQUE i indeksy: [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql); obce zasoby tylko przez kontrakt właściciela.
@@ -270,13 +271,13 @@ Poniższe ID należą do odpowiednich pakietów i korzystają z tych samych kont
 
   | Stan wejściowy | Warunek | Wynik | Kompensacja |
   |---|---|---|---|
-  | Aktualny stan | autoryzacja, wersja, policy gate i fewer than 3 flags→no-op/POLICY_NOT_APPROVED only unresolved propagation | threshold reached→30d fee exemption suspension; reputation deltas once | rollback przed commit; po skutku zewnętrznym oddzielna idempotentna korekta |
+  | Aktualny stan | autoryzacja, wersja, policy gate i fewer than 3 flags→no-op; DOM05 owner-approved, POLICY_NOT_APPROVED until published policy version | threshold reached→30d fee exemption suspension; reputation deltas once | rollback przed commit; po skutku zewnętrznym oddzielna idempotentna korekta |
 
 - **Transakcja:** companies10→contract110 gdy kartel→Social122→append140; Idempotency-Key lub stabilny klucz domenowy + CAS; effect key i outbox w tej samej transakcji.
 - **Czas / awaria:** Clock UTC, logical_at i balance_version; due_slot dla terminów, fencing dla workera, seed+wynik RNG tylko gdy losowanie; deadlock wycofuje całość i ponawia ten sam efekt.
 - **Zdarzenie:** social.apply_cartel_sanction.v1; payload: event_id, entity_public_ulid, logical_at, balance_version, contract_version; odbiorca przez rejestr subskrypcji; retry z event_id, po limicie DLQ i alert.
 - **UI/Filament:** Czat i kartele; PL/EN/DE; loading, empty, error, conflict i offline/retry; lokalne SVG, dostępny modal, brak systemowych okien. GM ma tylko jawne, audytowane Actions.
-- **Test/telemetria:** dedupe flags, 7d boundary, 30d expiry; fewer than 3 flags→no-op/POLICY_NOT_APPROVED only unresolved propagation; test własności i odmowy, MySQL dwie sesje dla mutacji, retry po commit, licznik social.applycartelsanction.success/conflict/error bez PII.
+- **Test/telemetria:** dedupe flags, 7d boundary, 30d expiry; fewer than 3 flags→no-op; DOM05 owner-approved, POLICY_NOT_APPROVED until published policy version; test własności i odmowy, MySQL dwie sesje dla mutacji, retry po commit, licznik social.applycartelsanction.success/conflict/error bez PII.
 - **Migracja/rollback:** expand tworzy własne tabele/indeksy; greenfield bez backfill, import legacy tylko z osobnym mapowaniem. Wycofanie przez feature gate/draining i forward-fix, bez DROP historii.
 
 ### P21-F11 — ListCartels
