@@ -895,17 +895,19 @@
       "id": "DOM01",
       "scope": "P08-F01",
       "alias": "POLICY-PAYROLL-01",
-      "decision": "PLN/miesiąc bez dzielnika czasu; wybrać kalendarz UTC albo inną jawną podstawę, reguły reszt i test sumy miesięcznej.",
+      "decision": "Wariant A: kalendarz UTC, miesięczna podstawa i zachowanie reszt według HR-PAY-01 oraz Kadry §19.3; migracja i test sumy miesiąca przed aktywacją.",
       "source": "§4.1/§23; staff.params.morale.salary_satisfaction",
-      "status": "requires_rule_resolution"
+      "status": "resolved_for_variant_a_pending_verification",
+      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19"
     },
     {
       "id": "DOM02",
       "scope": "P07-F02, P08-F03",
       "alias": "DISMISSAL-01",
-      "decision": "Natychmiastowe zakończenie vs24h populacji sporu; −10 instant vs−8/os14dni cap−24. Ustalić jeden employment_ended_at oraz osobno znaczenie kar, bez automatycznego sumowania.",
+      "decision": "Wariant A: osobna decyzja i koniec, populacja sporu snapshot z logical_at, rozłączne kary −10 lub −8 (cap −24/14 dni) według Kadry §19.3; testy przed aktywacją.",
       "source": "§4.2/§4.3/§5",
-      "status": "requires_rule_resolution"
+      "status": "resolved_for_variant_a_pending_verification",
+      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19"
     },
     {
       "id": "DOM03",
@@ -1015,9 +1017,10 @@
       "id": "DOM16",
       "scope": "P07-F01 (płatny katalog rekrutacji)",
       "alias": "RECRUITMENT-CATALOG-01",
-      "decision": "Potwierdzić kompletny koszt lokalnej/międzynarodowej rekrutacji i slotów ofert z parametrami; brak ceny oznacza niedostępny wariant, nie dopisany cennik.",
+      "decision": "Wariant A: cennik kanał×zasięg, mnożniki budżetu i rozkład ofert według Kadry §19.2; kalibracja i test 90 dni przed aktywacją.",
       "source": "§3.1; staff params",
-      "status": "requires_rule_resolution"
+      "status": "resolved_for_variant_a_pending_verification",
+      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19"
     }
   ],
   "x-balance-roots": [
@@ -1038,49 +1041,6 @@
     "39": "Extraction surveys"
   },
   "x-storage-contracts": {
-    "employee_skills": {
-      "columns": [
-        "employee_id",
-        "skill_code",
-        "value",
-        "state_version"
-      ],
-      "unique": [
-        [
-          "employee_id",
-          "skill_code"
-        ]
-      ]
-    },
-    "employee_traits": {
-      "columns": [
-        "employee_id",
-        "trait_code",
-        "value",
-        "state_version"
-      ],
-      "unique": [
-        [
-          "employee_id",
-          "trait_code"
-        ]
-      ]
-    },
-    "employee_availability": {
-      "columns": [
-        "employee_id",
-        "active_job_type",
-        "active_job_id",
-        "state_version"
-      ],
-      "primary": [
-        "employee_id"
-      ],
-      "nullable_pair": [
-        "active_job_type",
-        "active_job_id"
-      ]
-    },
     "pipeline_inbound_heads": {
       "columns": [
         "well_ref",
@@ -1130,29 +1090,83 @@
           "purpose"
         ]
       ]
+    },
+    "staff_person_skills": {
+      "columns": [
+        "person_id",
+        "skill_code",
+        "level",
+        "version"
+      ],
+      "unique": [
+        [
+          "person_id",
+          "skill_code"
+        ]
+      ],
+      "contract_document": "OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md"
+    },
+    "staff_person_traits": {
+      "columns": [
+        "person_id",
+        "trait_code",
+        "signed_value",
+        "generation_version"
+      ],
+      "unique": [
+        [
+          "person_id",
+          "trait_code"
+        ]
+      ],
+      "visibility": "server_only",
+      "contract_document": "OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md"
+    },
+    "staff_time_reservations": {
+      "columns": [
+        "employment_id",
+        "from",
+        "to",
+        "purpose",
+        "owner_ref",
+        "status",
+        "source_key"
+      ],
+      "unique": [
+        [
+          "source_key"
+        ]
+      ],
+      "overlap_guard": "employment row lock plus interval check",
+      "contract_document": "OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md"
     }
   },
   "x-hr-extension": {
     "document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md",
-    "status": "approved_scope_pending_parameters_and_contracts",
+    "contract_document": "OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md",
+    "status": "variant_a_selected_pending_calibration_migrations_and_tests",
     "affected_packages": [
       "P07",
       "P08",
       "P09",
       "P16"
     ],
-    "open_gates": [
-      "HR-CFG01",
-      "HR-CFG02",
-      "HR-CFG03",
-      "HR-CFG04",
-      "HR-CFG05",
-      "HR-CONTRACT01"
-    ],
-    "existing_blockers_retained": [
+    "variant_a_resolved_decisions": [
       "DOM01",
       "DOM02",
       "DOM16"
+    ],
+    "remaining_design_gates": [
+      "HR-CFG03",
+      "HR-CFG05",
+      "full_ddl",
+      "full_openapi",
+      "safe_stop_integration"
+    ],
+    "activation_gates": [
+      "mysql_concurrency_tests",
+      "ninety_day_economy_test",
+      "balance_candidate_simulator_zero_fail"
     ],
     "runtime_implemented": false
   }
