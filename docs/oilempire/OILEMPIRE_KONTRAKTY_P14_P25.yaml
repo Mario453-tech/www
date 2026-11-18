@@ -6,12 +6,12 @@
   "openapi": "OILEMPIRE_OPENAPI_P14_P25_V1.yaml",
   "ddl": "OILEMPIRE_DDL_P14_P25_MYSQL84.sql",
   "policy_gate": {
-    "status": "proposed_pending_owner_approval",
+    "status": "DOM05_owner_approved_pending_published_balance_version",
     "error": "POLICY_NOT_APPROVED",
     "http_status": 409,
     "fail_closed": true,
     "scope": "only_action_branch_requiring_unapproved_DOM",
-    "source": "P06-P13 x-blockers exact action scope; P21-F10 DOM05 unresolved propagation only"
+    "source": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md; gate remains until effective versioned policy, P21-F10 only"
   },
   "lock_plan": [
     [
@@ -8727,5 +8727,26 @@
       "trips",
       "storages"
     ]
+  },
+  "owner_decision_batch": {
+    "date": "2026-11-18",
+    "approved": [
+      "DOM03",
+      "DOM04",
+      "DOM05",
+      "DOM08",
+      "DOM09",
+      "DOM10",
+      "DOM11",
+      "DOM12",
+      "DOM13",
+      "DOM14"
+    ],
+    "pending": [
+      "DOM06",
+      "DOM15"
+    ],
+    "source": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md",
+    "active_balance_modified": false
   }
 }
