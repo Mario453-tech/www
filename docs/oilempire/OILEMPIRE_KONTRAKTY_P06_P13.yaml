@@ -922,7 +922,7 @@
       "id": "DOM04",
       "scope": "P08-F02",
       "alias": "RAISE-AMOUNT-01",
-      "decision": "Target 2-15%; propozycja systemu min(15%,4pp+1pp*pełny punkt niezadowolenia ponad próg); oferta 0-target.",
+      "decision": "Target 2-15%; propozycja systemu min(15%,4%+1pp*max(0,60-salary_satisfaction)); oferta 0-target.",
       "source": "§4.2",
       "status": "owner_approved_pending_implementation_and_activation",
       "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
@@ -967,7 +967,7 @@
       "id": "DOM09",
       "scope": "P10-F02 (appeal)",
       "alias": "T10-L01",
-      "decision": "Opłata apelacji po przyjęciu bezzwrotna; błąd techniczny przed przyjęciem zwraca; chance=clamp(5%,90%,base+2pp*legal_skill), jeden rzut/case.",
+      "decision": "Po przyjęciu apelacji opłata bezzwrotna; błąd przed przyjęciem zwraca; appeal_chance=clamp(5%,90%,canonical_base+min(10pp,2pp*skill_law)), jeden rzut/case. P1/P2 initial caps bez zmian.",
       "source": "§7.3",
       "status": "owner_approved_pending_implementation_and_activation",
       "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
