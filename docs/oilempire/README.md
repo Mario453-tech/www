@@ -112,3 +112,14 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 ## Opcjonalne rozszerzenie przyszłe — Agencja pracy
 
 [Specyfikacja Agencji pracy](OILEMPIRE_AGENCJA_PRACY_SPECYFIKACJA.md): planowanie załogi, utrzymanie obsady i delegowana obsługa kadr. Właściciel WorkforceAgency, zależność do Staff/Finance; powiązania P07–P09/P16/P24/P25. Nie zmienia obecnej listy P01–P25 ani14korzeni balansu. Taryfy, kontrakty i testy AG-CFG/CONTRACT/ECON/RELEASE wymagane przed przyszłą aktywacją.
+
+## Karty wykonawcze P14–P25
+
+- [P14–P18: gospodarka, kontrakty, finanse, bankowość i PvP](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md)
+- [P19–P20: rafineria/EPC/ubezpieczenia i płatności](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md)
+- [P21–P24: komunikacja, powiadomienia, CMS/prywatność i klient](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md)
+- [P25: wydanie i eksploatacja](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md)
+- [Manifest 56 kart i właścicieli tabel](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [projekt DDL MySQL 8.4](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [projekt OpenAPI 3.1](OILEMPIRE_OPENAPI_P14_P25_V1.yaml)
+- [Propozycje DOM do zatwierdzenia](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md)
+
+To dokumentacja do programowania. Nie stanowi działającego silnika ani zatwierdzonej wersji balansu. DDL wymaga sprawdzenia preflight na rzeczywistym schemacie P01–P13, a pełne testy MySQL, PHP, API, UI i 90 dni wymagają implementacji.
