@@ -115,6 +115,8 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 
 ## Karty wykonawcze P14–P25
 
+> **Status:** [audyt kompletności wykazał błędy P0/P1](OILEMPIRE_P14_P25_AUDYT_KOMPLETNOSCI.md). Karty wymagają korekt przed programowaniem.
+
 - [P14–P18: gospodarka, kontrakty, finanse, bankowość i PvP](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md)
 - [P19–P20: rafineria/EPC/ubezpieczenia i płatności](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md)
 - [P21–P24: komunikacja, powiadomienia, CMS/prywatność i klient](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md)
