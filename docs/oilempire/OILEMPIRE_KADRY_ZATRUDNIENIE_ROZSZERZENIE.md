@@ -3,7 +3,7 @@
 [HR-PAY-01](OILEMPIRE_KADRY_UMOWY_PLACE_ODPRAWY.md) opisuje płace i odprawy, a §19 wybiera wariant A dla DOM01/DOM02/DOM16. Wcześniejsze wzmianki o tych decyzjach jako otwartych są historycznym stanem rozdziałów 1–18; przed aktywacją nadal wymagane są kalibracja, finalne migracje/OpenAPI i testy. Aktywny YAML v1 pozostaje bez zmian.
 
 
-Kontrakt do programowania wariantu A: [HR-CONTRACT01 — tabele, akcje, API, uprawnienia i migracja](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md). Ten rozdział pozostaje źródłem mechaniki i wartości; kontrakt wykonawczy uszczegóławia jej zapis oraz transport.
+Kontrakt do programowania wariantu A: [HR-CONTRACT01 — tabele, akcje, API, uprawnienia i migracja](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md), [DDL MySQL 8.4](OILEMPIRE_KADRY_DDL_MYSQL84.sql) i [OpenAPI 3.1](OILEMPIRE_KADRY_OPENAPI_V1.yaml). Ten rozdział pozostaje źródłem mechaniki i wartości; kontrakt wykonawczy uszczegóławia jej zapis oraz transport.
 
 Status: zatwierdzony zakres funkcjonalny z rozmowy właściciela, specyfikacja do programowania; brak implementacji. Wartości nowych stawek i końcowe kontrakty wykonawcze pozostają bramką gotowości.
 Właściciel: Staff. Powiązania: [architektura](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) §3–§6, §19, §23; [karty](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) P07–P09; P06 reputacja, P11–P13 obsada, P16 finanse, P24 interfejs.
@@ -228,7 +228,7 @@ Przykład: brak operatora10:00–11:00 w odczycie09:00–12:00 daje produkcję t
 Właściciel obiektu łączy coverage z istniejącymi mnożnikami strajku i budżetu. Ten sam powód utraty dostępności nie tworzy dodatkowej kopii kary. Strajk mający szczególny skutek domenowy nadal stosuje ten kanon.
 Job granicy zmiany jest przyspieszeniem, nie jedynym mechanizmem. Lazy settlement i sweeper5min odtwarzają identyczne granice, także po długim offline. Brak workerów nie daje darmowej produkcji.
 Opublikowanie nowego przyszłego grafiku nie nadpisuje historycznej wersji użytej przez rozliczenie; źródłowe wersje i logical_at są utrwalone.
-LockPlan: standard idempotency/company/settlement → Staff14 → dalsze obiekty/konta → append140. Dokładną kolejność 29 tabel Staff A podaje architektura §23.5a.1; kontrakt maszynowy `x-staff-lock-order` zawiera tę samą listę. Nie lockować obiektu, a dopiero później pracownika.
+LockPlan: standard idempotency/company/settlement → Staff14 → dalsze obiekty/konta → append140. Dokładną kolejność 30 tabel Staff A podaje architektura §23.5a.1; kontrakt maszynowy `x-staff-lock-order` zawiera tę samą listę. Nie lockować obiektu, a dopiero później pracownika.
 Wynik publikacji, rezerwacje, zdarzenie i outbox atomowo; retry bez drugiej wersji lub podwójnej opłaty.
 
 #### 4.1.10. Dane, kontrakty i ekran
@@ -373,7 +373,7 @@ Kontrakty aplikacyjne: QuoteRecruitment, StartRecruitment, AssessCandidate, Quot
 Komendy wymagają actor/ownership, Idempotency-Key, expected_state_version; wyceny są serwerowe. Statusy i granice kwot walidowane po stronie serwera.
 Brak opublikowanych nowych endpointów: OpenAPI wymaga uzupełnienia request/response/errors przed kodowaniem klientów.
 Due-event, odczyt leniwy i sweeper uruchamiają tę samą akcję. Trwały klucz zdarzenia obejmuje rodzaj, encję i slot; nie źródło wywołania.
-LockPlan zachowuje rank14 Staff przed kontami20/21 i append140. Pełna kolejność 29 tabel A jest w globalnym rejestrze architektury §23.5a.1 i w kontrakcie maszynowym; migracje muszą użyć tych nazw lub najpierw zaktualizować oba rejestry.
+LockPlan zachowuje rank14 Staff przed kontami20/21 i append140. Pełna kolejność 30 tabel A jest w globalnym rejestrze architektury §23.5a.1 i w kontrakcie maszynowym; migracje muszą użyć tych nazw lub najpierw zaktualizować oba rejestry.
 Outbox/audyt/skutek finansowy atomowo; push po commicie. Retry zwraca wcześniejszy rezultat.
 Draining kończy istniejące umowy i naliczenia; wyłączenie modułu nie likwiduje zobowiązań.
 
@@ -1556,9 +1556,9 @@ Urlopy A: wszystkie parametry biznesowe nadal edytowalne w panelu, zgodnie z §4
 
 ### 19.5. Szkolenia i HR A
 
-Zachować wszystkie zatwierdzone parametry Refining:20k/50k/100k,24/48/72h, próg70 i skill cap10. Dla bazowego kursu technicznego A: poziom I 20 000 PLN/24h, II 50 000/48h, III 100 000/72h; próg70, cap10. To proponowane ujednolicenie cennika, nie retroaktywna zmiana starych szkoleń. Katalog roli/skill dopuszcza poziom I–III; nie wolno otworzyć kursu bez jawnego wpisu. Koszt raz przy zapisie, egzamin idempotentny, pauza chorobowa według §17. W pierwszym wydaniu tylko elapsed_time z rezerwacją **8h pracy w każdym dniu trwania kursu**, o ile istnieje zaplanowany dyżur; bez dyżuru kurs trwa kalendarzowo, ale pracownik nie jest obsadą obiektu. Rezerwacja nie łamie limitów §4.1. Wariant scheduled_training_time to B.
+Zachować wszystkie zatwierdzone parametry Refining:20k/50k/100k,24/48/72h, próg70 i skill cap10. Dla bazowego kursu technicznego A: poziom I 20 000 PLN/24h, II 50 000/48h, III 100 000/72h; próg70, cap10. To wybrany cennik wariantu A dla bazowego kursu technicznego, nie retroaktywna zmiana starych szkoleń. Katalog roli/skill dopuszcza poziom I–III; nie wolno otworzyć kursu bez jawnego wpisu. Koszt raz przy zapisie, egzamin idempotentny, pauza chorobowa według §17. W pierwszym wydaniu tylko elapsed_time z rezerwacją **8h pracy w każdym dniu trwania kursu**, o ile istnieje zaplanowany dyżur; bez dyżuru kurs trwa kalendarzowo, ale pracownik nie jest obsadą obiektu. Rezerwacja nie łamie limitów §4.1. Wariant scheduled_training_time to B.
 
-Po7 aktywnych dniach blokady egzaminów A: licznik kolejnych niepowodzeń resetuje się do0, ale skill, wcześniejsze próby i historia wyników pozostają. Nowa próba płatna normalnie; nie przyznajemy automatycznego bonusu zdania za sam reset. To kandydat DOM07, do testu czwartej próby.
+Po7 aktywnych dniach blokady egzaminów A: licznik kolejnych niepowodzeń resetuje się do0, ale skill, wcześniejsze próby i historia wyników pozostają. Nowa próba płatna normalnie; nie przyznajemy automatycznego bonusu zdania za sam reset. To decyzja DOM07 dla wariantu A; przed aktywacją wymagany jest test czwartej próby.
 
 Cztery cechy §16.1 i oceny §18 zostają w A. Aktywujemy ocenę domeny stanowiska tylko wtedy, gdy ma zatwierdzony baseline i producenta dowodów; pozostałe pokazują „za mało porównywalnych danych”. Nie wpisujemy uniwersalnych liczb błędów dla różnych ról. Priorytet norm na start: operator odwiertu, technik, kierowca i operator huba; dalej pozostałe role. Zwykły gracz nie widzi profilu ukrytego.
 
@@ -1584,7 +1584,7 @@ Panel Kadry → Polityki A grupuje: rekrutację i cennik, płace/umowy, wypowied
 
 Przed aktywacją A: (1) test 90 dni z co najmniej starterem, zmianami, chorobami, zwolnieniami i szkoleniami; (2) testy MySQL idempotencji i wspólnego kalendarza; (3) brak podwójnego OPEX rafinerii i pensji; (4) sprawdzenie możliwości obsadzenia FTUE; (5) symulator balansu na kandydacie YAML 0 FAIL i archiwizacja hash; (6) testy API/Filament uprawnień, braku wycieku cech, PL/EN/DE i mobile. Ten dokument jest decyzją zakresu oraz propozycją cen, nie dowodem wykonania tych testów.
 
-Status po tej decyzji: otwarte pozostają **kalibracja** cen/ryzyka/marży, rzeczywiste baseline HR, dokładne karty DDL/OpenAPI i integracja safe-stop z domenami. Nie wpisujemy „zamknięte” w historycznym rejestrze DOM przed propagacją zmian do kart i testów.
+Status po tej decyzji: otwarte pozostają **kalibracja** cen/ryzyka/marży, rzeczywiste baseline HR, wykonanie [SQL Staff A](OILEMPIRE_KADRY_DDL_MYSQL84.sql) na MySQL 8.4, testy [OpenAPI Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml) i integracja safe-stop z domenami. Nie wpisujemy „zamknięte” w historycznym rejestrze DOM przed propagacją zmian do kart i testów.
 
 
 
