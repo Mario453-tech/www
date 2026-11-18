@@ -1033,7 +1033,7 @@
   ],
   "x-lock-groups": {
     "13": "Core",
-    "14": "Staff/Training",
+    "14": "Staff variant A: x-staff-lock-order",
     "15": "Legal",
     "16": "Technical/BHP",
     "17": "Incidents",
@@ -1168,6 +1168,175 @@
       "ninety_day_economy_test",
       "balance_candidate_simulator_zero_fail"
     ],
+    "runtime_implemented": false
+  },
+  "x-staff-lock-order": {
+    "version": "staff-a-v1",
+    "rank": 14,
+    "sort_key": [
+      "type_rank",
+      "table_order",
+      "primary_key"
+    ],
+    "tables": [
+      {
+        "table_order": 1,
+        "table": "staff_persons"
+      },
+      {
+        "table_order": 2,
+        "table": "staff_employments"
+      },
+      {
+        "table_order": 3,
+        "table": "staff_person_traits"
+      },
+      {
+        "table_order": 4,
+        "table": "staff_person_skills"
+      },
+      {
+        "table_order": 5,
+        "table": "staff_recruitment_quotes"
+      },
+      {
+        "table_order": 6,
+        "table": "staff_recruitment_campaigns"
+      },
+      {
+        "table_order": 7,
+        "table": "staff_candidate_offers"
+      },
+      {
+        "table_order": 8,
+        "table": "staff_contract_versions"
+      },
+      {
+        "table_order": 9,
+        "table": "staff_roster_versions"
+      },
+      {
+        "table_order": 10,
+        "table": "staff_roster_intervals"
+      },
+      {
+        "table_order": 11,
+        "table": "staff_time_reservations"
+      },
+      {
+        "table_order": 12,
+        "table": "staff_assignments"
+      },
+      {
+        "table_order": 13,
+        "table": "staff_leave_accounts"
+      },
+      {
+        "table_order": 14,
+        "table": "staff_leave_requests"
+      },
+      {
+        "table_order": 15,
+        "table": "staff_absences"
+      },
+      {
+        "table_order": 16,
+        "table": "staff_replacement_orders"
+      },
+      {
+        "table_order": 17,
+        "table": "staff_pay_entitlements"
+      },
+      {
+        "table_order": 18,
+        "table": "board_positions"
+      },
+      {
+        "table_order": 19,
+        "table": "employee_raise_requests"
+      },
+      {
+        "table_order": 20,
+        "table": "employee_morale_daily_snapshots"
+      },
+      {
+        "table_order": 21,
+        "table": "department_morale_snapshots"
+      },
+      {
+        "table_order": 22,
+        "table": "department_strikes"
+      },
+      {
+        "table_order": 23,
+        "table": "strike_members"
+      },
+      {
+        "table_order": 24,
+        "table": "training_progress"
+      },
+      {
+        "table_order": 25,
+        "table": "training_retry_state"
+      },
+      {
+        "table_order": 26,
+        "table": "staff_trainings"
+      },
+      {
+        "table_order": 27,
+        "table": "staff_analysis_work"
+      },
+      {
+        "table_order": 28,
+        "table": "staff_assessment_runs"
+      },
+      {
+        "table_order": 29,
+        "table": "staff_assessment_current"
+      }
+    ],
+    "append_rank_140": [
+      "staff_employment_events",
+      "staff_leave_ledger",
+      "staff_certificates",
+      "staff_observations",
+      "staff_assessment_snapshots",
+      "staff_assessment_evidence",
+      "board_history",
+      "raise_decisions",
+      "employee_morale_events",
+      "strike_rounds"
+    ],
+    "configuration_outside_economic_lock_plan": [
+      "staff_policy_versions",
+      "staff_policy_items",
+      "staff_policy_current",
+      "staff_training_program_versions",
+      "training_programs",
+      "training_program_levels",
+      "training_catalog_versions",
+      "employee_dialogue_templates"
+    ],
+    "legacy_aliases": {
+      "employees": [
+        "staff_persons",
+        "staff_employments"
+      ],
+      "employee_skills": [
+        "staff_person_skills"
+      ],
+      "employee_assignments": [
+        "staff_assignments"
+      ],
+      "employee_availability": [
+        "staff_time_reservations"
+      ],
+      "training_enrollments": [
+        "staff_trainings"
+      ]
+    },
+    "canonical_document": "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md#23.5a.1",
     "runtime_implemented": false
   }
 }
