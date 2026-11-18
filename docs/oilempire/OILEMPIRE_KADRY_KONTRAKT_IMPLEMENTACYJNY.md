@@ -167,7 +167,7 @@ Moderator nie otrzymuje ukrytego profilu przez zwykły podgląd pracownika. Admi
 
 ## 8. Transakcje i blokady
 
-Obowiązuje dokładnie globalny porządek §23.5a: operation_idempotency rank1 → operations lease rank5, gdy dotyczy → companies rank10 → company_settlement_state rank11 → due_events rank12 → Core rank13 → Staff rank14 → pozostałe domeny zgodnie z tabelą → Ledger rank20 → append-only rank140. W rank14 zachowujemy kanoniczną kolejność zasobów Staff z §23.5a; nowe tabele person/employment/contract/roster/absence/assessment muszą otrzymać jednoznaczne miejsca w rozszerzonej tabeli globalnej PRZED implementacją. Nie wolno zastąpić kanonu lokalną kolejnością z tego dokumentu. LockPlan deklaruje wiersze przed pierwszą blokadą, sortuje według rank i ID; po rank20 nie wracamy do rank14.
+Obowiązuje dokładnie globalny porządek §23.5a: operation_idempotency rank1 → operations lease rank5, gdy dotyczy → companies rank10 → company_settlement_state rank11 → due_events rank12 → Core rank13 → Staff rank14 → pozostałe domeny zgodnie z tabelą → Ledger rank20 → append-only rank140. W rank14 obowiązuje kompletna lista 29 tabel i numery `table_order` w [architekturze §23.5a.1](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md); jej identyczną kopię maszynową przechowuje `x-staff-lock-order` w [kontrakcie P06–P13](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Nowe nazwy tabel nie mogą być samowolnie dopisane do akcji bez zmiany obu rejestrów. Dotychczasowe nazwy `employee_availability`, `employee_assignments` i `training_enrollments` są aliasami historycznymi; A używa odpowiednio `staff_time_reservations`, `staff_assignments` i `staff_trainings`. LockPlan deklaruje wiersze przed pierwszą blokadą, sortuje według (rank, table_order, PK); po rank20 nie wracamy do rank14.
 
 Długie obliczenie HR/symulacji poza transakcją na immutable snapshot. Krótka publikacja sprawdza input_hash, version, ownership i CAS. Równoległe ReserveTime dla tej samej osoby serializuje się przez rekord employment/availability; sam odczyt overlap bez blokady nie wystarcza. Limit2 kampanii także pod blokadą companies rank10; nie tworzymy dla tego osobnego rank14 „firmy”. Finansowe source key, due-event i outbox zapisujemy atomowo. Job i sweeper wybudzają tę samą procedurę; nie wykonują drugiej logiki.
 
@@ -231,7 +231,7 @@ Zasada „jedna aktywna wersja polityki” potrzebuje `staff_policy_current(poli
 
 | ID | Problem wykryty w poprzedniej wersji | Status po korekcie |
 |---|---|---|
-| C01 | Wewnętrzna kolejność Staff i pominięcie rank1–13 sprzeczne z §23.5a | Poprawiono; nowe tabele wymagają wpisu do globalnego LockPlan |
+| C01 | Wewnętrzna kolejność Staff i pominięcie rank1–13 sprzeczne z §23.5a | Poprawiono; pełna kolejność 29 tabel A jest w architekturze §23.5a.1 i kontrakcie maszynowym |
 | C02 | INDEX kolejki używał niepodanych priority/ready_at | Poprawiono pola |
 | C03 | Umowa braku FK company_id była sprzeczna z częścią fizycznego modelu | Doprecyzowano owner przez jawne FK do rodzica; pełne FK w migracjach |
 | C04 | UNIQUE urlopu z policy_version tworzył nową pulę po zmianie wersji | Skorygowano tożsamość konta i księgę |
@@ -244,4 +244,4 @@ Zasada „jedna aktywna wersja polityki” potrzebuje `staff_policy_current(poli
 | C11 | EndEmployment sugerował finalizację płac w chwili decyzji | Rozdzielono decyzję i logiczny koniec |
 | C12 | B zapowiadał dodanie strategy_code, choć pole istnieje już w A | Poprawiono: B dodaje wartości strategii |
 
-Nadal przed wygenerowaniem wykonywalnych migracji trzeba domknąć: dokładne typy i długości kolumn, typy PK/FK ze wspólnym P01, FK zgodności company/person/employment, wpis nowych tabel do globalnych rank14/rank140, fizyczny guard aktywnego zatrudnienia i pracy HR, kompletne OpenAPI 3.1 i statystyczny harness. Nie oznaczać tego przeglądu jako testu MySQL lub potwierdzenia pełnej gotowości kodu.
+Nadal przed wygenerowaniem wykonywalnych migracji trzeba domknąć: dokładne typy i długości kolumn, typy PK/FK ze wspólnym P01, FK zgodności company/person/employment, fizyczny guard aktywnego zatrudnienia i pracy HR, weryfikacja DDL względem rank14/rank140, kompletne OpenAPI 3.1 i statystyczny harness. Nie oznaczać tego przeglądu jako testu MySQL lub potwierdzenia pełnej gotowości kodu.
