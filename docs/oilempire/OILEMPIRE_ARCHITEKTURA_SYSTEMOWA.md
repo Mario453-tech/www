@@ -1596,9 +1596,10 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `table_
 | 16 | Technical/BHP: company_technical_state → procedure_jobs |
 | 17 | Incidents: incidents → repair_current → incident_repair_links → blowout_escalation_state |
 | 18 | TechnicalTasks: technical_tasks |
+| 19 | Finance: department_budgets → player_finance_decisions → asset_valuations → net_worth_snapshots → wealth_tax_assessments |
 | 20 | ledger_accounts: rosnąco po account_id, w tym SYS_* |
 | 21 | fund_reservations: rosnąco po account_id, potem reservation_id; zawsze po blokadzie konta rodzica |
-| 30 | obligations, potem loans: rosnąco po ID w każdej tabeli |
+| 30 | obligations → bank_trust_scores → credit_score_history → loans → loan_installments → bailiff_proceedings → auctions; rosnąco po ID w każdej tabeli |
 | 39 | Extraction: strata → survey_open_slots → geological_surveys → drilling_open_slots → drilling_projects |
 | 40 | wells → well_buffers → well_connection_state |
 | 50 | pipelines → pipeline_inbound_heads → pipeline_outbound_heads → pipeline_segments → pipeline_flow_state |
@@ -1606,13 +1607,19 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `table_
 | 70 | storages → product_storages → stock_reservations → oil_lots |
 | 80 | transport_vehicles → vehicle_use → trips → port_calls; receipt to niezmienny append rank140 pod lockiem trip |
 | 90 | escrow_accounts; escrow_movements są append-only |
-| 100 | market_offers |
-| 110 | contracts, potem contract_tranches |
-| 120 | refineries |
+| 100 | market_offers → market_trades → black_market_trades; price snapshots i world_events tworzy sweeper w rank130 |
+| 110 | system_contract_offers → b2b_offers → contracts → contract_tranches → contract_disputes; delivery_receipts są append-only, escrow_accounts pozostają rank90 |
+| 120 | refinery_plots → refineries → epc_contracts → epc_stages → refinery_recipe_versions → refinery_runs → insurance_policies → insurance_claims; product_movements są append-only rank140 |
+| 121 | Monetization: payment_orders → payment_events → payment_transactions → gbbl_accounts → gbbl_conversions → premium_entitlements; gbbl_ledger jest append-only rank140 |
+| 122 | Social: cartels → cartel_memberships → chat_threads → chat_messages → diplomacy_relations → moderation_reports → channel_grants |
+| 123 | Onboarding/Notifications: tutorial_progress → achievement_grants → notification_preferences → notifications → notification_deliveries |
+| 124 | CMS/Privacy/Client: static_pages → page_versions → privacy_policies → consent_records → privacy_requests → newsletter_campaigns → newsletter_deliveries → client_version_support → ui_preferences |
 | 130 | globalne wiersze płynności/slippage: spot i sweeper przez ten sam kontrakt |
 | 140 | append-only FTS, effect keys, oil/product/escrow movements, audit i outbox; CAS istniejących rekordów już zablokowanych |
 
 W każdej wymienionej tabeli domenowej kolejność po ID; brakujący jeszcze rekord slotu/availability tworzy się pod wcześniej zablokowanym rodzicem. Katalog i wersje kursów są niemutowalne w operacji gospodarczej. Wiersze historii/certyfikatu/wyniku/receipt, których nie blokujemy wcześniej, zapisuje się append rank140 pod blokadą nadrzędnego employee/trip/application, z deduplikacją. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
+
+**Rozszerzenie P14–P25:** powyższe rangi dopełniają ten sam LockPlan, nie tworzą drugiego porządku. Tabele historyczne/append bez osobnego `FOR UPDATE` zapisuje się pod zablokowanym rodzicem w rank140. Przy ruchu między firmami komplet firm/zasobów ustala się przed pierwszą blokadą; gdy nowa zależność wyjdzie później, transakcję wycofać i ponowić z pełnym planem. Płatności z webhooka, escrow, egzekucja i matching używają tych samych Action, deduplikacji i FTS. Wartości DOM z [rejestru propozycji](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) pozostają zablokowane do zatwierdzenia.
 
 #### 23.5a.1. Staff wariant A — obowiązujący porządek wewnątrz rank 14
 
