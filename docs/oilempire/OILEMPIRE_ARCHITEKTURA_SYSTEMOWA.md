@@ -1,6 +1,6 @@
 # OilEmpire: Kompletna Architektura Modularna (Laravel 13 + Inertia.js + Vue 3)
 
-> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+> **Kadry — wariant A do implementacji:** [mechanika i parametry §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md) oraz [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) ustalają kierunek P07–P09/P16. DOM01/DOM02/DOM16 mają decyzje A, ale wymagają propagacji do kontraktów maszynowych, kalibracji i testów przed aktywacją. Starsze karty opisują bazowy model historyczny; przy wdrażaniu A stosuje się wskazaną deltę. Aktywny game_balance v1 nie został zmieniony.
 
 
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Reguły domeny i kolejność rozliczeń. API, panel, bezpieczeństwo, standard modułu i plan są rozdziałami tej samej specyfikacji. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
@@ -256,7 +256,7 @@ Strajk nie spada jak grom z jasnego nieba — jest wynikiem ignorowania narastaj
 normalny stan ➔ niezadowolenie ➔ żądanie podwyżki ➔ spór działowy ➔ groźba strajku ➔ AKTYWNY STRAJK
 ```
 
-**Populacja średniej morale:** do progu `< 35 pkt` wliczają się wyłącznie aktywni pracownicy przypisani do działu (bez zarządu, `in_training`, `unassigned` i już strajkujących); dział bez pracowników nie generuje sporu. Zwolniony niezadowolony pracownik pozostaje w średniej przez historyczne okno populacji sporu (24h; nie utożsamiać z okresem wypowiedzenia nowej umowy, DOM02), a zespół otrzymuje karę −10 morale (§4.2 pkt 5) — zwalnianie NIE gasi sporu natychmiast.
+**Populacja średniej morale:** do progu `< 35 pkt` wliczają się wyłącznie aktywni pracownicy przypisani do działu (bez zarządu, `in_training`, `unassigned` i już strajkujących); dział bez pracowników nie generuje sporu. W wariancie A populacja sporu jest utrwalanym snapshotem aktywnej obsady z logical_at decyzji o zakończeniu zatrudnienia (§19.3 Kadr). Jednorazowy efekt morale zespołu zależy od trybu zakończenia: −10 przy natychmiastowym rozwiązaniu albo −8 przy wypowiedzeniu (limit −24/14 dni). Historyczne okno 24h nie jest czasem sztucznego członkostwa po końcu zatrudnienia.
 
 ```mermaid
 flowchart TD
@@ -1591,7 +1591,7 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | 11 | company_settlement_state: rosnąco po company_id |
 | 12 | due_events: rosnąco po event_id; job nie blokuje eventu przed firmą |
 | 13 | Core: starter_identity_claims → company_starter_grants → company_wealth_state → company_shields → company_status_periods → company_time_pauses → company_reputation_state |
-| 14 | Staff: recruitment_requests → candidate_offers → employees → employee_skills → employee_traits → employee_availability → assignment_slots → employee_assignments → board_positions → employee_raise_requests → department_strikes → training_progress → training_enrollments → training_retry_state |
+| 14 | Staff: poniższy historyczny porządek tabel bazowych wymaga zastąpienia jedną listą dla wariantu A przed migracją. HR-CONTRACT01 §9 zachowuje rangę 14, lecz nowe person/employment/contract/roster/leave/payroll/assessment wymagają wpisu do globalnego LockPlan. Do czasu spisania pełnej kolejności nie wolno mieszać starych i nowych nazw w transakcjach. |
 | 15 | Legal: permit_region_scopes → permit_applications → permit_entitlement_heads → permit_grants → license_heads → licenses → license_renewals → permit_cost_pools → capex_allocations |
 | 16 | Technical/BHP: company_technical_state → procedure_jobs |
 | 17 | Incidents: incidents → repair_current → incident_repair_links → blowout_escalation_state |
