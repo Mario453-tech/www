@@ -1341,6 +1341,7 @@
       "staff_employment_events",
       "staff_leave_ledger",
       "staff_certificates",
+      "staff_training_exam_results",
       "staff_observations",
       "staff_assessment_snapshots",
       "staff_assessment_evidence",
