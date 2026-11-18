@@ -1425,3 +1425,64 @@ W tym kompletnym eksporcie NIE znaleziono definicji tabel `employee_traits`, `em
 Potwierdzone ograniczenia schematu: `technical_staff` ma salary jako INT, `board_members` i `employee_contracts` jako DECIMAL; `employee_contracts.member_id` oraz `employment_history.member_id` wskazują board_members. `training_certificates` przechowuje staff_type/staff_id, a `employee_certificates` member_id. Indeksy i FK są w sekcjach ALTER eksportu, więc same CREATE TABLE nie wystarczają do odtworzenia schematu.
 
 Następne zadanie implementacyjne: katalog mapowania fizycznych PK/FK i jednostek, syntetyczny test deduplikacji lustrzanych pracowników, projekt addytywnych migracji i adapterów. Nie importowano dumpa, nie wykonywano DDL ani testów Laravel/MySQL. Historia i kwoty pozostają nietknięte.
+
+
+### 18.20. Klucze i migracja addytywna — HR-DB-MAP-01
+
+Status: projekt programistyczny oparty na pełnym eksporcie §18.19; nie jest wykonaną migracją. W pierwszym wydaniu nie usuwamy istniejących tabel ani FK. Nowe nazwy poniżej są propozycjami fizycznymi do migracji Laravel, po sprawdzeniu aktualnego schematu na środowisku wdrożenia.
+
+#### A. Faktyczne relacje z eksportu
+
+| Źródło | Relacja/ograniczenie | Wpływ |
+|---|---|---|
+| employee_contracts.member_id | FK → board_members.id, ON DELETE CASCADE | Nie może reprezentować technika; usunięcie członka może usunąć umowy |
+| employment_history.member_id | FK → board_members.id, ON DELETE SET NULL | Historia może stracić powiązanie z osobą |
+| employee_certificates.member_id | FK → board_members.id, ON DELETE CASCADE | Usunięcie członka usuwa certyfikat |
+| training_certificates.training_id | FK → staff_trainings.id, ON DELETE CASCADE | Usunięcie szkolenia usuwa certyfikat |
+| staff_trainings.program_id | FK → training_programs.id | Szkolenie ma program; staff_type+staff_id nie ma FK do osoby |
+| employee_source_links | UNIQUE(board_member_id), UNIQUE(technical_staff_id), brak FK | Jednoznaczny link lustrzany, ale trzeba walidować oba końce i właściciela |
+| employee_state | UNIQUE(source_type,source_id), brak FK do pracownika | Jeden bieżący stan źródła; kontrola player_id w kodzie |
+| employee_assignments, well_staff_assignments | Brak FK do osoby; dwa sposoby wskazania obsady | Wymaga zgodności, by nie policzyć tego samego slotu dwukrotnie |
+
+W eksporcie board_members.role_id ma FK do board_roles.id z ON DELETE CASCADE; candidates.role_id taki sam. Nowy panel nie może przez usunięcie roli kasować historii pracowników/kandydatów. Wyłączenie roli i późniejsze ograniczenie kaskady wymagają osobnej bezpiecznej migracji po audycie danych.
+
+#### B. Jeden identyfikator osoby i zatrudnienia
+
+Proponowany rejestr staff_persons: id (wewnętrzny bigint), public_ulid, generation_version, created_at; bez firmowej oceny. Rejestr staff_person_legacy_refs: person_id, legacy_type, legacy_id, evidence_code; UNIQUE(legacy_type,legacy_id). Typy jawne: board_member, technical_staff, candidate, headhunter_candidate. Indeks/unikalność person_id+legacy_type zależy od dopuszczenia wielu kandydatur tej samej osoby.
+
+Dla pary w employee_source_links tworzymy jedno person_id dopiero po weryfikacji istnienia obu rekordów i zgodności player_id. Brak linku oznacza osobne osoby lub unresolved; nie scalać po nazwisku, dacie urodzenia ani podobieństwie cech. Kandydatura przechodząca w zatrudnienie wymaga zapisanego źródłowego związku w akcji zatrudnienia; istniejący eksport nie dowodzi takiego związku dla wszystkich historycznych rekordów. Nie przypisujemy historycznym pracownikom nowych ukrytych cech przez GET.
+
+Proponowany staff_employments: id, person_id, company_id, source_ref, started_at, ended_at, status, created_at, version. Jeden wiersz na ciągły okres u jednego pracodawcy; nowe zatrudnienie tej samej osoby to nowy id. Koniec umowy/aneks nie musi kończyć zatrudnienia. Ocena HR wiąże person_id i company_id, a istotne dowody także employment_id; inna firma nie dziedziczy prywatnej oceny.
+
+Idempotencja backfill: UNIQUE(legacy_type,legacy_id) oraz stabilny migration_batch/source_hash. Ponowienie nie tworzy nowej osoby ani zatrudnienia. Sprzeczne mapy oznaczamy unresolved w raporcie; nie wybieramy arbitralnie.
+
+#### C. Umowy, płace i historia
+
+Istniejąca employee_contracts pozostaje źródłem historycznych umów zarządu. Addytywnie: employment_id, effective_from/to, form_code, term_code, basis_code, actual_amount_minor, currency_code, fte_numerator/denominator lub uzgodnione godziny, policy_version, supersedes_id. Stare contract_type mapujemy wyłącznie do term_code; nie utożsamiamy 1y z employment. Dopóki kwoty nie zostaną uzgodnione, salary/bonus i pola nowe funkcjonują z flagą migration_state; brak automatycznej podwójnej wypłaty.
+
+Dla techników nie ustawiamy fikcyjnego member_id. Opcje: rozszerzenie employee_contracts przez nullable member_id i kontrolę employment_id z nową polityką FK, albo osobna wąska tabela wersji umów wspólna dla wszystkich. Wybór po analizie zapisów płac i zachowania starych FK; nie tworzyć dwóch aktywnych źródeł pensji.
+
+Historia zatrudnienia: stare employment_history pozostaje immutable. Nowe zdarzenia odnoszą się do employment_id i reason_code; opcjonalny legacy_history_id wiąże zdarzenie importowane. Nie nadpisujemy starego member_id technikiem. Stare eventy bez daty rozpoczęcia/końca nie uzasadniają odtwarzania fikcyjnych okresów.
+
+Płaca rozliczana raz per employment_id+period+component+policy_version przez wspólny kontrakt finansowy. W fazie porównawczej obliczenia nowego modelu są tylko shadow/read-only; nie księgują drugiego obciążenia.
+
+#### D. Przydziały i czas
+
+employee_assignments pozostaje historią ogólnego przydziału; well_staff_assignments historią konkretnej obsady odwiertu. Adapter Staff zwraca jeden kanoniczny widok przydziału person/employment/asset/interval/source. Jeśli oba stare źródła opisują tę samą pracę, oznacza się mirror_of i liczy raz; jeśli się różnią, konflikt do ręcznej analizy. Nie kasujemy żadnego źródłowego wiersza podczas backfill.
+
+Nowy grafik wymaga wersjonowanych przedziałów zmian i rezerwacji czasu. Sam allocation_pct nie jest dowodem dostępności (§4.1). Zakaz overlap sprawdzamy transakcyjnie dla jednego employment_id i przedziału; przy MySQL brak prostego exclusion constraint, więc indeks czasu plus blokada właściciela czasu. Rzeczywiście przepracowane sekundy i planowane godziny chorobowe mają osobne źródła.
+
+#### E. Kolejność migracji i bramki
+
+M1: snapshot metadanych z docelowego środowiska, typy PK/FK/signedness, indeksy, collation, tryb SQL; tylko odczyt. Porównanie z SHA eksportu §18.19.
+M2: addytywne staff_persons, staff_person_legacy_refs i staff_employments oraz indeksy; bez zmian starego payroll/obsady.
+M3: deterministyczny backfill z checkpointem, walidacją mirror links, raportem unresolved i sumami kontrolnymi. Zero automatycznego scalania po podobieństwie.
+M4: adapter odczytu osoby i rozliczenia czasu; porównanie shadow z istniejącymi listami pracowników, wynagrodzeń i przydziałów.
+M5: wersjonowanie umów, grafiki, absencje i oceny HR z odrębnymi migracjami. Aktywacja funkcji dopiero po testach MySQL i symulacji.
+M6: przełączenie pojedynczego właściciela zapisu. Legacy zapis wyłączamy tylko w kontrolowanym cutover; żadnego swobodnego dual-write. Usunięcie starych struktur to odrębny przyszły projekt.
+
+Warunki wejścia do M4: kompletna mapa wszystkich aktywnych rekordów, zero niewyjaśnionych podwójnych pensji, zgodność liczby unikalnych osób po lustrzanych linkach, zgodność sald/rozliczeń shadow, pełna izolacja firm. Warunki wejścia do M6: backup, test restore, rollback code+data dla nowych zapisów, próba na kopii bez danych osobowych, monitorowanie rozbieżności.
+
+Testy: para board+technical→jedna osoba; dwa takie same ID z różnych tabel→dwie osoby bez linku; dangling/cross-company link→unresolved; retry backfill→ten sam wynik; rehire→nowe employment bez zmiany person; umowa technika bez board_member; status/kwota/FK zachowane; dwa źródła przydziału jednego odwiertu→jedna obsada; nieznany związek→brak sztucznego scalenia; stara firma nie widzi nowej oceny i odwrotnie; rollback nie usuwa starej historii.
+
+Pozostaje do zweryfikowania w rzeczywistym kodzie: wszystkie ścieżki zapisujące salary, umowy, przydziały, hiring i firing. Bez tego projekt M5/M6 nie jest gotowym zestawem migracji. Nie wykonano migracji ani testów MySQL w tej rundzie.
