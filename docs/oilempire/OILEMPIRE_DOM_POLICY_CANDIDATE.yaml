@@ -1,0 +1,149 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "oilempire_dom_policy_overlay",
+  "status": "candidate_not_active",
+  "target_balance_version": 2,
+  "base_balance_file": "OILEMPIRE_GAME_BALANCE_V1.yaml",
+  "base_blob_sha": "944aac1d71867329e32c0452e21689a5e0273fbb",
+  "decision_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md",
+  "owner_approved": [
+    "DOM03",
+    "DOM04",
+    "DOM05",
+    "DOM08",
+    "DOM09",
+    "DOM10",
+    "DOM11",
+    "DOM12",
+    "DOM13",
+    "DOM14"
+  ],
+  "pending": [
+    "DOM06",
+    "DOM15"
+  ],
+  "policies": {
+    "DOM03": {
+      "module": "staff",
+      "group_min": 3,
+      "scope": "same_specialization_per_company",
+      "cooldown_days": 30,
+      "raise_base_pct": 4,
+      "raise_per_full_advantage_pp": 1,
+      "raise_min_pct": 2,
+      "raise_max_pct": 12
+    },
+    "DOM04": {
+      "module": "staff",
+      "target_min_pct": 2,
+      "target_max_pct": 15,
+      "system_base_pp": 4,
+      "per_full_dissatisfaction_point_pp": 1,
+      "employer_offer_min_pct": 0,
+      "deadline_h": 72,
+      "one_deferral_h": 48
+    },
+    "DOM05": {
+      "module": "social",
+      "flags_threshold": 3,
+      "rolling_window_days": 7,
+      "credibility_delta_pts": -15,
+      "b2b_delta_pts": -15,
+      "fee_exemption_suspension_days": 30,
+      "propagation": "direct_delta_final_for_sanction_event_id"
+    },
+    "DOM08": {
+      "module": "incidents",
+      "same_logical_at": "repair_before_escalation_iff_preconditions_met_at_logical_at",
+      "staff_exam_employment_tie": "inherit_staff_variant_a"
+    },
+    "DOM09": {
+      "module": "legal",
+      "appeal_fee_after_acceptance_refundable": false,
+      "technical_failure_before_acceptance_refundable": true,
+      "legal_skill_bonus_pp": 2,
+      "chance_floor_pct": 5,
+      "chance_cap_pct": 90,
+      "draw_key": "case_id"
+    },
+    "DOM10": {
+      "module": "legal",
+      "renewal_base": "last_approved_region_reference*exploitation_share",
+      "renewal_fee_pct": 5,
+      "minimum": "permit_catalog",
+      "grace_days": 30,
+      "existing_production_during_grace": true,
+      "new_wells_during_grace": false
+    },
+    "DOM11": {
+      "module": "legal",
+      "denied_initial_fee": "period_cost",
+      "successful_appeal_initial_fee": "ledger_correction_to_capex",
+      "appeal_fee": "period_cost"
+    },
+    "DOM12": {
+      "module": "logistics",
+      "carrier_loading_wait_threshold_min": 30,
+      "receiver_waiting_bay_threshold_min": 120,
+      "duplicate_cause_charge": false,
+      "payer": "source_of_delay"
+    },
+    "DOM13": {
+      "module": "logistics",
+      "port_slot_min": 5,
+      "throughput_bbl_per_slot": {
+        "small": 500,
+        "medium": 1500,
+        "large": 4000
+      },
+      "idempotency": "port:slot:flow"
+    },
+    "DOM14": {
+      "module": "logistics",
+      "switch_full_slots": 2,
+      "slot_min": 5,
+      "start": "next_slot_boundary",
+      "flow_during_switch_bbl": 0
+    }
+  },
+  "pending_candidates": {
+    "DOM06": {
+      "module": "staff",
+      "base_programs": [
+        "drilling",
+        "maintenance",
+        "safety",
+        "analysis"
+      ],
+      "base_course_prices_pln_by_level": [
+        10000,
+        30000,
+        60000
+      ],
+      "duration_h_by_level": [
+        24,
+        48,
+        72
+      ],
+      "refining_prices_pln_by_level": [
+        20000,
+        50000,
+        100000
+      ],
+      "source": "OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md"
+    },
+    "DOM15": {
+      "module": "incidents",
+      "well_baseline_unit_candidate_h": 24,
+      "well_base_pct_by_stratum": {
+        "shallow": 0.2,
+        "mid": 0.4,
+        "deep": 0.7,
+        "offshore": 1.2
+      },
+      "road_base_pct_per_h_existing": 0.8,
+      "slot_min_for_dedupe": 5,
+      "source": "OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md"
+    }
+  }
+}
