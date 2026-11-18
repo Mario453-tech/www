@@ -383,7 +383,7 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 
 ## 11. Mapa wykonawcza P14–P25
 
-> **Status po audycie:** [P14–P25 mają otwarte błędy P0/P1 i nie są jeszcze Definition of Ready](OILEMPIRE_P14_P25_AUDYT_KOMPLETNOSCI.md). Karty i kontrakty są szkicami do poprawy przed kodowaniem.
+> **Status po naprawach:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). Przed wdrożeniem pozostają zatwierdzenia właściwych DOM oraz testy MySQL 8.4, Laravel, API/UI i 90 dni; dokumenty nie stanowią dowodu działania silnika.
 
 | Fala | Pakiety i kolejność | Karty | Kontrakty i dane | Bramka przed kodem |
 |---|---|---|---|---|
