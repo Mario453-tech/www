@@ -3837,7 +3837,8 @@
         "x-domain-errors": [
           "INELIGIBLE",
           "TIME_CONFLICT",
-          "INSUFFICIENT_FUNDS"
+          "INSUFFICIENT_FUNDS",
+          "PROGRAM_UNAVAILABLE"
         ],
         "x-owner": "Staff",
         "x-idempotency": "required",
@@ -6824,7 +6825,8 @@
         ],
         "x-capability": "staff.training.manage",
         "x-domain-errors": [
-          "INELIGIBLE"
+          "INELIGIBLE",
+          "PROGRAM_UNAVAILABLE"
         ],
         "x-owner": "Staff",
         "responses": {
