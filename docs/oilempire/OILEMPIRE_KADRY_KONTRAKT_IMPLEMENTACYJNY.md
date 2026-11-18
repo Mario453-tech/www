@@ -33,16 +33,17 @@ Finance/Ledger księguje pieniądze; Staff tworzy source_key i zleca zapis. Modu
 
 ## 3. Docelowy model danych — tabele fizyczne
 
-Nazwy są propozycją migracji Laravel. Kolumny `id` BIGINT UNSIGNED lub ULID według wspólnego standardu P01; dla FK typ identyczny jak PK. Wszystkie mutable aggregate mają `state_version` i `created_at/updated_at`; niezmienne fakty mają `created_at` i wersję źródła. Poniżej wypisano pola domenowe i krytyczne ograniczenia. InnoDB, utf8mb4, UTC, CHECK tam gdzie MySQL go egzekwuje; ograniczenia przekrojowe sprawdza Action pod blokadą.
+Dla nowego silnika Staff A wybieramy wewnętrzne `BIGINT UNSIGNED` (zgodne z `$table->id()` szkieletu) i osobne publiczne ULID `CHAR(26) ascii_bin`. Tabele fundamentu `users` oraz `companies` muszą mieć `id BIGINT UNSIGNED` przed uruchomieniem schematu. [Pełny kontrakt SQL dla MySQL 8.4](OILEMPIRE_KADRY_DDL_MYSQL84.sql) podaje fizyczne kolumny, FK, indeksy i CHECK; ten rozdział streszcza ich role. Dla `from/to` nazwy fizyczne to `from_at/to_at`. InnoDB, utf8mb4, UTC; ograniczenia przekrojowe, w tym overlap i uprawnienia, Action sprawdza pod blokadą. SQL jest schematem greenfield, nie poleceniem migracji danych produkcyjnych.
 
 | Tabela / właściciel | Pola kluczowe | Relacje, unikalność, indeks |
 |---|---|---|
-| `staff_persons` / Employment | public_ulid, generation_version, creation_key, status, active_employment_guard | UNIQUE(public_ulid), UNIQUE(creation_key); jeden aktywny employment przez guard; nie zawiera firmy ani oceny |
+| `staff_persons` / Employment | public_ulid, generation_version, creation_key, status | UNIQUE(public_ulid), UNIQUE(creation_key); globalna blokada person; nie zawiera firmy ani oceny |
 | `staff_person_traits` / Employment | person_id, trait_code, signed_value, generation_version | FK person RESTRICT, UNIQUE(person_id,trait_code); serwerowa allowlista; brak powielania starych loyalty/ambition |
 | `staff_person_skills` / Employment/Training przez publiczną akcję | person_id, skill_code, level, version | FK person RESTRICT, UNIQUE(person_id,skill_code); Training nie robi prywatnego UPDATE |
 | `staff_legacy_refs` / Employment Migration | person_id, legacy_type, legacy_id, evidence_code, migration_batch | FK person RESTRICT, UNIQUE(legacy_type,legacy_id); cross-company konflikt=unresolved |
-| `staff_employments` / Employment | person_id, company_id, role_code, department_code, started_at, ended_at nullable, status, source_offer_id nullable | FK person/company RESTRICT; UNIQUE(source_offer_id), INDEX(company_id,status,role_code), INDEX(person_id,started_at) |
+| `staff_employments` / Employment | person_id, company_id, role_code, department_code, started_at, ended_at nullable, status, source_offer_id nullable, generated active_person_id | FK person/company/offer RESTRICT; UNIQUE(active_person_id) daje jeden otwarty okres pracy osoby we wszystkich firmach, UNIQUE(source_offer_id), indeksy company/status/role i person/start |
 | `staff_contract_versions` / Employment | employment_id, version_no, form_code, term_code, wage_basis, actual_amount_minor, fte_num/den, effective_from/to, accepted_at, policy_version | FK employment RESTRICT, UNIQUE(employment_id,version_no), INDEX(employment_id,effective_from); niezmienne po akceptacji |
+| `staff_termination_quotes` / Employment | employment_id, company_id, request_hash, contract_version_no, amount_minor, components_json, policy_version, expires_at, consumed_at, source_key | FK employment+company RESTRICT, UNIQUE(source_key), INDEX(employment_id,expires_at); trwały snapshot zacytowanego kosztu |
 | `staff_employment_events` / Employment | employment_id, event_type, logical_at, source_event_key, payload allowlist | FK employment RESTRICT, UNIQUE(employment_id,event_type,source_event_key); append-only |
 | `staff_recruitment_campaigns` / Recruitment | company_id, role_code, channel_code, reach_code, tier_code, price_minor, currency, balance_version, due_at, status, rng_slot | FK company RESTRICT, UNIQUE(company_id,rng_slot), INDEX(company_id,status,due_at) |
 | `staff_candidate_offers` / Recruitment | campaign_id, person_id, offer_slot, terms_snapshot, expires_at, status, consumed_at | FK campaign/person RESTRICT, UNIQUE(campaign_id,offer_slot), INDEX(person_id,status); snapshot nie ujawnia hidden |
@@ -70,7 +71,7 @@ Nazwy są propozycją migracji Laravel. Kolumny `id` BIGINT UNSIGNED lub ULID we
 | `staff_recruitment_quotes` / Recruitment | company_id, public_id, request_hash, amount_minor, currency, policy_version, expires_at, consumed_at, source_key | UNIQUE(public_id), UNIQUE(source_key), INDEX(company_id,expires_at) |
 | `staff_leave_requests` / Absences | employment_id, leave_type, from/to, status, requested_seconds, policy_version, source_key, state_version | UNIQUE(source_key), INDEX(employment_id,status,from) |
 
-Pola szczegółowego kontekstu, kalkulacji i pełny zestaw indeksów trzeba dopisać w finalnych plikach migracji/Schema; tabela powyżej jest minimalnym kontraktem, nie fikcyjnym pełnym CREATE TABLE. Nie używać CASCADE dla historycznych faktów. `staff_analysis_work` może wymagać osobnego guard dla najwyżej jednego niezakończonego zlecenia niezależnie od slotu: MySQL generated active_key NULL/unikalny lub kontrolowany parent-row; sam UNIQUE(slot) tego nie zapewnia.
+Pola szczegółowego kontekstu, kalkulacji i pełny zestaw indeksów trzeba dopisać w finalnych plikach migracji/Schema; tabela powyżej jest minimalnym kontraktem, nie fikcyjnym pełnym CREATE TABLE. Nie używać CASCADE dla historycznych faktów. `staff_analysis_work` ma generated `active_slot` i UNIQUE(company_id,person_id,domain,active_slot), co chroni najwyżej jedno niezakończone zlecenie; sam UNIQUE(slot) tego nie zapewnia. `staff_employments.active_person_id` jest analogicznym fizycznym guardem zatrudnienia.
 
 ## 4. Zgodność ze starym schematem i przeniesienie kont
 
@@ -137,23 +138,24 @@ Dla `ALREADY_QUEUED` zwrócić istniejące `operation_id` jako202, gdy payload/i
 
 Przykład startu kampanii:
 ```json
-{"quote_id":"550e8400-e29b-41d4-a716-446655440001","expected_quote_version":1}
+{"quote_id":"01J00000000000000000000001","expected_quote_version":1}
 ```
 Odpowiedź:
 ```json
-{"data":{"id":"550e8400-e29b-41d4-a716-446655440002","status":"searching","due_at":"2026-11-18T12:05:00.000Z","price_minor":"1200000","currency":"PLN"},"meta":{"balance_version":"hr-a-1"}}
+{"data":{"id":"01J00000000000000000000002","status":"searching","due_at":"2026-11-18T12:05:00.000Z","price_minor":"1200000","currency":"PLN"},"meta":{"balance_version":"hr-a-1"}}
 ```
 Przykład błędu:
 ```json
-{"error":{"code":"QUOTE_STALE","message":"Oferta zmieniła się. Sprawdź nową wycenę.","details":{"quote_id":"550e8400-e29b-41d4-a716-446655440003"},"request_id":"550e8400-e29b-41d4-a716-446655440004"}}
+{"error":{"code":"QUOTE_STALE","message":"Oferta zmieniła się. Sprawdź nową wycenę.","details":{"quote_id":"01J00000000000000000000003"},"request_id":"01J00000000000000000000004"}}
 ```
-Dokładne OpenAPI 3.1, typy pól każdej mutacji, odpowiedzi i schematy errors są artefaktem do wygenerowania z tej tabeli przed implementacją klienta. Powyższa tabela nie udaje kompletnego pliku OpenAPI.
+[Pełny kontrakt OpenAPI 3.1 Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml) obejmuje 36 operacji (rekrutacja, umowy, zarząd, grafiki, urlopy, płace, spory, szkolenia i oceny). Tabela powyżej jest skrótem. Gdy endpoint pozostaje za nierozstrzygniętą polityką DOM03/04, zwraca `POLICY_NOT_APPROVED`, a nie zmyśloną decyzję.
 
 ## 7. Uprawnienia i widoczność
 
 | Capability | Gracz uprawniony w firmie | Moderator/GM | Owner admin |
 |---|---|---|---|
 | staff.view | własna firma | zgodnie z zakresem sprawy | tak |
+| staff.board.manage | mandat zarządu w firmie | tylko wyraźna akcja GM | tak |
 | staff.recruitment.manage | mandat HR/rekrutacji | tylko wyraźna akcja GM | tak |
 | staff.employment.manage | mandat zatrudniania | tylko wyraźna akcja GM | tak |
 | staff.roster.manage | mandat obsady | tylko wyraźna akcja GM | tak |
@@ -190,7 +192,7 @@ Wariant B dodaje nowe wartości zarejestrowanego `strategy_code` i katalogowe wi
 
 Minimalne testy kontraktowe: hire/retry/offer consumed; rehire zachowuje person; mirror legacy bez podwójnej osoby i pensji; aneks i odcinek miesiąca bez podwójnej kwoty; urlop/choroba/szkolenie/naprawa bez overlap; dwóch równoległych kampanii przy jednym slocie; dwóch workerów egzaminu; assessment bez hidden profile; obca firma 404; admin bez uprawnienia 403; outbox/job/sweeper raz; rollback/restore migracji na MySQL.
 
-Otwarte przed aktywacją produkcyjną: kalibracja cennika i marży startera, legalny safe-stop transportu, dokładne parametry i baseline ról, brak podwójnego OPEX rafinerii, kontrakty producentów obserwacji, komplet OpenAPI 3.1, końcowe DDL FK/indeksy oraz wykonane testy. Opis kontraktów nie potwierdza kodu, migracji ani PASS. Wycofanie tej dokumentacji przez odwrócenie zmian w GitHub; nie wpływa na dane gry.
+Otwarte przed aktywacją produkcyjną: kalibracja cennika i marży startera, legalny safe-stop transportu, dokładne parametry i baseline ról, brak podwójnego OPEX rafinerii, kontrakty producentów obserwacji, wykonanie SQL na MySQL 8.4, konwersja kontraktu na migracje Laravel oraz testy API/DB i gospodarki 90 dni. Opis kontraktów nie potwierdza kodu, migracji ani PASS. Wycofanie tej dokumentacji przez odwrócenie zmian w GitHub; nie wpływa na dane gry.
 
 
 ## 11. Korekty po audycie spójności kontraktu
@@ -244,4 +246,4 @@ Zasada „jedna aktywna wersja polityki” potrzebuje `staff_policy_current(poli
 | C11 | EndEmployment sugerował finalizację płac w chwili decyzji | Rozdzielono decyzję i logiczny koniec |
 | C12 | B zapowiadał dodanie strategy_code, choć pole istnieje już w A | Poprawiono: B dodaje wartości strategii |
 
-Nadal przed wygenerowaniem wykonywalnych migracji trzeba domknąć: dokładne typy i długości kolumn, typy PK/FK ze wspólnym P01, FK zgodności company/person/employment, fizyczny guard aktywnego zatrudnienia i pracy HR, weryfikacja DDL względem rank14/rank140, kompletne OpenAPI 3.1 i statystyczny harness. Nie oznaczać tego przeglądu jako testu MySQL lub potwierdzenia pełnej gotowości kodu.
+Przed wygenerowaniem migracji Laravel należy wykonać kontrakt SQL na MySQL 8.4, porównać faktyczny schemat fundamentu P01/P06, potwierdzić fizyczne FK/guardy oraz przeprowadzić testy transakcyjne i statystyczny harness. SQL i OpenAPI są gotowymi artefaktami projektowymi, nie dowodem ich wykonania ani zgodności produkcyjnej. Nie oznaczać tego przeglądu jako testu MySQL lub potwierdzenia pełnej gotowości kodu.
