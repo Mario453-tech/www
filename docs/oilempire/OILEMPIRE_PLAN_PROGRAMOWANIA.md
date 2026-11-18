@@ -376,4 +376,6 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 | E5 | P21 Social → P22 Onboarding/Notifications → P23 CMS/Privacy → P24 Web/Mobile | [P21–P24](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md) | API v1, PL/EN/DE, lokalne SVG, panel Filament | autoryzacja kanału, retry powiadomień, wersje klienta i dostępność 320–1440 px |
 | E6 | P25 Operations | [P25](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md) | release/restore/reconciliation | backup+restore, rollback, 90 dni i raport gotowości |
 
+[Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md) stanowią bramkę dla P14–P25.
+
 Manifest mapuje 56 kart na 27 publicznych operacji OpenAPI oraz komendy wewnętrzne. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05, DOM06/08 i DOM09–15](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) są propozycjami do zatwierdzenia. Zależna akcja zwraca `POLICY_NOT_APPROVED` do zatwierdzenia i aktywacji wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
