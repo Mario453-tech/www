@@ -1486,3 +1486,101 @@ Warunki wejścia do M4: kompletna mapa wszystkich aktywnych rekordów, zero niew
 Testy: para board+technical→jedna osoba; dwa takie same ID z różnych tabel→dwie osoby bez linku; dangling/cross-company link→unresolved; retry backfill→ten sam wynik; rehire→nowe employment bez zmiany person; umowa technika bez board_member; status/kwota/FK zachowane; dwa źródła przydziału jednego odwiertu→jedna obsada; nieznany związek→brak sztucznego scalenia; stara firma nie widzi nowej oceny i odwrotnie; rollback nie usuwa starej historii.
 
 Nowy silnik Laravel projektujemy na podstawie zatwierdzonych zasad gry i docelowego schematu. Pełny przegląd starych ścieżek zapisu salary, umów, przydziałów, zatrudniania i zwalniania nie jest bramką projektowania ani przygotowania migracji. Stary kod sprawdzamy punktowo wyłącznie wtedy, gdy eksport schematu nie wyjaśnia znaczenia pola lub gdy przygotowujemy przeniesienie istniejących kont i historii. Dla przeniesienia danych wymagane są mapy źródło→cel, walidacja liczności i kwot oraz testy na kopii; nie wymaga to odtwarzania dawnych mechanizmów zapisu w Laravelu. Nie wykonano migracji ani testów MySQL w tej rundzie.
+
+
+## 19. Decyzja wdrożeniowa: wariant A z rozbudową B — HR-MVP-01
+
+Właściciel wybrał wariant A jako pierwszy zakres nowego silnika. Wariant B pozostaje zaplanowanym rozszerzeniem tego samego modułu Staff. Cennik poniżej jest **proponowaną przeze mnie wartością startową** do wersjonowanego panelu i symulatora; nie zmienia aktywnego game_balance v1. Nowe liczby można zatwierdzić/skalibrować jako kandydat wersji balansu. Już ustalone ceny, limity i wzory mają pierwszeństwo.
+
+### 19.1. Jedna prosta droga programowania
+
+Każdy proces ma jedną akcję domenową, jedno źródło stanu i parametry katalogu: RecruitmentCampaign, Employment, Roster, Absence, Training, Assessment. Frontend, Filament, API, kolejka i sweeper wywołują te same akcje, nie implementują własnych reguł. Tylko właściciel domeny zapisuje swoje dane. Skutki gospodarcze trafiają do Finance/Ledger, czas do Staff/Simulation.
+
+Silnik reguł **nie** interpretuje dowolnych wyrażeń administratora ani kodu z bazy. Tabela polityki zawiera code, strategy_code, parametry z typami i zakresem, version, effective_from, hash. Kod obsługuje mały zamknięty zestaw strategii; dodanie strategii B wymaga wydania kodu, ale nie wymiany tabel ani endpointów. Przykłady: fixed_fee, fixed_band, calendar_proration, role_minimum, evidence_threshold. Nie tworzymy własnego frameworka reguł.
+
+Dla każdego wariantu B używamy rozszerzalnych pól katalogu i wersjonowanego strategy_code. Nie dodajemy teraz tabel dla hipotetycznej agencji, wszystkich regionalnych przepisów lub nieskończonych kombinacji. Osobne wiersze/tabele tylko dla rzeczywistych danych powtarzalnych: umowa i jej wersje, przedziały grafiku, absencje, dowody, snapshoty. Jawne sloty i idempotencja pozostają obowiązkowe.
+
+### 19.2. Rekrutacja A — cennik i wynik
+
+Jednostka: PLN gry za **jedną kampanię na jedno stanowisko i jeden wakat**. Kampania z większą liczbą wakatów to osobne pozycje quote; nie liczymy ceny raz dla dowolnej liczby osób. Cena zawiera publikację i podstawową selekcję. Nie pobieramy drugiej prowizji za samo zatrudnienie. Maksimum2 równoległe kampanie zostaje. Headhunter: istniejące25GBBL i limit1/dobę, nie przeliczamy arbitralnie na PLN.
+
+| Kanał | Zasięg A | Cena/kampania | Liczba ofert do wylosowania | Typowy profil |
+|---|---|---:|---:|---|
+| Uczelnia/szkoła | lokalny | 4 000 | 0–2 | początkujący |
+| Polecenie pracownika | lokalny | 6 000 | 0–1 | mała pula |
+| Gazeta lokalna | lokalny | 8 000 | 0–2 | operacyjny |
+| Portal ogłoszeniowy | krajowy | 12 000 | 0–3 | ogólny |
+| Radio regionalne | krajowy | 20 000 | 0–3 | większy nabór |
+| Portal branżowy | krajowy | 30 000 | 0–3 | techniczny/specjalistyczny |
+| Agencja rekrutacyjna (kanał) | krajowy | 45 000 | 0–3 | selekcja wg wymagań |
+| Telewizja | krajowy | 90 000 | 0–4 | duży zasięg, bez bonusu jakości |
+| Headhunter | według istniejącego katalogu | 25 GBBL | według istniejącej polityki | rzadkie role |
+
+Zasięg A wynika z wiersza kanału; UI nie oferuje nieobsługiwanych kombinacji. Rekrutacja międzynarodowa A: portal branżowy lub agencja, cena bazowa ×1,5 za kampanię, mnożenie raz na quote. Bez niezależnej premii „lokalizacja”. Wariant B może dodać inne dozwolone kombinacje jako nowe wiersze, bez zmiany akcji.
+
+Budżet A: podstawowy1,0× ceny, rozszerzony1,5×, szeroki2,0×. Liczba ofert pozostaje w zakresie wiersza; budżet zwiększa wagę losowania wyższej liczby ofert, ale nie tworzy gwarancji. Aby uniknąć nieokreślonej krzywej, bazowe wagi liczby ofert dla zakresu0–N: dla N=1 [30,70], N=2 [20,50,30], N=3 [15,40,30,15], N=4 [10,30,30,20,10] w procentach. W rozszerzonym przesuwamy5 punktów procentowych z wyniku0 na wynik min(1,N); w szerokim10 punktów. Pozostałe wagi bez zmian. Jedno utrwalone losowanie per kampania; droższy wariant może nadal dać0. Nie zmienia prawdopodobieństwa ukrytych cech ani bazowych umiejętności.
+
+Czas A: lokalny stałe3min, krajowy4min, międzynarodowy5min aktywnego czasu firmy; mieści się w istniejących przedziałach2–4/3–5min. Dla headhuntera zachować jego własny termin z wcześniejszego katalogu. Oferta ważna24h aktywnego czasu od udostępnienia. Kampania opłacona na starcie; anulowanie przed końcem nie zwraca opłaty za publikację, po otrzymaniu ofert również brak zwrotu. Niewystarczająca gotówka blokuje start; quote ważny5min i utrwala całkowitą kwotę.
+
+Relokacja A tylko gdy oferta jest międzynarodowa: stałe20 000 PLN jednorazowo po zaakceptowaniu oferty przez pracownika, przed rozpoczęciem zatrudnienia; start po24h aktywnego czasu. Anulowanie przed akceptacją nie obciąża relokacją. Brak środków pozostawia ofertę niezaakceptowaną, nie tworzy długu poza zgodą gracza. Wariant B doda stawki region/rola i czas podróży jako katalog.
+
+Do symulacji: kampania nie może ekonomicznie zastąpić każdej trudnej decyzji finansowej; telewizja przy jednym wakacie jest celowo droga. Porównać koszt zatrudnienia/utrzymania operatora, technika i inżyniera w90dni z przychodem startera.
+
+### 19.3. Płace, umowy i zwolnienia A
+
+Zachować HR-PAY-01: formy employment/mandate/business_service/management, rzeczywisty wymiar etatu, stawki bazowe z architektury, profil20,48%, miesięczne naliczanie i kontrolowane zaokrąglenia, staż, progi7/14/30dni wypowiedzenia oraz odprawy0,5/1/2 podstawy. Nie wymyślać drugiej stawki pensji ani ponownie mnożyć salary przez etat. Panel pokazuje cenę całkowitą i źródło składowych.
+
+A stosuje jeden STANDARD_GAME profil kosztów, jeden kalendarz UTC oraz jeden zestaw reguł dodatków §4.1: +50% czasu ponad wymiar, +20% noc, sumowanie gdy oba. Płatne urlopy według §4.2, choroba employment80% podstawy według §14; rozliczenie niepełnego okresu metodą HR-PAY-01. B może dodać profile region/umowa, lecz ich brak nie tworzy pola „0%” w A.
+
+A domyka DOM02 bez podwójnej kary: natychmiastowe zakończenie przez firmę ma **jednorazowy** efekt morale zespołu −10 punktów; zwykłe wypowiedzenie z przepracowaniem/odpłatnym odsunięciem −8 punktów na osobę, ograniczone do−24 punktów w ruchomych14dniach dla jednego działu. Nie stosować obu do tego samego końca zatrudnienia. Efekt uruchamia się przy komunikowanej decyzji, nie po raz drugi na employment_ended_at. Populacja sporu jest snapshotem aktywnej obsady z logical_at decyzji, nie „ostatnie24h” po zakończeniu. Progi i cap edytowalne w panelu. Wyjątki (porozumienie, naturalny koniec, odejście pracownika) mają efekt0 w tej polityce. To kandydat gry, wymagający testu morale i90dni.
+
+DOM08 w Staff A: przy identycznym logical_at najpierw kończymy uprawnioną pracę/egzamin, której faktyczny warunek ukończenia zaszedł przed końcem zatrudnienia; jeśli due_at egzaminu **równa się** employment_ended_at, najpierw koniec zatrudnienia, potem egzamin jest cancelled_employee_left, bez certyfikatu. Wydarzenia innych domen, np. repair/escalation, wymagają ich własnej jawnej kolejności w Simulation i nie wynikają z tej reguły Staff.
+
+### 19.4. Grafiki, obsada i nieobecności A
+
+A oferuje szablony1/2/3 zmian, dni pracy i wymagania obsady z §4.1. Gracz ustawia tryb obiektu i priorytet; planista układa grafik i zgłasza brak pokrycia. Ręczna edycja dopuszczona w granicach twardych norm, bez osobnej strategii łamania czasu pracy. Każda osoba ma jeden wspólny kalendarz i limit czasu; to obowiązuje również B.
+
+Obsada startera A: od razu jawna, ograniczona czasowo obsługa szkoleniowa NPC operatora i technika dla odwiertu szkoleniowego na pierwsze48h aktywnego czasu firmy, bez pensji i bez przenoszenia na inne obiekty; UI pokazuje termin końca i konieczne zatrudnienie. **To kandydat do kalibracji FTUE**, bo obecny kanon nie zapewnia zmianowej obsady startowego odwiertu. Nie aktywować jednocześnie z alternatywnym darmowym przydziałem.
+
+Hub A: pełna wymagana obsada1/2/4 daje100% nominalnej przepustowości; każdy brak choćby jednej wymaganej osoby daje istniejące70% i ryzyko×2. Nie interpolujemy do0–100% według liczby osób. B może dodać krzywą częściowej obsady jako strategię katalogu, po testach gospodarki.
+
+Rafineria A: liczby4+1 /10+3 /24+8 są **liczbą wymaganych jednocześnie obecnych operatorów/chemików** w aktywnym przedziale pracy instalacji. W trybie zmianowym każdy przedział wymaga takiej obsady, a nie tych samych osób24/7. Raport kosztu pokazuje liczbę etatów potrzebną do pokrycia zadanych godzin; zewnętrzny OPEX techniczny nie jest dodatkową pensją za te osoby. Jeśli istniejący OPEX zawiera ten sam koszt, przed aktywacją trzeba wyłączyć odpowiednią składową, nie księgować dwukrotnie. Bez testu marży nie aktywować trybu rafinerii.
+
+Rurociąg A: inżynier może nadzorować jeden aktywny odcinek na zmianę; dla kolejnego potrzebna osobna dostępność. Bez obsady zachowany dotychczasowy skutek wear/risk×2, nie zatrzymanie przesyłu. B może dodać współdzieloną pojemność zależną od długości/stanu odcinków.
+
+Zadanie nieprzerywalne A nie startuje bez zaplanowanego pokrycia przewidywanego czasu i rezerwy. Jeśli rzeczywisty czas przekroczy plan: Logistics/Technical wykonuje zaprojektowany safe-stop albo przekazanie uprawnionej osobie. Bez kontraktu bezpiecznego zakończenia dana kategoria zadania pozostaje nieaktywna; nie przedłuża się zmiany bez zgody.
+
+Urlopy A: wszystkie parametry biznesowe nadal edytowalne w panelu, zgodnie z §4.2; wersjonowanie uprawnień, ledger godzin i audyt są niezmiennikami. Chorobowe według §14/§16.1: nominalne10–20%/30 aktywnych dni, długość1–3dni, cooldown7, max2 krótkie epizody/30dni; pojedynczy epizod nie zdradza ukrytej cechy. Warunki pracy A: jeden neutralny m=1 dla pierwszej kalibracji, a w UI nie obiecujemy wpływu zmęczenia, dopóki nie ma zatwierdzonej mapy. B może dodać wersjonowaną mapę warunków i odpoczynku. Zastępstwo: kolejność §14, pracownik tymczasowy2,5× pełny koszt godzinowy, bez gwarancji dostępności.
+
+### 19.5. Szkolenia i HR A
+
+Zachować wszystkie zatwierdzone parametry Refining:20k/50k/100k,24/48/72h, próg70 i skill cap10. Dla bazowego kursu technicznego A: poziom I 20 000 PLN/24h, II 50 000/48h, III 100 000/72h; próg70, cap10. To proponowane ujednolicenie cennika, nie retroaktywna zmiana starych szkoleń. Katalog roli/skill dopuszcza poziom I–III; nie wolno otworzyć kursu bez jawnego wpisu. Koszt raz przy zapisie, egzamin idempotentny, pauza chorobowa według §17. W pierwszym wydaniu tylko elapsed_time z rezerwacją **8h pracy w każdym dniu trwania kursu**, o ile istnieje zaplanowany dyżur; bez dyżuru kurs trwa kalendarzowo, ale pracownik nie jest obsadą obiektu. Rezerwacja nie łamie limitów §4.1. Wariant scheduled_training_time to B.
+
+Po7 aktywnych dniach blokady egzaminów A: licznik kolejnych niepowodzeń resetuje się do0, ale skill, wcześniejsze próby i historia wyników pozostają. Nowa próba płatna normalnie; nie przyznajemy automatycznego bonusu zdania za sam reset. To kandydat DOM07, do testu czwartej próby.
+
+Cztery cechy §16.1 i oceny §18 zostają w A. Aktywujemy ocenę domeny stanowiska tylko wtedy, gdy ma zatwierdzony baseline i producenta dowodów; pozostałe pokazują „za mało porównywalnych danych”. Nie wpisujemy uniwersalnych liczb błędów dla różnych ról. Priorytet norm na start: operator odwiertu, technik, kierowca i operator huba; dalej pozostałe role. Zwykły gracz nie widzi profilu ukrytego.
+
+Organizacja HR A: jedna kolejka i czasy §18.17, bez darmowej analizy przy braku analityka. Mentoring A tylko jako jawne zadanie z rezerwacją czasu, bez premii do skilla/egzaminu dopóki jego mapa nie przejdzie symulacji; B doda skuteczność i wielu podopiecznych. Automatyzacja A: układanie legalnego grafiku, alarmy luk i scalanie zleceń analizy; bez automatycznego zwalniania lub wydawania pieniędzy.
+
+### 19.6. Droga do B bez przebudowy
+
+| Funkcja A | Rozszerzenie B | Stały kontrakt |
+|---|---|---|
+| Stały katalog kanałów, cen i zasięgów | region, konkurencja, oferta, budżet | RecruitmentQuote/Start/Result, wersja katalogu |
+| STANDARD_GAME koszt umowy | profil region/forma | EmploymentContractVersion + PayrollComponent |
+| Szablony grafików i jeden kalendarz | warianty planisty, prognozy | AvailabilityQuery + ReserveTime |
+| Minimum obsady i fixed_band | krzywa częściowej obsady | StaffingSnapshot + OccupancyStrategy |
+| Neutralne warunki choroby | modyfikatory odpoczynku/obciążenia | AbsenceExposure + HazardStrategy |
+| elapsed_time i stały kurs | scheduled_training_time, mentoring | TrainingEnrollment + TimeReservation |
+| Podstawy i stopniowa aktywacja ocen | normy wszystkich ról | Observation + AssessmentSnapshot |
+
+Wersja publicznego DTO i zdarzeń nie zależy od strategy_code; nowa strategia zmienia tylko wynik i własny params_version. Gdy B wymaga nowych pól publicznych, wydajemy nową wersję kontraktu z okresem zgodności. Tabele wersjonowane i pola rozszerzeń nie mogą być jednym nieograniczonym JSON. Nie projektować B przez funkcje bez użycia; dodać jego strategie dopiero w kartach konkretnych funkcji.
+
+### 19.7. Panel, bramki i testy
+
+Panel Kadry → Polityki A grupuje: rekrutację i cennik, płace/umowy, wypowiedzenia, grafiki/obsadę, urlopy/choroby, szkolenia, oceny HR. Każde pole ma jednostkę, zakres, opis, podgląd skutków i wersję. Owner admin zatwierdza bez komentarza; audyt actor/hash/time/zakres i bramka symulatora zgodnie z §29.5/§29.7. Nie można edytować historycznych wersji. Ceny PLN trzymamy w groszach; GBBL oddzielna jednostka. Nie mieszamy panelowego cennika z prywatną logiką Filament Resource.
+
+Przed aktywacją A: (1) test 90 dni z co najmniej starterem, zmianami, chorobami, zwolnieniami i szkoleniami; (2) testy MySQL idempotencji i wspólnego kalendarza; (3) brak podwójnego OPEX rafinerii i pensji; (4) sprawdzenie możliwości obsadzenia FTUE; (5) symulator balansu na kandydacie YAML 0 FAIL i archiwizacja hash; (6) testy API/Filament uprawnień, braku wycieku cech, PL/EN/DE i mobile. Ten dokument jest decyzją zakresu oraz propozycją cen, nie dowodem wykonania tych testów.
+
+Status po tej decyzji: otwarte pozostają **kalibracja** cen/ryzyka/marży, rzeczywiste baseline HR, dokładne karty DDL/OpenAPI i integracja safe-stop z domenami. Nie wpisujemy „zamknięte” w historycznym rejestrze DOM przed propagacją zmian do kart i testów.
+
