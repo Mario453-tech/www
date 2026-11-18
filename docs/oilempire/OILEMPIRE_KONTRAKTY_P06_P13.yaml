@@ -913,34 +913,37 @@
       "id": "DOM03",
       "scope": "P08-F04",
       "alias": "NEGOTIATION-01",
-      "decision": "Brak pełnej formuły rund zbiorowych i etapów eskalacji; ustalić współczynniki i koszt oferty przed produkcyjną negocjacją.",
+      "decision": "Grupa >=3 jednej specjalizacji; jedno żądanie/30 dni; clamp(2%,12%,4%+1pp*pełna przewaga).",
       "source": "§5.2; staff params",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM04",
       "scope": "P08-F02",
       "alias": "RAISE-AMOUNT-01",
-      "decision": "Próg/deadline kontroferty istnieją, brak formuły żądanej kwoty podwyżki; potrzebna wersjonowana polityka generatora.",
+      "decision": "Target 2-15%; propozycja systemu min(15%,4pp+1pp*pełny punkt niezadowolenia ponad próg); oferta 0-target.",
       "source": "§4.2",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM05",
       "scope": "P06-F02 (wyłącznie event sankcji P21)",
       "alias": "CARTEL-PROPAGATION-01",
-      "decision": "Jawne −15cred/−15B2B vs propagacja50%; określić czy B2B finalne czy dodatkowe. Pozostałe reputacje i wyjątek2FA są rozpisane.",
+      "decision": "Próg 3 flag/7d, -15 credibility i -15 B2B oraz 30d zawieszenia bez zmian; oba spadki są finalne dla jednego sanction_event_id, bez wtórnej propagacji 50%.",
       "source": "§2/§26.3",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM06",
       "scope": "P09-F01, P09-F02",
       "alias": "T09-L02",
-      "decision": "Wariant A: kurs techniczny I/II/III koszt 20k/50k/100k PLN, czas 24/48/72h, próg 70 i cap 10 według Kadry §19.5. Pozostałe role/skill wymagają jawnych wpisów w wersjonowanym katalogu; brak wpisu = PROGRAM_UNAVAILABLE. Refining bez zmian.",
+      "decision": "Refining I/II/III zachowuje 20k/50k/100k PLN, 24/48/72h, próg70 i cap10. Cztery kursy bazowe 10k/30k/60k PLN są kandydatem DOM06; capability i test ekonomii nadal do zatwierdzenia. Brak wpisu=PROGRAM_UNAVAILABLE.",
       "source": "§6/§31; staff/refining training",
-      "status": "partially_resolved_for_variant_a_pending_catalog_and_tests",
-      "resolution_document": "OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md#19.5"
+      "status": "candidate_catalog_pending_owner_approval_and_calibration",
+      "resolution_document": "OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md"
     },
     {
       "id": "DOM07",
@@ -955,65 +958,73 @@
       "id": "DOM08",
       "scope": "P09-F03, P13-F04",
       "alias": "T09-L03/DPL07-remis",
-      "decision": "Równość egzamin/koniec zatrudnienia oraz repair/escalation wymaga jawnego priorytetu zdarzeń przy identycznym logical_at.",
+      "decision": "Remis egzamin/koniec wg Staff A; naprawa przed eskalacją przy tym samym logical_at tylko jeśli warunki były spełnione na logical_at.",
       "source": "§6/§17.4/§23.6",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM09",
       "scope": "P10-F02 (appeal)",
       "alias": "T10-L01",
-      "decision": "Zwrot opłaty appeal i kolejność bonusu2p.p.×skill vs clamp podstawowy; nie dopisywać refundu ani wyższego cap bez decyzji.",
+      "decision": "Opłata apelacji po przyjęciu bezzwrotna; błąd techniczny przed przyjęciem zwraca; chance=clamp(5%,90%,base+2pp*legal_skill), jeden rzut/case.",
       "source": "§7.3",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM10",
       "scope": "P10-F03",
       "alias": "T10-L02",
-      "decision": "Wzór wyceny regionu dla5% odnowienia i zachowanie aktywów w30d grace/po utracie uprawnienia.",
+      "decision": "Baza odnowienia=zatwierdzona referencja regionu*udział; fee=max(katalog_min,5%*baza); 30d grace: obecne wydobycie bez nowych odwiertów, potem pauza.",
       "source": "§19.4",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM11",
       "scope": "P10-F04 (koszty odmów/appeal)",
       "alias": "CAPEX-COST-01",
-      "decision": "Zakwalifikować koszt odrzuconego wniosku i appeal; ewidencja wpłaty nie oznacza automatycznie CAPEX uzyskanego pozwolenia.",
+      "decision": "Odmowa: pierwotna opłata koszt; po skutecznej apelacji korekta do CAPEX pierwotnej opłaty, opłata apelacji nadal koszt.",
       "source": "§19.1/OPEN03",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM12",
       "scope": "P12-F04 (postojowe)",
       "alias": "DPL01",
-      "decision": "30min w§11A.4 vs2h w§21/B2B: jawnie rozdzielić konteksty albo uzgodnić jedną wartość. Nie zmieniać2000PLN/h bez decyzji.",
+      "decision": "Dwa zegary: załadunek/demurrage 30min i waiting_bay 2h; brak podwójnej minuty/przyczyny; płatnik wg źródła opóźnienia.",
       "source": "§11A.4/§13/§21",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM13",
       "scope": "P12-F04 (port)",
       "alias": "DPL05",
-      "decision": "Port500/1500/4000bbl na przebieg potrzebuje stałej jednostki ekspozycji/czasu, aby requesty nie zwiększały przepustowości.",
+      "decision": "500/1500/4000 bbl na trwały slot 5min port/tier; port:slot:flow dedupe.",
       "source": "§11A.5",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM14",
       "scope": "P12-F01 (przepięcie)",
       "alias": "DPL06",
-      "decision": "2przebiegi przepięcia muszą dostać logiczne sloty/due_at niezależne od liczby wejść gracza.",
+      "decision": "Switch kierunku po dwóch pełnych slotach 5min od następnej granicy, w przejściu przepływ zero.",
       "source": "§11A.2",
-      "status": "requires_rule_resolution"
+      "status": "owner_approved_pending_implementation_and_activation",
+      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
     },
     {
       "id": "DOM15",
       "scope": "P13-F03, P13-F04",
       "alias": "DPL07-ekspozycja",
-      "decision": "Przypisać hazardom na tick ich kanoniczną bazę czasu; nie zamieniać ich po cichu na p_per_h.",
+      "decision": "Road 0,8%/h i pipeline 0,0008/0,0006 per h pozostają z YAML. Well 0,2-1,2%/tick ma nieustaloną jednostkę; kandydat 24h wymaga 90d testu i decyzji. Slot 5min służy deduplikacji, nie automatycznej stawce.",
       "source": "§9.5/§17.4/§23.6",
-      "status": "requires_rule_resolution"
+      "status": "candidate_calibration_pending_90_day_test_and_owner_approval",
+      "resolution_document": "OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md"
     },
     {
       "id": "DOM16",
@@ -1380,5 +1391,26 @@
     },
     "canonical_document": "OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md#23.5a.1",
     "runtime_implemented": false
+  },
+  "x-owner-decision-batch": {
+    "date": "2026-11-18",
+    "approved": [
+      "DOM03",
+      "DOM04",
+      "DOM05",
+      "DOM08",
+      "DOM09",
+      "DOM10",
+      "DOM11",
+      "DOM12",
+      "DOM13",
+      "DOM14"
+    ],
+    "pending": [
+      "DOM06",
+      "DOM15"
+    ],
+    "decision_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md",
+    "activation": "not_active_until_versioned_balance_and_release_gates"
   }
 }
