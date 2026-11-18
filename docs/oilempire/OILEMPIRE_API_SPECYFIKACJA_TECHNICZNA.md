@@ -86,7 +86,7 @@ Poniższe ścieżki są kontraktem przestrzeni nazw i odpowiedzialności. Konkre
 
 Odczyty kolekcji używają paginacji kursorowej, stabilnego sortowania oraz limitu maksymalnego; filtrowanie i sortowanie są z allowlisty. Szczegóły prywatnego zasobu nie mogą ujawniać, czy istnieje cudzy rekord: odpowiedź `404` po sprawdzeniu polityki. Płatności premium są odseparowane od tej tabeli; webhook dostawcy jest serwer–serwer i podpisany (§22/§29).
 
-Szczegółowa delta zasobów HR wariantu A (akcje, DTO, kody domenowe i uprawnienia) znajduje się w [HR-CONTRACT01 §6–§7](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md). Nowe trasy /hr rozwijają niniejszą przestrzeń nazw; konkretny plik OpenAPI 3.1 pozostaje do przygotowania przed kodowaniem klientów.
+Szczegółowa delta zasobów HR wariantu A (akcje, DTO, kody domenowe i uprawnienia) znajduje się w [HR-CONTRACT01 §6–§7](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md), a kompletny opis 36 operacji w [OpenAPI Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml). Nowe trasy /hr rozwijają niniejszą przestrzeń nazw; konkretny plik OpenAPI 3.1 pozostaje do przygotowania przed kodowaniem klientów.
 
 ## 7. Błędy i limity
 
