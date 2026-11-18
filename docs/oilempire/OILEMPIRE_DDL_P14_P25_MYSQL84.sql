@@ -1,7 +1,9 @@
 -- OilEmpire P14-P25: PROJEKT DDL, MySQL 8.4/InnoDB/utf8mb4. Nie uruchamiać na produkcji bez migracji expand/contract.
 -- Preflight: P01-P13 posiada companies(id BIGINT UNSIGNED); zweryfikować nazwy i typy przed migracją.
--- Nie tworzyć wtórnych ledger, stock_reservations, oil_movements, obligations ani trips; korzystać z publicznych Actions ich właścicieli.
+-- Nie tworzyć wtórnych ledger, stock_reservations, oil_movements, delivery_receipts (P12 Logistics), obligations ani trips; korzystać z publicznych Actions ich właścicieli.
+-- source_tank_type/id i destination_tank_type/id w product_movements są jawnie polimorficzne (storages/product_storages); waliduje je publiczna Action właściciela przed append, bez fałszywego FK do jednego typu.
 -- Kwoty: BIGINT grosze, ropa: DECIMAL(16,4), czas: UTC DATETIME(3), public_ulid: losowy ULID.
+-- FK na kolumnach użytych w CHECK pomijają jawne ON DELETE/UPDATE; domyślne NO ACTION/RESTRICT zachowuje historię (MySQL 8.4 §15.1.20.6).
 SET NAMES utf8mb4;
 
 -- Market
@@ -10,7 +12,9 @@ CREATE TABLE market_offers (
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   company_id BIGINT UNSIGNED NULL,
   storage_id BIGINT UNSIGNED NOT NULL,
+  reservation_operation_id VARCHAR(128) NOT NULL,
   side VARCHAR(8) NOT NULL,
+  CHECK (side = 'sell'),
   quantity_bbl DECIMAL(16,4) NOT NULL,
   remaining_bbl DECIMAL(16,4) NOT NULL,
   limit_price_minor BIGINT UNSIGNED NOT NULL,
@@ -23,10 +27,11 @@ CREATE TABLE market_offers (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_market_offers_ulid (public_ulid),
+  UNIQUE KEY uq_market_offer_reservation (reservation_operation_id),
   KEY ix_market_offers_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE market_price_snapshots (
+CREATE TABLE price_history (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   region_code VARCHAR(24) NOT NULL,
@@ -41,8 +46,8 @@ CREATE TABLE market_price_snapshots (
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_market_price_snapshots_ulid (public_ulid),
-  UNIQUE KEY uq_market_price_snapshots_domain (region_code, slot_at)
+  UNIQUE KEY uq_price_history_ulid (public_ulid),
+  UNIQUE KEY uq_price_history_domain (region_code, slot_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE market_trades (
@@ -132,7 +137,9 @@ CREATE TABLE contracts (
   company_id BIGINT UNSIGNED NULL,
   buyer_company_id BIGINT UNSIGNED NULL,
   seller_company_id BIGINT UNSIGNED NULL,
-  offer_id BIGINT UNSIGNED NULL,
+  system_offer_id BIGINT UNSIGNED NULL,
+  b2b_offer_id BIGINT UNSIGNED NULL,
+  CHECK ((system_offer_id IS NULL) <> (b2b_offer_id IS NULL)),
   kind VARCHAR(16) NOT NULL,
   quantity_bbl DECIMAL(16,4) NOT NULL,
   unit_price_minor BIGINT UNSIGNED NOT NULL,
@@ -145,6 +152,8 @@ CREATE TABLE contracts (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_contracts_ulid (public_ulid),
+  UNIQUE KEY uq_contracts_system_offer (system_offer_id),
+  UNIQUE KEY uq_contracts_b2b_offer (b2b_offer_id),
   KEY ix_contracts_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -175,6 +184,7 @@ CREATE TABLE b2b_offers (
   seller_company_id BIGINT UNSIGNED NOT NULL,
   buyer_company_id BIGINT UNSIGNED NULL,
   source_storage_id BIGINT UNSIGNED NOT NULL,
+  reservation_operation_id VARCHAR(128) NOT NULL,
   quantity_bbl DECIMAL(16,4) NOT NULL,
   unit_price_minor BIGINT UNSIGNED NOT NULL,
   expires_at DATETIME(3) NOT NULL,
@@ -186,6 +196,7 @@ CREATE TABLE b2b_offers (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_b2b_offers_ulid (public_ulid),
+  UNIQUE KEY uq_b2b_offer_reservation (reservation_operation_id),
   KEY ix_b2b_offers_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -199,6 +210,8 @@ CREATE TABLE escrow_accounts (
   released_minor BIGINT UNSIGNED NOT NULL DEFAULT 0,
   refunded_minor BIGINT UNSIGNED NOT NULL DEFAULT 0,
   expires_at DATETIME(3) NOT NULL,
+  CHECK ((contract_id IS NULL) <> (b2b_offer_id IS NULL)),
+  CHECK (released_minor + refunded_minor <= held_minor),
   state VARCHAR(32) NOT NULL DEFAULT 'draft',
   state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
   balance_version VARCHAR(24) NULL,
@@ -207,6 +220,8 @@ CREATE TABLE escrow_accounts (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_escrow_accounts_ulid (public_ulid),
+  UNIQUE KEY uq_escrow_contract (contract_id),
+  UNIQUE KEY uq_escrow_b2b_offer (b2b_offer_id),
   KEY ix_escrow_accounts_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -231,25 +246,31 @@ CREATE TABLE escrow_movements (
   UNIQUE KEY uq_escrow_movements_domain (movement_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
-CREATE TABLE delivery_receipts (
+
+
+CREATE TABLE contract_receipt_links (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  company_id BIGINT UNSIGNED NULL,
+  company_id BIGINT UNSIGNED NOT NULL,
   contract_tranche_id BIGINT UNSIGNED NULL,
   b2b_offer_id BIGINT UNSIGNED NULL,
-  trip_public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NULL,
-  quantity_bbl DECIMAL(16,4) NOT NULL,
-  received_at DATETIME(3) NOT NULL,
-  proof_sha256 BINARY(32) NULL,
-  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  logistics_receipt_id BIGINT UNSIGNED NOT NULL,
+  escrow_account_id BIGINT UNSIGNED NOT NULL,
+  effect_key VARCHAR(128) NOT NULL,
+  settled_bbl DECIMAL(16,4) NOT NULL,
+  linked_at DATETIME(3) NOT NULL,
+  CHECK ((contract_tranche_id IS NULL) <> (b2b_offer_id IS NULL)),
+  state VARCHAR(32) NOT NULL DEFAULT 'settled',
   state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
   balance_version VARCHAR(24) NULL,
   logical_at DATETIME(3) NULL,
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_delivery_receipts_ulid (public_ulid),
-  KEY ix_delivery_receipts_company_state (company_id, state, id)
+  UNIQUE KEY uq_contract_receipt_links_ulid (public_ulid),
+  UNIQUE KEY uq_contract_receipt_logistics (logistics_receipt_id),
+  UNIQUE KEY uq_contract_receipt_effect (effect_key),
+  KEY ix_contract_receipt_company (company_id, linked_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE contract_disputes (
@@ -424,6 +445,7 @@ CREATE TABLE loans (
   company_id BIGINT UNSIGNED NULL,
   principal_minor BIGINT UNSIGNED NOT NULL,
   outstanding_minor BIGINT UNSIGNED NOT NULL,
+  current_schedule_version INT UNSIGNED NOT NULL DEFAULT 1,
   apr_basis_points INT UNSIGNED NOT NULL,
   term_days SMALLINT UNSIGNED NOT NULL,
   accepted_at DATETIME(3) NOT NULL,
@@ -444,6 +466,7 @@ CREATE TABLE loan_installments (
   company_id BIGINT UNSIGNED NULL,
   loan_id BIGINT UNSIGNED NOT NULL,
   sequence_no INT UNSIGNED NOT NULL,
+  schedule_version INT UNSIGNED NOT NULL DEFAULT 1,
   due_at DATETIME(3) NOT NULL,
   principal_minor BIGINT UNSIGNED NOT NULL,
   interest_minor BIGINT UNSIGNED NOT NULL,
@@ -457,7 +480,7 @@ CREATE TABLE loan_installments (
   PRIMARY KEY (id),
   UNIQUE KEY uq_loan_installments_ulid (public_ulid),
   KEY ix_loan_installments_company_state (company_id, state, id),
-  UNIQUE KEY uq_loan_installments_domain (loan_id, sequence_no)
+  UNIQUE KEY uq_loan_installments_domain (loan_id, schedule_version, sequence_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE bailiff_proceedings (
@@ -640,6 +663,7 @@ CREATE TABLE refineries (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_refineries_ulid (public_ulid),
+  UNIQUE KEY uq_refineries_plot (plot_id),
   KEY ix_refineries_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -692,6 +716,10 @@ CREATE TABLE refinery_recipe_versions (
   recipe_code VARCHAR(32) NOT NULL,
   recipe_version VARCHAR(24) NOT NULL,
   demand_snapshot_at DATETIME(3) NOT NULL,
+  demand_snapshot_json JSON NOT NULL,
+  contract_snapshot_json JSON NOT NULL,
+  recommendation_code VARCHAR(32) NOT NULL,
+  selection_reason_code VARCHAR(32) NOT NULL,
   contract_snapshot_hash BINARY(32) NOT NULL,
   effective_at DATETIME(3) NOT NULL,
   state VARCHAR(32) NOT NULL DEFAULT 'draft',
@@ -730,20 +758,31 @@ CREATE TABLE refinery_runs (
 CREATE TABLE product_movements (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  company_id BIGINT UNSIGNED NULL,
+  company_id BIGINT UNSIGNED NOT NULL,
+  refinery_id BIGINT UNSIGNED NOT NULL,
   refinery_run_id BIGINT UNSIGNED NOT NULL,
-  product_code VARCHAR(32) NOT NULL,
-  quantity_bbl DECIMAL(16,4) NOT NULL,
-  destination_public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
-  state VARCHAR(32) NOT NULL DEFAULT 'draft',
-  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
-  balance_version VARCHAR(24) NULL,
-  logical_at DATETIME(3) NULL,
+  sweep_no BIGINT UNSIGNED NOT NULL,
+  movement_type VARCHAR(32) NOT NULL,
+  product_type VARCHAR(32) NOT NULL,
+  volume_bbl DECIMAL(16,4) NOT NULL,
+  quality_score DECIMAL(5,2) NULL,
+  source_tank_type VARCHAR(32) NULL,
+  source_tank_id BIGINT UNSIGNED NULL,
+  destination_tank_type VARCHAR(32) NULL,
+  destination_tank_id BIGINT UNSIGNED NULL,
+  idempotency_key VARCHAR(64) NOT NULL,
+  balance_version VARCHAR(24) NOT NULL,
+  logical_at DATETIME(3) NOT NULL,
   created_at DATETIME(3) NOT NULL,
-  updated_at DATETIME(3) NOT NULL,
+  CHECK (volume_bbl > 0),
+  CHECK ((source_tank_type IS NULL) = (source_tank_id IS NULL)),
+  CHECK ((destination_tank_type IS NULL) = (destination_tank_id IS NULL)),
   PRIMARY KEY (id),
   UNIQUE KEY uq_product_movements_ulid (public_ulid),
-  KEY ix_product_movements_company_state (company_id, state, id)
+  UNIQUE KEY uq_product_movements_effect (idempotency_key),
+  KEY ix_product_movements_company (company_id, created_at),
+  KEY ix_product_movements_sweep (refinery_id, sweep_no),
+  KEY ix_product_movements_type (product_type, created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE insurance_policies (
@@ -784,6 +823,7 @@ CREATE TABLE insurance_claims (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_insurance_claims_ulid (public_ulid),
+  UNIQUE KEY uq_insurance_policy_incident (policy_id, incident_public_ulid),
   KEY ix_insurance_claims_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -795,6 +835,9 @@ CREATE TABLE payment_orders (
   platform VARCHAR(16) NOT NULL,
   provider VARCHAR(32) NOT NULL,
   product_code VARCHAR(32) NOT NULL,
+  catalog_version VARCHAR(24) NOT NULL,
+  benefit_snapshot_hash BINARY(32) NOT NULL,
+  promo_code_id BIGINT UNSIGNED NULL,
   amount_minor BIGINT UNSIGNED NOT NULL,
   currency CHAR(3) NOT NULL,
   provider_order_id VARCHAR(128) NULL,
@@ -833,6 +876,7 @@ CREATE TABLE payment_transactions (
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   order_id BIGINT UNSIGNED NOT NULL,
   event_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(32) NOT NULL,
   provider_transaction_id VARCHAR(128) NOT NULL,
   amount_minor BIGINT UNSIGNED NOT NULL,
   settled_at DATETIME(3) NULL,
@@ -844,7 +888,7 @@ CREATE TABLE payment_transactions (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_payment_transactions_ulid (public_ulid),
-  UNIQUE KEY uq_payment_transactions_domain (provider_transaction_id)
+  UNIQUE KEY uq_payment_transactions_domain (provider, provider_transaction_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE gbbl_ledger (
@@ -852,6 +896,7 @@ CREATE TABLE gbbl_ledger (
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   user_id BIGINT UNSIGNED NOT NULL,
   transaction_key VARCHAR(128) NOT NULL,
+  fulfillment_key VARCHAR(128) NULL,
   delta_units BIGINT NOT NULL,
   reason_code VARCHAR(32) NOT NULL,
   order_id BIGINT UNSIGNED NULL,
@@ -863,7 +908,8 @@ CREATE TABLE gbbl_ledger (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_gbbl_ledger_ulid (public_ulid),
-  UNIQUE KEY uq_gbbl_ledger_domain (transaction_key)
+  UNIQUE KEY uq_gbbl_ledger_domain (transaction_key),
+  UNIQUE KEY uq_gbbl_ledger_fulfillment (fulfillment_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE premium_entitlements (
@@ -969,6 +1015,7 @@ CREATE TABLE cartels (
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
   UNIQUE KEY uq_cartels_ulid (public_ulid),
+  UNIQUE KEY uq_cartels_name (name),
   KEY ix_cartels_company_state (company_id, state, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
@@ -1089,6 +1136,7 @@ CREATE TABLE notifications (
   event_key VARCHAR(128) NOT NULL,
   payload_json JSON NOT NULL,
   created_at_event DATETIME(3) NOT NULL,
+  read_at DATETIME(3) NULL,
   state VARCHAR(32) NOT NULL DEFAULT 'draft',
   state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
   balance_version VARCHAR(24) NULL,
@@ -1199,9 +1247,11 @@ CREATE TABLE consent_records (
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
   user_id BIGINT UNSIGNED NOT NULL,
   policy_id BIGINT UNSIGNED NOT NULL,
+  purpose_code VARCHAR(64) NOT NULL,
   granted TINYINT(1) NOT NULL,
   recorded_at DATETIME(3) NOT NULL,
   evidence_hash BINARY(32) NOT NULL,
+  source_key VARCHAR(128) NOT NULL,
   state VARCHAR(32) NOT NULL DEFAULT 'draft',
   state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
   balance_version VARCHAR(24) NULL,
@@ -1209,7 +1259,8 @@ CREATE TABLE consent_records (
   created_at DATETIME(3) NOT NULL,
   updated_at DATETIME(3) NOT NULL,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_consent_records_ulid (public_ulid)
+  UNIQUE KEY uq_consent_records_ulid (public_ulid),
+  UNIQUE KEY uq_consent_source (source_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE privacy_requests (
@@ -1236,7 +1287,9 @@ CREATE TABLE newsletter_campaigns (
   subject_pl VARCHAR(255) NOT NULL,
   subject_en VARCHAR(255) NOT NULL,
   subject_de VARCHAR(255) NOT NULL,
-  safe_html MEDIUMTEXT NOT NULL,
+  safe_html_pl MEDIUMTEXT NOT NULL,
+  safe_html_en MEDIUMTEXT NOT NULL,
+  safe_html_de MEDIUMTEXT NOT NULL,
   approved_by_user_id BIGINT UNSIGNED NULL,
   scheduled_at DATETIME(3) NULL,
   state VARCHAR(32) NOT NULL DEFAULT 'draft',
@@ -1400,6 +1453,227 @@ CREATE TABLE runbook_versions (
   UNIQUE KEY uq_runbook_versions_domain (runbook_code, version_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Legal
+CREATE TABLE bribe_attempts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  company_id BIGINT UNSIGNED NOT NULL,
+  target_case_public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  amount_minor BIGINT UNSIGNED NOT NULL,
+  resolve_at DATETIME(3) NOT NULL,
+  rng_seed VARBINARY(32) NOT NULL,
+  result_code VARCHAR(32) NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_bribe_attempts_ulid (public_ulid),
+  UNIQUE KEY uq_bribe_attempts_domain0 (company_id, target_case_public_ulid, resolve_at),
+  KEY ix_bribe_attempts_company_state (company_id, state, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Monetization
+CREATE TABLE promo_codes (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  code_hmac BINARY(32) NOT NULL,
+  product_code VARCHAR(32) NOT NULL,
+  discount_basis_points SMALLINT UNSIGNED NOT NULL,
+  quota_total INT UNSIGNED NOT NULL,
+  quota_used INT UNSIGNED NOT NULL DEFAULT 0,
+  starts_at DATETIME(3) NOT NULL,
+  ends_at DATETIME(3) NOT NULL,
+  CHECK (quota_used <= quota_total),
+  CHECK (discount_basis_points <= 10000),
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_promo_codes_ulid (public_ulid),
+  UNIQUE KEY uq_promo_codes_domain0 (code_hmac)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Monetization
+CREATE TABLE promo_redemptions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  promo_code_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  order_id BIGINT UNSIGNED NULL,
+  source_key VARCHAR(128) NOT NULL,
+  reserved_at DATETIME(3) NOT NULL,
+  consumed_at DATETIME(3) NULL,
+  expires_at DATETIME(3) NOT NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'reserved',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_promo_redemptions_ulid (public_ulid),
+  UNIQUE KEY uq_promo_redemptions_source (source_key),
+  UNIQUE KEY uq_promo_redemptions_order (order_id),
+  KEY ix_promo_redemptions_due (state, expires_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE platform_purchase_receipts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  order_id BIGINT UNSIGNED NOT NULL,
+  platform VARCHAR(16) NOT NULL,
+  provider_transaction_id VARCHAR(128) NOT NULL,
+  receipt_hash BINARY(32) NOT NULL,
+  receipt_ciphertext VARBINARY(8192) NOT NULL,
+  verified_at DATETIME(3) NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_platform_purchase_receipts_ulid (public_ulid),
+  UNIQUE KEY uq_platform_purchase_receipts_domain0 (platform, provider_transaction_id),
+  UNIQUE KEY uq_platform_purchase_receipts_domain1 (receipt_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Monetization
+CREATE TABLE payment_refunds (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  order_id BIGINT UNSIGNED NOT NULL,
+  provider VARCHAR(32) NOT NULL,
+  provider_refund_id VARCHAR(128) NOT NULL,
+  amount_minor BIGINT UNSIGNED NOT NULL,
+  received_at DATETIME(3) NOT NULL,
+  recovery_units BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  CHECK (amount_minor > 0),
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_payment_refunds_ulid (public_ulid),
+  UNIQUE KEY uq_payment_refunds_domain0 (provider, provider_refund_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- Onboarding
+CREATE TABLE device_tokens (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  platform VARCHAR(16) NOT NULL,
+  device_hmac BINARY(32) NOT NULL,
+  token_hmac BINARY(32) NOT NULL,
+  token_ciphertext VARBINARY(4096) NOT NULL,
+  revoked_at DATETIME(3) NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_device_tokens_ulid (public_ulid),
+  UNIQUE KEY uq_device_tokens_domain0 (token_hmac)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- CorePrivacy
+CREATE TABLE navigation_items (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  menu_key VARCHAR(40) NOT NULL,
+  locale CHAR(2) NOT NULL,
+  version_no INT UNSIGNED NOT NULL,
+  position_no INT UNSIGNED NOT NULL,
+  label VARCHAR(120) NOT NULL,
+  route_name VARCHAR(128) NOT NULL,
+  parent_id BIGINT UNSIGNED NULL,
+  published_at DATETIME(3) NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_navigation_items_ulid (public_ulid),
+  UNIQUE KEY uq_navigation_items_domain0 (menu_key, locale, version_no, position_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE chat_thread_members (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  thread_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,
+  joined_at DATETIME(3) NOT NULL,
+  left_at DATETIME(3) NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'active',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_chat_thread_members_ulid (public_ulid),
+  UNIQUE KEY uq_chat_thread_member (thread_id, user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE cartel_trade_flags (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  cartel_id BIGINT UNSIGNED NOT NULL,
+  company_a_id BIGINT UNSIGNED NOT NULL,
+  company_b_id BIGINT UNSIGNED NOT NULL,
+  source_event_id VARCHAR(128) NOT NULL,
+  flagged_at DATETIME(3) NOT NULL,
+  CHECK (company_a_id < company_b_id),
+  state VARCHAR(32) NOT NULL DEFAULT 'active',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_cartel_trade_flags_ulid (public_ulid),
+  UNIQUE KEY uq_cartel_trade_flags_event (source_event_id),
+  KEY ix_cartel_trade_flags_pair (cartel_id, company_a_id, company_b_id, flagged_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+CREATE TABLE cartel_sanctions (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  cartel_id BIGINT UNSIGNED NOT NULL,
+  company_a_id BIGINT UNSIGNED NOT NULL,
+  company_b_id BIGINT UNSIGNED NOT NULL,
+  trigger_event_id VARCHAR(128) NOT NULL,
+  starts_at DATETIME(3) NOT NULL,
+  ends_at DATETIME(3) NOT NULL,
+  cred_delta SMALLINT NOT NULL,
+  b2b_delta SMALLINT NOT NULL,
+  CHECK (company_a_id < company_b_id),
+  state VARCHAR(32) NOT NULL DEFAULT 'active',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_cartel_sanctions_ulid (public_ulid),
+  UNIQUE KEY uq_cartel_sanctions_event (trigger_event_id),
+  KEY ix_cartel_sanctions_pair (cartel_id, company_a_id, company_b_id, ends_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 ALTER TABLE refineries ADD CONSTRAINT fk_refineries_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 -- FK po CREATE, aby cykle page/version i refinery/recipe nie blokowały tworzenia.
 ALTER TABLE market_offers ADD CONSTRAINT fk_market_offers_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -1412,7 +1686,6 @@ ALTER TABLE b2b_offers ADD CONSTRAINT fk_b2b_offers_company_id FOREIGN KEY (comp
 ALTER TABLE escrow_accounts ADD CONSTRAINT fk_escrow_accounts_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE escrow_movements ADD CONSTRAINT fk_escrow_movements_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE escrow_movements ADD CONSTRAINT fk_escrow_movements_escrow_account_id FOREIGN KEY (escrow_account_id) REFERENCES escrow_accounts(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
-ALTER TABLE delivery_receipts ADD CONSTRAINT fk_delivery_receipts_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE contract_disputes ADD CONSTRAINT fk_contract_disputes_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE contract_disputes ADD CONSTRAINT fk_contract_disputes_contract_id FOREIGN KEY (contract_id) REFERENCES contracts(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE contract_disputes ADD CONSTRAINT fk_contract_disputes_receipt_id FOREIGN KEY (receipt_id) REFERENCES delivery_receipts(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
@@ -1515,3 +1788,41 @@ ALTER TABLE consent_records ADD CONSTRAINT fk_consent_records_user_id FOREIGN KE
 ALTER TABLE privacy_requests ADD CONSTRAINT fk_privacy_requests_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE newsletter_deliveries ADD CONSTRAINT fk_newsletter_deliveries_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE ui_preferences ADD CONSTRAINT fk_ui_preferences_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+ALTER TABLE market_trades ADD CONSTRAINT fk_market_trades_offer_id FOREIGN KEY (offer_id) REFERENCES market_offers(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE contracts ADD CONSTRAINT fk_contracts_system_offer_id FOREIGN KEY (system_offer_id) REFERENCES system_contract_offers(id);
+ALTER TABLE contracts ADD CONSTRAINT fk_contracts_b2b_offer_id FOREIGN KEY (b2b_offer_id) REFERENCES b2b_offers(id);
+ALTER TABLE escrow_accounts ADD CONSTRAINT fk_escrow_accounts_contract_id FOREIGN KEY (contract_id) REFERENCES contracts(id);
+ALTER TABLE escrow_accounts ADD CONSTRAINT fk_escrow_accounts_b2b_offer_id FOREIGN KEY (b2b_offer_id) REFERENCES b2b_offers(id);
+ALTER TABLE refineries ADD CONSTRAINT fk_refineries_plot_id FOREIGN KEY (plot_id) REFERENCES refinery_plots(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE refineries ADD CONSTRAINT fk_refineries_selected_recipe_id FOREIGN KEY (selected_recipe_id) REFERENCES refinery_recipe_versions(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE gbbl_ledger ADD CONSTRAINT fk_gbbl_ledger_order_id FOREIGN KEY (order_id) REFERENCES payment_orders(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE page_versions ADD CONSTRAINT fk_page_versions_approved_by_user_id FOREIGN KEY (approved_by_user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE newsletter_campaigns ADD CONSTRAINT fk_newsletter_campaigns_approved_by_user_id FOREIGN KEY (approved_by_user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE bribe_attempts ADD CONSTRAINT fk_bribe_attempts_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE platform_purchase_receipts ADD CONSTRAINT fk_platform_purchase_receipts_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE platform_purchase_receipts ADD CONSTRAINT fk_platform_purchase_receipts_order_id FOREIGN KEY (order_id) REFERENCES payment_orders(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE payment_refunds ADD CONSTRAINT fk_payment_refunds_order_id FOREIGN KEY (order_id) REFERENCES payment_orders(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE promo_redemptions ADD CONSTRAINT fk_promo_redemptions_promo_code_id FOREIGN KEY (promo_code_id) REFERENCES promo_codes(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE promo_redemptions ADD CONSTRAINT fk_promo_redemptions_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE promo_redemptions ADD CONSTRAINT fk_promo_redemptions_order_id FOREIGN KEY (order_id) REFERENCES payment_orders(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE payment_orders ADD CONSTRAINT fk_payment_orders_promo_code_id FOREIGN KEY (promo_code_id) REFERENCES promo_codes(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE device_tokens ADD CONSTRAINT fk_device_tokens_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE navigation_items ADD CONSTRAINT fk_navigation_items_parent_id FOREIGN KEY (parent_id) REFERENCES navigation_items(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+ALTER TABLE chat_thread_members ADD CONSTRAINT fk_chat_thread_members_thread_id FOREIGN KEY (thread_id) REFERENCES chat_threads(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE chat_thread_members ADD CONSTRAINT fk_chat_thread_members_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE cartel_trade_flags ADD CONSTRAINT fk_cartel_trade_flags_cartel_id FOREIGN KEY (cartel_id) REFERENCES cartels(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE cartel_trade_flags ADD CONSTRAINT fk_cartel_trade_flags_company_a_id FOREIGN KEY (company_a_id) REFERENCES companies(id);
+ALTER TABLE cartel_trade_flags ADD CONSTRAINT fk_cartel_trade_flags_company_b_id FOREIGN KEY (company_b_id) REFERENCES companies(id);
+ALTER TABLE cartel_sanctions ADD CONSTRAINT fk_cartel_sanctions_cartel_id FOREIGN KEY (cartel_id) REFERENCES cartels(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE cartel_sanctions ADD CONSTRAINT fk_cartel_sanctions_company_a_id FOREIGN KEY (company_a_id) REFERENCES companies(id);
+ALTER TABLE cartel_sanctions ADD CONSTRAINT fk_cartel_sanctions_company_b_id FOREIGN KEY (company_b_id) REFERENCES companies(id);
+
+ALTER TABLE contract_receipt_links ADD CONSTRAINT fk_contract_receipt_links_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE contract_receipt_links ADD CONSTRAINT fk_contract_receipt_links_contract_tranche_id FOREIGN KEY (contract_tranche_id) REFERENCES contract_tranches(id);
+ALTER TABLE contract_receipt_links ADD CONSTRAINT fk_contract_receipt_links_b2b_offer_id FOREIGN KEY (b2b_offer_id) REFERENCES b2b_offers(id);
+ALTER TABLE contract_receipt_links ADD CONSTRAINT fk_contract_receipt_links_logistics_receipt_id FOREIGN KEY (logistics_receipt_id) REFERENCES delivery_receipts(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+ALTER TABLE contract_receipt_links ADD CONSTRAINT fk_contract_receipt_links_escrow_account_id FOREIGN KEY (escrow_account_id) REFERENCES escrow_accounts(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
+
+ALTER TABLE product_movements ADD CONSTRAINT fk_product_movements_refinery_id FOREIGN KEY (refinery_id) REFERENCES refineries(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
