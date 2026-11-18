@@ -1,6 +1,6 @@
 # OilEmpire — niezależny audyt kompletności P14–P25
 
-Data: 2026-11-18. Status: **NIEGOTOWE jako Definition of Ready z planu §3**. Przegląd dwóch agentów, bez zmian kodu gry, balansu ani zatwierdzeń DOM. [Wcześniejszy raport statyczny](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) potwierdził liczność artefaktów i 73 PASS symulatora obecnego YAML, nie ich semantyczną kompletność.
+Data: 2026-11-18. Status tego przeglądu: **historyczny stan przed poprawkami**. [Raport zamknięcia poprawek](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md) podaje bieżący stan dokumentacji i pozostałe bramki wykonawcze. Przegląd dwóch agentów, bez zmian kodu gry, balansu ani zatwierdzeń DOM. [Wcześniejszy raport statyczny](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) potwierdził liczność artefaktów i 73 PASS symulatora obecnego YAML, nie ich semantyczną kompletność.
 
 ## P0 — sprzeczności z kanonem lub blokada niezależnych funkcji
 
