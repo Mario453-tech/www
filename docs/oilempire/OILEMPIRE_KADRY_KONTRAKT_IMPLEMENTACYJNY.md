@@ -148,7 +148,7 @@ Przykład błędu:
 ```json
 {"error":{"code":"QUOTE_STALE","message":"Oferta zmieniła się. Sprawdź nową wycenę.","details":{"quote_id":"01J00000000000000000000003"},"request_id":"01J00000000000000000000004"}}
 ```
-[Pełny kontrakt OpenAPI 3.1 Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml) obejmuje 36 operacji (rekrutacja, umowy, zarząd, grafiki, urlopy, płace, spory, szkolenia i oceny). Tabela powyżej jest skrótem. Gdy endpoint pozostaje za nierozstrzygniętą polityką DOM03/04, zwraca `POLICY_NOT_APPROVED`, a nie zmyśloną decyzję.
+[Pełny kontrakt OpenAPI 3.1 Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml) obejmuje 36 operacji (rekrutacja, umowy, zarząd, grafiki, urlopy, płace, spory, szkolenia i oceny). Tabela powyżej jest skrótem. [DOM03/DOM04](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) mają decyzję właściciela do programowania. Do publikacji wersjonowanej polityki zależny endpoint nadal zwraca `POLICY_NOT_APPROVED`; DOM03 wymaga definicji wejściowego wyniku siły negocjacyjnej.
 
 ## 7. Uprawnienia i widoczność
 
