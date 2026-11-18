@@ -207,7 +207,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §12, §19.3, §25; węzeł market.
 - Odpowiedzialność: spot, orderbook limit, VWAP, slippage, czarny rynek i globalne wydarzenia.
-- Akcje/Queries do rozpisania i wdrożenia: QuoteSale; ExecuteSpot; PlaceLimitOrder; MatchOrders; TradeBlackMarket.
+- Akcje/Queries do rozpisania i wdrożenia: QuoteSale; ExecuteSpot; PlaceLimitOrder; MatchOrders; TradeBlackMarket; ListMarketOffers; AmendLimitOrder; CancelLimitOrder.
 - Dane i rejestry do zaprojektowania: market_offers, price_history, black_market_trades, world_events.
 - Kryterium specyficzne: globalny matching tylko w sweeperze; quote nie ufa cenie klienta; jeden snapshot referencyjny.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -216,8 +216,8 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §13, §21; węzeł market.
 - Odpowiedzialność: NPC oferty, kontrakty okresowe, B2B, escrow, transze i spory.
-- Akcje/Queries do rozpisania i wdrożenia: GenerateNpcOffers; AcceptContract; FundEscrow; SettleReceipt; ResolveDispute.
-- Dane i rejestry do zaprojektowania: system_contracts, b2b_offers, contracts/tranches, escrow i spory.
+- Akcje/Queries do rozpisania i wdrożenia: GenerateNpcOffers; AcceptContract; FundEscrow; SettleReceipt; ResolveDispute; ListContracts; CreateB2BOffer; CancelB2BOffer; CancelContract.
+- Dane i rejestry do zaprojektowania: system_contract_offers, b2b_offers, contracts(kind=system/b2b), contract_tranches, contract_receipt_links, escrow i spory; fizyczne delivery_receipts są w P12.
 - Kryterium specyficzne: receipt wygrywa z refund; brak luki anulowania i podwójnego przypisania escrow.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
 
@@ -225,7 +225,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §10, §19.1, §24; węzeł economy.
 - Odpowiedzialność: budżety, OPEX, podatki, CAPEX, wycena i wspólny net worth.
-- Akcje/Queries do rozpisania i wdrożenia: ChangeBudget; AccrueCosts; ValueAsset; SnapshotTaxBase; AssessWealthTax.
+- Akcje/Queries do rozpisania i wdrożenia: ChangeBudget; AccrueCosts; ValueAsset; SnapshotTaxBase; AssessWealthTax; GetFinanceSummary.
 - Dane i rejestry do zaprojektowania: department_budgets, player_finance_decisions, asset_valuations, net_worth_snapshots.
 - Kryterium specyficzne: marginalny podatek; ropa w tranzycie raz; brak dyskonta rafinerii drugi raz.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -234,7 +234,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §17.1–§17.3, §21; węzeł banking.
 - Odpowiedzialność: scoring, kredyty, raty, restrukturyzacja, komornik, bankructwo i aukcje.
-- Akcje/Queries do rozpisania i wdrożenia: ApplyLoan; PayInstallment; EvaluateCreditScore; StartEnforcement; AuctionAsset.
+- Akcje/Queries do rozpisania i wdrożenia: ApplyLoan; PayInstallment; EvaluateCreditScore; StartEnforcement; AuctionAsset; RestructureLoan; DeclareBankruptcy; ListLoans.
 - Dane i rejestry do zaprojektowania: loans, obligations, bank_trust_scores, bailiff_proceedings, auctions.
 - Kryterium specyficzne: escrow wyłączone w wymaganym momencie; przejęcie aktywów zachowuje procesy i historię.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -243,7 +243,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §7, §21, §30; węzeł legal.
 - Odpowiedzialność: sabotaż, ochrona, łapówki, tarcze, raporty i antynękanie.
-- Akcje/Queries do rozpisania i wdrożenia: PlanSabotage; ResolveSabotage; BuyProtection; InvestigateAbuse.
+- Akcje/Queries do rozpisania i wdrożenia: PlanSabotage; ResolveSabotage; BuyProtection; InvestigateAbuse; AttemptBribe; GetProtectionStatus.
 - Dane i rejestry do zaprojektowania: sabotage_operations, protections, bribes, raporty i limity ofiary.
 - Kryterium specyficzne: równoległe ataki respektują 5/7 dni; tarcza z timestampu; bez farmienia bonusu.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -252,7 +252,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §31, §21; węzeł refining.
 - Odpowiedzialność: działki, EPC, etapy budowy, receptury A/B/C, produkty, flara, ubezpieczenia.
-- Akcje/Queries do rozpisania i wdrożenia: StartEpcBuild; AdvanceBuild; SelectRecipe; SettleRefinery; SubmitInsuranceClaim.
+- Akcje/Queries do rozpisania i wdrożenia: StartEpcBuild; AdvanceBuild; SelectRecipe; SettleRefinery; SubmitInsuranceClaim; ListRefineryProducts.
 - Dane i rejestry do zaprojektowania: refineries, epc_contracts/stages, product_storages, policies, claims.
 - Kryterium specyficzne: przerób faza 2.9/FTS faza 5; flara max 2h; limity puli, podatku i budów.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -261,7 +261,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §22, §24.3; węzeł monetization.
 - Odpowiedzialność: zamówienia, adapter operatora, premium, VIP, drip, promocje, refund.
-- Akcje/Queries do rozpisania i wdrożenia: CreateOrder; VerifyWebhook; GrantGbbl; ConvertGbbl; ApplyChargeback.
+- Akcje/Queries do rozpisania i wdrożenia: CreateOrder; VerifyWebhook; GrantGbbl; ConvertGbbl; ApplyChargeback; VerifyPlatformReceipt; ApplyRefund; RedeemPromoCode; GetOrder; VerifyStoreNotification.
 - Dane i rejestry do zaprojektowania: payment_orders/transactions/events, gbbl_ledger/conversions, promo_codes.
 - Kryterium specyficzne: podpis/kwota/duplikat/chargeback; brak sprzedaży reputacji; zakupy mobile wymagają polityki sklepów.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -270,7 +270,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §26, §28, §30; węzeł social.
 - Odpowiedzialność: czat, kartele, dyplomacja, członkostwo, moderacja i kanały.
-- Akcje/Queries do rozpisania i wdrożenia: SendMessage; JoinCartel; LeaveCartel; ModerateMessage; AuthorizeChannel.
+- Akcje/Queries do rozpisania i wdrożenia: SendMessage; JoinCartel; LeaveCartel; ModerateMessage; AuthorizeChannel; CreateCartel; CreateThread; SetDiplomacyRelation; ListThreads; ApplyCartelSanction; ListCartels.
 - Dane i rejestry do zaprojektowania: chat_threads/messages, cartels/memberships, diplomacy, moderation_reports.
 - Kryterium specyficzne: revokacja WS działa na otwartym połączeniu; brak cudzych rozmów; limit prowizji kartelu.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -279,7 +279,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §27, §28; węzeł onboarding.
 - Odpowiedzialność: FTUE, osiągnięcia, tutorial, centrum powiadomień, e-mail, preferencje i adapter push.
-- Akcje/Queries do rozpisania i wdrożenia: AdvanceTutorial; GrantAchievement; DeliverNotification; UpdatePreferences.
+- Akcje/Queries do rozpisania i wdrożenia: AdvanceTutorial; GrantAchievement; DeliverNotification; UpdatePreferences; RegisterDeviceToken; ListNotifications; MarkNotificationRead; GetTutorialProgress.
 - Dane i rejestry do zaprojektowania: tutorial_progress, achievement_grants, notifications/preferences/device_tokens.
 - Kryterium specyficzne: nagroda raz; brak push nie cofa skutku; powiadomienia krytyczne i preferencje zgodne z §27.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -288,7 +288,7 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §15–§16, §30; węzeł core.
 - Odpowiedzialność: CMS, nawigacja, regulaminy, zgody, eksport/anonimizacja, reset/newsletter TinyMCE.
-- Akcje/Queries do rozpisania i wdrożenia: PublishPage; PublishPolicy; RecordConsent; ExportPersonalData; AnonymizeUser; SendNewsletter.
+- Akcje/Queries do rozpisania i wdrożenia: PublishPage; PublishPolicy; RecordConsent; ExportPersonalData; AnonymizeUser; SendNewsletter; PublishNavigation; GetPublishedPage; GetPolicy.
 - Dane i rejestry do zaprojektowania: static_pages, navigation_items, privacy_policies, consents, privacy_requests, campaigns.
 - Kryterium specyficzne: sanityzacja, odwołanie zgód, anonimizacja bez kasowania ksiąg; PL/EN/DE i neutralne błędy.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
@@ -306,17 +306,31 @@ Nazwy tabel w kartach są słownikiem roboczym: przed migracją obowiązuje reje
 
 - Kanon i parametry: §29; bezpieczeństwo §9–§11; węzeł admin.
 - Odpowiedzialność: health, metryki, backup/restore, wydanie, rekoncyliacja i gotowość produkcyjna.
-- Akcje/Queries do rozpisania i wdrożenia: BuildReleaseReport; RunReconciliation; RestoreWorld; VerifyRelease.
+- Akcje/Queries do rozpisania i wdrożenia: BuildReleaseReport; RunReconciliation; RestoreWorld; VerifyRelease; ReadHealth.
 - Dane i rejestry do zaprojektowania: release_reports, restore_reports, runbooks, alerty i checksumy.
 - Kryterium specyficzne: RPO≤5 min, zmierzone RTO, 90 dni symulacji i limit inflacji, rollback zgodny ze schematem.
 - Dostarczenie: karta §3 dla każdej operacji, kontrakty, polityki, migracje, API i panel właściwe dla zakresu, PL/EN/DE, telemetria i testy. Zakończenie wymaga dowodu wykonania, a nie zaznaczenia pola w planie.
+
+
+### Mapa funkcji spoza pierwotnych pięciu akcji pakietu
+
+| Funkcja | Właściciel i kontrakt |
+|---|---|
+| Restrukturyzacja / bankructwo | Banking P17-F06/F07; status firmy przez Core Action, FTS przez Ledger |
+| Łapówki i PvP | Legal P18-F05 oraz istniejące P18-F01–F04 |
+| Promocje, receipt mobile, refund, store notifications | Monetization P20-F06–F10; provider OpenAPI osobno |
+| Zakładanie kartelu, wątku i dyplomacja | Social P21-F06–F08; sankcja DOM05 P21-F10 |
+| Token urządzenia, centrum i odczyt | Onboarding P22-F05–F08 |
+| Nawigacja i treści PL/EN/DE | CorePrivacy P23-F07–F09 |
+| Reset hasła | Identity P02-F02 (§14.4), nie P23; P23 tylko tłumaczenia i odnośniki UI |
+| Profil konta | Identity/Company P02/P06; SnapshotResource P24-F01 wywołuje ich publiczne Query |
 
 ## 6. Rejestr nazw i właścicieli
 
 - Core: identity, company, reputacje i Ledger są wydzielonymi odpowiedzialnościami jednego właściciela. Nie tworzymy niezależnego hr/identity/finance w YAML tylko dlatego, że przykładowy manifest ich wymienił.
 - Staff: rekrutacja, płace, zarząd i Training; publiczne kontrakty staff.employees.v1 i staff.training.v1. Trasy /hr pozostają nazwą UI.
 - Finance jest właścicielem budżetów i naliczania podatków/OPEX; Ledger w Core jest właścicielem zapisu księgi. Banking nie zapisuje FTS bez publicznego kontraktu Ledger.
-- Contracts odpowiada za umowy/escrow; Market za oferty i globalną cenę. Obie odpowiedzialności używają węzła market, bez powielania parametrów.
+- Contracts odpowiada za umowy/escrow i contract_receipt_links; fizyczny delivery_receipts należy do P12 Logistics. SettleReceipt czyta dowód przez publiczny kontrakt P12 i nie tworzy drugiej ścieżki transferu. Market odpowiada za oferty i globalną cenę. Obie odpowiedzialności używają węzła market, bez powielania parametrów.
 - Simulation planuje rozliczenia, ale nie przejmuje tabel domenowych. Moduły udostępniają handlery faz i jawne kontrakty; handler nie sięga do prywatnych modeli innego modułu.
 - OPEN04 zatwierdzone: users = tożsamość; companies = firma gospodarcza; trips = kurs fizyczny; contracts/contract_tranches = umowy/transze; escrow_accounts/escrow_movements = depozyt i jego niezmienna historia. players, transport_runs, b2b_escrow_lock i escrow_transactions są nazwami historycznymi lub aliasami pojęciowymi w starszych diagramach; nowy DDL/DTO używa słownika powyżej. Adapter migracji mapuje stare dane, nie dodaje równoległych tabel o tym samym znaczeniu.
 - Kanoniczna ścieżka to Modules/<Name>/manifest.yaml; pozostałe przykłady katalogów są historyczne i podlegają aktualizacji przed wygenerowaniem kodu.
@@ -373,11 +387,16 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 
 | Fala | Pakiety i kolejność | Karty | Kontrakty i dane | Bramka przed kodem |
 |---|---|---|---|---|
-| E3 | P14 Market → P15 Contracts → P16 Finance → P17 Banking → P18 Legal/PvP | [P14–P18](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md) | [manifest](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) | zamknięcie DOM i test współbieżności: matching/sprzedaż, escrow/refund, egzekucja/transfer |
+| E3 | P14 Market → P15 Contracts → P16 Finance → P17 Banking → P18 Legal/PvP | [P14–P18](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md) | [manifest](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) i [OpenAPI providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml) | zamknięcie DOM i test współbieżności: matching/sprzedaż, escrow/refund, egzekucja/transfer |
 | E4 | P19 Refining/EPC/Insurance → P20 Monetization | [P19–P20](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md) | te same kontrakty i LockPlan §23.5a | test receptury popyt/kontrakty, ubezpieczenia, webhook/chargeback |
 | E5 | P21 Social → P22 Onboarding/Notifications → P23 CMS/Privacy → P24 Web/Mobile | [P21–P24](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md) | API v1, PL/EN/DE, lokalne SVG, panel Filament | autoryzacja kanału, retry powiadomień, wersje klienta i dostępność 320–1440 px |
 | E6 | P25 Operations | [P25](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md) | release/restore/reconciliation | backup+restore, rollback, 90 dni i raport gotowości |
 
 [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md) stanowią bramkę dla P14–P25. [Raport kontroli dokumentacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) rozdziela kontrole statyczne, symulator i testy runtime.
 
-Manifest mapuje 56 kart na 27 publicznych operacji OpenAPI oraz komendy wewnętrzne. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05, DOM06/08 i DOM09–15](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) są propozycjami do zatwierdzenia. Zależna akcja zwraca `POLICY_NOT_APPROVED` do zatwierdzenia i aktywacji wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
+Manifest mapuje 89 kart na 56 operacji API gracza, 2 odrębne endpointy providera i 31 komend/kontraktów wewnętrznych. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05, DOM06/08 i DOM09–15](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) są propozycjami do zatwierdzenia. Zależna akcja zwraca `POLICY_NOT_APPROVED` do zatwierdzenia i aktywacji wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
+
+
+## 12. Artefakty uzupełniające DoR
+
+[Kontrakty szczegółowe 89 Action/Query](OILEMPIRE_KONTRAKTY_AKCJI_P14_P25.md) zawierają DTO, tabelę przejścia, DDL, autoryzację, LockPlan, outbox, UI, telemetrię, test i rollback per ID. [Migracje i dane](OILEMPIRE_MIGRACJE_P14_P25.md) opisują preflight P01–P13, expand/contract i import legacy. [Algorytm receptury](OILEMPIRE_RECEPTURA_POPYT_KONTRAKTY.md) oraz [runbook P25](OILEMPIRE_RUNBOOK_P25.md) określa health, reconciliation, backup/restore i rollback. [Webhooks providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml) są odseparowane od API gracza.
