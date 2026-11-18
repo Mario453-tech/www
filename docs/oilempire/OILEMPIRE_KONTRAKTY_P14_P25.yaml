@@ -179,6 +179,7 @@
     ],
     "Refining": [
       "refinery_plots",
+      "refineries",
       "epc_contracts",
       "epc_stages",
       "refinery_recipe_versions",
@@ -988,7 +989,7 @@
         },
         {
           "table": "refineries",
-          "owner": "P01-P13 (public contract)"
+          "owner": "Refining"
         }
       ],
       "input_output": "epc_id, due_stage, state_version → stage/result",
@@ -1021,7 +1022,7 @@
         },
         {
           "table": "refineries",
-          "owner": "P01-P13 (public contract)"
+          "owner": "Refining"
         }
       ],
       "input_output": "refinery_id, recipe_code, effective_from, demand_snapshot, expected_version → selected recipe",
@@ -1055,7 +1056,7 @@
         },
         {
           "table": "refineries",
-          "owner": "P01-P13 (public contract)"
+          "owner": "Refining"
         }
       ],
       "input_output": "refinery_id, from,to,balance_version → oil/product movements, OPEX/FTS refs",
