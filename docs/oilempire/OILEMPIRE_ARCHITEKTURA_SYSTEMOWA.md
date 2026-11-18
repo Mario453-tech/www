@@ -1586,13 +1586,13 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `table_
 | rank | zasób i kolejność w grupie |
 |---|---|
 | 1 | operation_idempotency: klucze operacji w porządku binarnym; przed innymi blokadami |
-| 5 | operations: rekord kontrolny długiego zadania po operation_id; tylko gdy operacja ma lease |
+| 5 | operations → release_reports → restore_reports → reconciliation_runs → alert_events → runbook_versions; lease/fencing długiej operacji przed skutkiem, wiersze raportów rosnąco po PK |
 | 10 | companies: wszystkie objęte firmy rosnąco po ID |
 | 11 | company_settlement_state: rosnąco po company_id |
 | 12 | due_events: rosnąco po event_id; job nie blokuje eventu przed firmą |
 | 13 | Core: starter_identity_claims → company_starter_grants → company_wealth_state → company_shields → company_status_periods → company_time_pauses → company_reputation_state |
 | 14 | Staff wariant A: pełny porządek 30 tabel w §23.5a.1; stare nazwy P07–P09 są aliasami migracyjnymi, nie dodatkowymi tabelami do blokowania |
-| 15 | Legal: permit_region_scopes → permit_applications → permit_entitlement_heads → permit_grants → license_heads → licenses → license_renewals → permit_cost_pools → capex_allocations |
+| 15 | Legal: permit_region_scopes → permit_applications → permit_entitlement_heads → permit_grants → license_heads → licenses → license_renewals → permit_cost_pools → capex_allocations → victim_attack_windows → protection_policies → sabotage_operations → protection_activations → bribe_attempts → abuse_reports |
 | 16 | Technical/BHP: company_technical_state → procedure_jobs |
 | 17 | Incidents: incidents → repair_current → incident_repair_links → blowout_escalation_state |
 | 18 | TechnicalTasks: technical_tasks |
@@ -1608,13 +1608,13 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `table_
 | 80 | transport_vehicles → vehicle_use → trips → port_calls; receipt to niezmienny append rank140 pod lockiem trip |
 | 90 | escrow_accounts; escrow_movements są append-only |
 | 100 | market_offers → market_trades → black_market_trades; price snapshots i world_events tworzy sweeper w rank130 |
-| 110 | system_contract_offers → b2b_offers → contracts → contract_tranches → contract_disputes; delivery_receipts są append-only, escrow_accounts pozostają rank90 |
+| 110 | system_contract_offers → b2b_offers → contracts → contract_tranches → contract_receipt_links → contract_disputes; fizyczne delivery_receipts należą do P12 Logistics i są append-only rank140 pod trip80, escrow_accounts pozostają rank90 |
 | 120 | refinery_plots → refineries → epc_contracts → epc_stages → refinery_recipe_versions → refinery_runs → insurance_policies → insurance_claims; product_movements są append-only rank140 |
-| 121 | Monetization: payment_orders → payment_events → payment_transactions → gbbl_accounts → gbbl_conversions → premium_entitlements; gbbl_ledger jest append-only rank140 |
-| 122 | Social: cartels → cartel_memberships → chat_threads → chat_messages → diplomacy_relations → moderation_reports → channel_grants |
-| 123 | Onboarding/Notifications: tutorial_progress → achievement_grants → notification_preferences → notifications → notification_deliveries |
-| 124 | CMS/Privacy/Client: static_pages → page_versions → privacy_policies → consent_records → privacy_requests → newsletter_campaigns → newsletter_deliveries → client_version_support → ui_preferences |
-| 130 | globalne wiersze płynności/slippage: spot i sweeper przez ten sam kontrakt |
+| 121 | Monetization: promo_codes → promo_redemptions → payment_orders → platform_purchase_receipts → payment_events → payment_transactions → payment_refunds → gbbl_accounts → gbbl_conversions → premium_entitlements; gbbl_ledger jest append-only rank140 |
+| 122 | Social: channel_grants → cartels → cartel_memberships → cartel_trade_flags → cartel_sanctions → chat_threads → chat_thread_members → chat_messages → diplomacy_relations → moderation_reports |
+| 123 | Onboarding/Notifications: tutorial_progress → achievement_grants → notification_preferences → device_tokens → notifications → notification_deliveries |
+| 124 | CorePrivacy/ClientDelivery: static_pages → page_versions → navigation_items → privacy_policies → consent_records → privacy_requests → newsletter_campaigns → newsletter_deliveries → client_version_support → ui_preferences |
+| 130 | globalne wiersze płynności/slippage → price_history → world_events; spot i sweeper przez ten sam kontrakt, cena publikowana tylko przez sweeper |
 | 140 | append-only FTS, effect keys, oil/product/escrow movements, audit i outbox; CAS istniejących rekordów już zablokowanych |
 
 W każdej wymienionej tabeli domenowej kolejność po ID; brakujący jeszcze rekord slotu/availability tworzy się pod wcześniej zablokowanym rodzicem. Katalog i wersje kursów są niemutowalne w operacji gospodarczej. Wiersze historii/certyfikatu/wyniku/receipt, których nie blokujemy wcześniej, zapisuje się append rank140 pod blokadą nadrzędnego employee/trip/application, z deduplikacją. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
@@ -2129,23 +2129,8 @@ $$\Delta \text{Wsad}_{\text{crude}} = \text{Benzyna} + \text{Diesel} + \text{Naf
 
 Każdy ruch rejestrowany jest w niezmiennej tabeli `product_movements` (odpowiednik `oil_movements` z §11A.1):
 
-```sql
-CREATE TABLE product_movements (
-    id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    refinery_id BIGINT UNSIGNED NOT NULL,
-    sweep_no BIGINT UNSIGNED NOT NULL,
-    movement_type VARCHAR(32) NOT NULL, -- crude_infeed, product_yield, storage_transfer, flare_loss, process_loss, sales_dispatch, gm_correction
-    product_type VARCHAR(32) NOT NULL,  -- crude, gasoline, diesel, jet_a1, mazut, lpg
-    volume_bbl DECIMAL(16,4) NOT NULL,
-    quality_score DECIMAL(5,2) NULL,
-    source_tank_id BIGINT UNSIGNED NULL,
-    destination_tank_id BIGINT UNSIGNED NULL,
-    idempotency_key VARCHAR(64) NOT NULL UNIQUE,
-    created_at DATETIME(3) NOT NULL,
-    INDEX idx_refinery_sweep (refinery_id, sweep_no),
-    INDEX idx_product_type (product_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-```
+Wykonawczy schemat znajduje się w [DDL P14–P25](OILEMPIRE_DDL_P14_P25_MYSQL84.sql). Obowiązkowe pola append-only: refinery_id, refinery_run_id, sweep_no, movement_type, product_type, volume_bbl DECIMAL(16,4), quality_score DECIMAL(5,2), idempotency_key UNIQUE, logical_at oraz balance_version. Pola source_tank_type/id i destination_tank_type/id są typowanymi referencjami do magazynu surowca lub produktu; Action Logistics/Refining weryfikuje właściciela i typ przed insertem. Nie istnieje druga tabela ruchów produktów.
+
 
 #### Receptury Przetwórcze:
 * **Wariant A (Prosta Destylacja Atmosferyczna — instalacja bazowa):**
