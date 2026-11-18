@@ -1581,7 +1581,7 @@ Naiwne `rate × Δt` jest niedozwolone. Rozliczenie jest **segmentowe (piecewise
 - Zdarzenia dyskretne z okresu powyżej capu rozliczane regułą agregacji §23.6, nigdy replayem.
 
 #### 23.5a Globalny porządek blokad (kanoniczny — obowiązuje HTTP, kolejki i sweeper)
-Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity_id`); wiersze systemowe (SYS_*) traktowane jak zwykłe wiersze swoich grup:
+Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `table_order`, `primary_key`); wiersze systemowe (SYS_*) traktowane jak zwykłe wiersze swoich grup. `table_order` jest stałym numerem tabeli z poniższego rejestru, a w obrębie tabeli porównujemy PK w jego kanonicznym typie, bez sortowania po czasie odkrycia wiersza:
 
 | rank | zasób i kolejność w grupie |
 |---|---|
@@ -1591,7 +1591,7 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | 11 | company_settlement_state: rosnąco po company_id |
 | 12 | due_events: rosnąco po event_id; job nie blokuje eventu przed firmą |
 | 13 | Core: starter_identity_claims → company_starter_grants → company_wealth_state → company_shields → company_status_periods → company_time_pauses → company_reputation_state |
-| 14 | Staff: poniższy historyczny porządek tabel bazowych wymaga zastąpienia jedną listą dla wariantu A przed migracją. HR-CONTRACT01 §9 zachowuje rangę 14, lecz nowe person/employment/contract/roster/leave/payroll/assessment wymagają wpisu do globalnego LockPlan. Do czasu spisania pełnej kolejności nie wolno mieszać starych i nowych nazw w transakcjach. |
+| 14 | Staff wariant A: pełny porządek 29 tabel w §23.5a.1; stare nazwy P07–P09 są aliasami migracyjnymi, nie dodatkowymi tabelami do blokowania |
 | 15 | Legal: permit_region_scopes → permit_applications → permit_entitlement_heads → permit_grants → license_heads → licenses → license_renewals → permit_cost_pools → capex_allocations |
 | 16 | Technical/BHP: company_technical_state → procedure_jobs |
 | 17 | Incidents: incidents → repair_current → incident_repair_links → blowout_escalation_state |
@@ -1613,6 +1613,48 @@ Kolejność `SELECT ... FOR UPDATE` — ZAWSZE rosnąco wg (`type_rank`, `entity
 | 140 | append-only FTS, effect keys, oil/product/escrow movements, audit i outbox; CAS istniejących rekordów już zablokowanych |
 
 W każdej wymienionej tabeli domenowej kolejność po ID; brakujący jeszcze rekord slotu/availability tworzy się pod wcześniej zablokowanym rodzicem. Katalog i wersje kursów są niemutowalne w operacji gospodarczej. Wiersze historii/certyfikatu/wyniku/receipt, których nie blokujemy wcześniej, zapisuje się append rank140 pod blokadą nadrzędnego employee/trip/application, z deduplikacją. LockPlan obejmuje settlement i komendę oraz wszystkie znane firmy/terminy; nie wolno pobierać nowej blokady rank 1–130 po wejściu w rank 140. UNIQUE efektów może czekać na konkurencyjny zapis, ale dalsza ścieżka nie żąda wcześniejszych grup; timeout/deadlock wycofuje całą transakcję. CAS last_calc_at dotyczy uprzednio zablokowanego company_settlement_state, nie nowej blokady na końcu.
+
+#### 23.5a.1. Staff wariant A — obowiązujący porządek wewnątrz rank 14
+
+Poniższy `table_order` jest częścią **jednego globalnego LockPlan**. Dotyczy HTTP, kolejki, sweepera, Settlement i akcji Filament. Każda akcja deklaruje pełny zbiór istniejących wierszy przed pierwszym `FOR UPDATE`; blokuje tylko potrzebne tabele, lecz zawsze w tej kolejności. W jednej tabeli blokuje PK rosnąco; przy wielu firmach najpierw wszystkie `companies` rank 10 rosnąco, a dopiero potem globalne osoby i okresy zatrudnienia rank 14. Nowe wiersze tworzy pod już zablokowanym rodzicem, z UNIQUE i ponowieniem całej transakcji po deadlocku. Nie wolno po zablokowaniu późniejszej tabeli wrócić do wcześniejszej.
+
+| table_order | tabela Staff A |
+|---|---|
+| 14.01 | `staff_persons` |
+| 14.02 | `staff_employments` |
+| 14.03 | `staff_person_traits` |
+| 14.04 | `staff_person_skills` |
+| 14.05 | `staff_recruitment_quotes` |
+| 14.06 | `staff_recruitment_campaigns` |
+| 14.07 | `staff_candidate_offers` |
+| 14.08 | `staff_contract_versions` |
+| 14.09 | `staff_roster_versions` |
+| 14.10 | `staff_roster_intervals` |
+| 14.11 | `staff_time_reservations` |
+| 14.12 | `staff_assignments` |
+| 14.13 | `staff_leave_accounts` |
+| 14.14 | `staff_leave_requests` |
+| 14.15 | `staff_absences` |
+| 14.16 | `staff_replacement_orders` |
+| 14.17 | `staff_pay_entitlements` |
+| 14.18 | `board_positions` |
+| 14.19 | `employee_raise_requests` |
+| 14.20 | `employee_morale_daily_snapshots` |
+| 14.21 | `department_morale_snapshots` |
+| 14.22 | `department_strikes` |
+| 14.23 | `strike_members` |
+| 14.24 | `training_progress` |
+| 14.25 | `training_retry_state` |
+| 14.26 | `staff_trainings` |
+| 14.27 | `staff_analysis_work` |
+| 14.28 | `staff_assessment_runs` |
+| 14.29 | `staff_assessment_current` |
+
+`staff_persons` serializuje trwałą tożsamość i guard aktywnego zatrudnienia; `staff_employments` serializuje okres pracy. Wszyscy konsumenci dostępności, także Training i TechnicalTasks, blokują najpierw te rekordy, a potem `staff_time_reservations`; sam odczyt przedziałów nie chroni przed wyścigiem. Kampania i oferta są blokowane po osobie/okresie, jeżeli akcja zna istniejącą osobę. Generowanie nowej osoby pod zablokowaną kampanią tworzy nowy wiersz bez wcześniejszego `FOR UPDATE`; unikalny `creation_key` zabezpiecza retry. Zajętość i stan pracy mają jeden kanoniczny kalendarz, a dawne `employee_availability.active_job_*` nie jest drugim źródłem prawdy.
+
+Tabele `board_positions`, `employee_raise_requests`, `employee_morale_daily_snapshots`, `department_morale_snapshots`, `department_strikes`, `strike_members`, `training_progress` i `training_retry_state` zachowują nazwy z kart bazowych do czasu ich odrębnej migracji. `training_enrollments` mapuje się na `staff_trainings`; `employees` na `staff_persons` i `staff_employments`; `employee_skills` na `staff_person_skills`; `employee_assignments` na `staff_assignments`. Dla wariantu A nie zakłada się równoległych tabel o obu nazwach. Gdy migracja wybierze inne nazwy fizyczne, trzeba zaktualizować ten rejestr i kontrakt maszynowy **przed** użyciem migracji.
+
+Niezmienne wpisy `staff_employment_events`, `staff_leave_ledger`, `staff_certificates`, `staff_observations`, `staff_assessment_snapshots`, `staff_assessment_evidence`, `board_history`, `raise_decisions`, `employee_morale_events` i `strike_rounds` są zapisem append rank 140 pod wcześniej zablokowanym rodzicem; nie pobiera się dla nich późnego `FOR UPDATE` rank 14. Katalogi kursów, dialogi, `staff_policy_versions/items/current` oraz `staff_training_program_versions` należą do osobnej ścieżki konfiguracji z §23.5a, nie do gospodarczej kolejności Staff. Akcja gospodarcza utrwala zatwierdzoną wersję polityki, a nie blokuje `staff_policy_current` po rank 14.
 
 Transakcje konfiguracji mają osobny porządek: balance_current (activation_gate) → users/role assignments → kandydatura/wersja/projekcje → module_runtime_states → audit/outbox. Nie łączymy ich z gospodarczym LockPlan. Szczegóły i testy: karty P04-F02/P05-F03.
 
