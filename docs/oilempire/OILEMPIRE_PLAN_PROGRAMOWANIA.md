@@ -1,6 +1,6 @@
 # OilEmpire — plan programowania i wdrożenia całego silnika
 
-> **Rozszerzenie HR (zatwierdzony zakres, do parametryzacji):** [Kadry i zatrudnienie](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Źródło wymagań dla kanałów rekrutacji, profili kandydatów, umów, etatów, grafików, kosztów i odpraw. P07–P09/P16 wymagają kart delta i kontraktów HR-CONTRACT01. DOM01/DOM02/DOM16 pozostają otwarte w zakresie parametrów; starszy uproszczony model nie jest gotowym kontraktem tego rozszerzenia. Nie zmieniono aktywnego balansu.
+> **Kadry — wariant A do implementacji:** [mechanika i parametry §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md) oraz [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) ustalają kierunek P07–P09/P16. DOM01/DOM02/DOM16 mają decyzje A, ale wymagają propagacji do kontraktów maszynowych, kalibracji i testów przed aktywacją. Starsze karty opisują bazowy model historyczny; przy wdrażaniu A stosuje się wskazaną deltę. Aktywny game_balance v1 nie został zmieniony.
 
 
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Zakres i kolejność pakietów P01–P25. Wymagania domeny, API, panelu i bezpieczeństwa pozostają powiązane przez macierz w indeksie. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
@@ -34,7 +34,7 @@ Dla P07–P09/P16 obowiązuje [kontrakt implementacyjny Kadr HR-CONTRACT01](OILE
 
 ## 3. Obowiązkowa karta implementacyjna funkcji
 
-P06–P13 są rozpisane w [31 kartach domenowych](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), powiązanych z [kontraktem maszynowym](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Warunki gotowości obejmują DOM01–DOM16: operacje wymagające nieuzgodnionej polityki nie mają domyślnej wartości produkcyjnej. P06 powstaje wcześniej kodowo, lecz aktywacja pełnego startera czeka na wymagane kontrakty downstream; to nie cykl providers.
+P06–P13 są rozpisane w [31 kartach domenowych](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md), powiązanych z [kontraktem maszynowym](OILEMPIRE_KONTRAKTY_P06_P13.yaml). Warunki gotowości obejmują DOM01–DOM16: DOM01/DOM02/DOM16 mają decyzje wariantu A w Kadry §19, lecz przed aktywacją wymagają finalnych kontraktów, migracji, kalibracji i testów; inne nieuzgodnione polityki nie mają domyślnej wartości produkcyjnej. P06 powstaje wcześniej kodowo, lecz aktywacja pełnego startera czeka na wymagane kontrakty downstream; to nie cykl providers.
 
 Pierwszy zestaw jest rozpisany w [kartach P01–P05](OILEMPIRE_KARTY_IMPLEMENTACJI_P01_P05.md): P01-F01–F03, P02-F01–F04, P03-F01–F03, P04-F01–F03, P05-F01–F03. Każda karta jest częścią odpowiadającego pakietu; dalsze pakiety wymagają kolejnych kart.
 
