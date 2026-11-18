@@ -1,0 +1,157 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OilEmpire P20 provider webhooks",
+    "version": "1.0.0",
+    "description": "Wyłącznie podpisani operatorzy płatności; nie jest publicznym API gracza. Apple JWS i Google RTDN/PubSub mają odrębne weryfikacje opisane przez x-provider-verification."
+  },
+  "paths": {
+    "/api/v1/payments/webhooks/{provider}": {
+      "post": {
+        "operationId": "VerifyWebhook",
+        "x-card-id": "P20-F02",
+        "x-audience": "provider",
+        "x-owner": "Monetization",
+        "summary": "Weryfikuj podpis i zdarzenie providera",
+        "description": "Wyłącznie web operator. Podpis na surowych bajtach przed parsowaniem; provider_event_id i amount/currency/product/account weryfikowane serwerowo. Refund→ApplyRefund, chargeback→ApplyChargeback.",
+        "security": [
+          {
+            "providerSignature": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "web"
+              ]
+            }
+          },
+          {
+            "name": "X-Provider-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Zdarzenie przyjęte lub wcześniej obsłużone"
+          },
+          "202": {
+            "description": "Zdarzenie zapisane do weryfikacji"
+          },
+          "400": {
+            "description": "Niepoprawny format"
+          },
+          "401": {
+            "description": "Błędny podpis"
+          },
+          "409": {
+            "description": "Konflikt kwoty/konta/produktu"
+          },
+          "429": {
+            "description": "Limit providera"
+          }
+        }
+      }
+    },
+    "/api/v1/payments/store-notifications/{platform}": {
+      "post": {
+        "operationId": "VerifyStoreNotification",
+        "x-card-id": "P20-F10",
+        "x-audience": "provider",
+        "x-owner": "Monetization",
+        "x-provider-verification": {
+          "apple_iap": "JWS signature, certificate chain and bundle/product/account verification",
+          "google_play": "verified Pub/Sub identity plus Google Play Developer API transaction verification"
+        },
+        "summary": "Zweryfikuj powiadomienie sklepu",
+        "description": "Apple/Google mają natywne formaty; walidacja uwierzytelnienia i transakcji przed normalizacją eventu. Idempotencja (platform,provider_event_id). Bez przyznania świadczenia na podstawie samego powiadomienia telefonu.",
+        "security": [],
+        "parameters": [
+          {
+            "name": "platform",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "apple_iap",
+                "google_play"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Przyjęto albo duplikat"
+          },
+          "202": {
+            "description": "Zapisano do weryfikacji"
+          },
+          "400": {
+            "description": "Niepoprawny format"
+          },
+          "401": {
+            "description": "Niezweryfikowany dostawca/podpis"
+          },
+          "409": {
+            "description": "Konflikt transakcji"
+          },
+          "429": {
+            "description": "Limit"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "providerSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Provider-Signature"
+      }
+    }
+  }
+}
