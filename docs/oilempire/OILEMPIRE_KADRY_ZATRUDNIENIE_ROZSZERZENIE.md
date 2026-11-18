@@ -1312,3 +1312,90 @@ O17 długi offline daje jeden stan docelowy. O18 techniczna awaria nie tworzy go
 
 Do wykonania: DDL/OpenAPI i mapa ról, dokładna integracja rezerwacji z Settlement, kalibracja nakładu dla firm różnej wielkości oraz testy O01–O20. Liczby w tabeli są kandydatem, nie wynikiem testów wydajności. Zmiana dotyczy dokumentacji; nie uruchamia płac, kolejek ani produkcyjnych analiz.
 
+
+
+### 18.18. Wykorzystanie istniejącej bazy — HR-DB-REUSE-01
+
+Decyzja właściciela: najpierw wykorzystujemy i rozszerzamy istniejące struktury. Nazwy staff_* z wcześniejszych rozdziałów opisują odpowiedzialności logiczne, nie obowiązek utworzenia równoległego kompletu tabel.
+
+#### A. Zakres dowodów i ograniczenia
+
+Przegląd statyczny 18.11.2026, lokalny checkout OIL, HEAD bbe6a761c9d387162e077d93e61058a372cb42e9, z istniejącymi niezwiązanymi zmianami użytkownika. Nie zmieniano kodu ani bazy. To nie audyt aktualnego schematu produkcyjnego.
+
+Odczytano EmployeeSystemSchema.php (VERSION8) i EmployeeRef.php w całości, właściwe definicje MySQL EmployeeSystemBootstrap.php, fragment TrainingBootstrap.php obejmujący cztery definicje tabel oraz EmployeeRelationLifecycleService.php. Wyodrębniono wyłącznie definicje CREATE TABLE dotyczące HR ze starego pliku SQL i tests/ci-schema.sql; nie kopiowano rekordów graczy. Skan src/migrations dotyczył definicji i nazw tabel, nie pełnego odczytu wszystkich plików.
+Źródła repozytorium: src/Employee/EmployeeSystemSchema.php, src/EmployeeSystemBootstrap.php, src/Employee/EmployeeRef.php, src/TrainingBootstrap.php, tests/ci-schema.sql. Stary dump nie jest pełnym ani aktualnym kontraktem: w dostępnym pliku znaleziono definicje tylko do części alfabetu. Wniosku „brak tabeli na produkcji” nie wolno wyciągać z braku w tym pliku.
+
+#### B. Mapa ponownego wykorzystania
+
+| Istniejąca tabela / rodzina | Decyzja | Potrzebne rozszerzenie lub warunek |
+|---|---|---|
+| board_members | Zachować dane, rozszerzyć/mapować | Zawiera dyrektorów i staff, skills, traits, salary, daty; dodać trwałe powiązanie osoby i epizodu zatrudnienia. Nie tworzyć drugiego zarządu |
+| technical_staff | Zachować dane, rozszerzyć/mapować | Istnieją role, salary, status, traits; status on_leave nie zastępuje rejestru urlopu. Zachować różnicę technik/zarząd bez dublowania osoby |
+| employee_source_links | Zachować jako dowód mapowania | Łączy board_member z technical_staff jako legacy_headhunter_mirror, oba końce UNIQUE; nie jest ogólnym rejestrem osób. Wykorzystać przy deduplikacji |
+| employee_state | Rozszerzyć | Istnieją morale, workload, expected_salary, relation_status i version. Unikalność source_type+source_id nie przechowuje kolejnych zatrudnień; stan bieżący oddzielić od historii |
+| board_roles | Rozszerzyć katalog | Stabilny code i mapowanie funkcji HR; tłumaczenia PL/EN/DE i SVG. Nie zastępować istniejących kodów bez mapy |
+| employee_role_effects | Rozszerzyć wersjonowaniem | Istnieją specialization_code, effect_key, scope, value i skill_weights_json. Efekt roli nie jest indywidualną ukrytą cechą |
+| recruitment_requests | Rozszerzyć | Dodać kanał oddzielony od zasięgu local/international, budżet/quote, politykę i trwały wynik RNG; zachować historię request_id |
+| candidates | Rozszerzyć | Powiązanie trwałej osoby, wersja generatora, warunki oferty; nie losować nowych cech przy przeniesieniu do zatrudnienia |
+| headhunter_searches / headhunter_candidates | Mapować do wspólnego procesu rekrutacji | Zachować źródłowe ID, cenę/ofertę i status; nie utrzymywać dwóch aktywnych zapisów tej samej kandydatury |
+| candidate_reviews | Zachować jako historyczne oceny rekrutacyjne | score/recommendation/comment nie zawierają podstaw i wersji nowych ocen HR. Możliwy uprawniony dowód pomocniczy; nie importować jako supported |
+| employee_contracts | Rozszerzyć zamiast drugiego katalogu umów | Obecny contract_type=6m/1y/2y oznacza długość, NIE employment/mandate/B2B. Dodać formę, basis, wymiar, walutę, wersję warunków, identyfikację zatrudnienia i okres obowiązywania |
+| employment_history | Zachować/rozszerzyć | action hired/fired/resigned/suspended i daty zachować; dodać firmę, employment_ref, źródło i idempotencję. Sama lista zdarzeń nie zastępuje przedziałów zatrudnienia |
+| employee_assignments | Rozszerzyć | Istnieją cel, allocation_pct, assigned_at/released_at. Dodać plan/wersję i przedziały; nie utożsamiać przydziału z faktycznie przepracowanym czasem |
+| technical_staff_skills | Zachować | UNIQUE staff_id+skill_code; nie zakładać nowego równoległego słownika umiejętności. Mapowanie tożsamości oraz polityka historii przy usunięciu |
+| training_programs | Rozszerzyć | Wersje programów, DE, rozdzielenie długości kursu i zajętości pracownika |
+| staff_trainings | Rozszerzyć | Istnieją koszt, wynik, retry, cooldown, active_guard; dodać pauzy/progress i snapshot programu. Nie tworzyć drugiej kolejki szkoleń |
+| training_certificates / employee_certificates | Zachować i uzgodnić semantykę | Pierwsza przechowuje wynik kursu dla obu typów personelu; druga member_id i expires_at. Oddzielić osiągnięcie od uprawnienia, nie scalać po nazwie |
+| employee_raise_requests | Zachować/rozszerzyć | Kwoty, status, terminy, request_no już są; wynik wiązać z nową wersją warunków umowy |
+| employee_strikes / employee_strike_members | Zachować | Zachować członkostwo/historyczne końce; mapować person/employment i scope firmy |
+| employee_strike_negotiations / employee_strike_negotiation_rounds | Zachować | Próby, rundy, zapis RNG i idempotencja już istnieją; nie tworzyć nowego równoległego negocjatora |
+| employee_dialogue_templates | Rozszerzyć | PL/EN już istnieją; DE, wersje i allowlista parametrów |
+| employee_events | Zachować jako komunikaty/historyczne fakty UI | is_read/notified_at i meta_json wskazują inną odpowiedzialność niż niezmienne obserwacje z rewizjami. Nie wkładać sekretnego profilu w meta_json |
+| employee_action_receipts | Wykorzystać albo migrować do wspólnej idempotencji | Jest request_hash, token, odpowiedź i unikalność player+action+token; nie utrzymywać dwóch konkurujących rejestrów tej samej akcji |
+| employee_system_config | Migrować wartości do wersjonowanej konfiguracji | Obecny klucz/wartość bez historii nie spełnia publikacji immutable balance_version |
+| employee_module_cycles / employee_cycle_department_claims / employee_schema_versions | Zachować historycznie, zastąpić rolę wykonawczą adapterem | Cykle legacy nie są slotami nowego Settlement. Nie kopiować numeru ticka jako czasu pracy |
+| staff_morale_logs / staff_strikes | Uzgodnić starszą i nowszą generację | Definicje znalezione w HR/MoraleBootstrap.php; nie uruchamiać obok employee_state/employee_strikes jako dwóch źródeł tego samego skutku |
+
+„Zachować” oznacza ponowne wykorzystanie danych i odpowiedzialności, a nie gwarancję bezpośredniego podłączenia starych tabel do nowego kodu bez migracji.
+
+#### C. Rzeczywiste luki i minimalne nowe struktury
+
+W sprawdzonych źródłach nie potwierdzono kompletnego odpowiednika:
+- trwałej osoby niezależnej od firmy i typu rekordu oraz kolejnych epizodów zatrudnienia;
+- wersjonowanych warunków umowy (mogą być wierszami rozszerzonego employee_contracts, niekoniecznie osobną tabelą);
+- planów zmian, rezerwacji czasu i faktycznego czasu pracy;
+- wniosków/epizodów nieobecności oraz księgi nabycia/rezerwacji/zużycia urlopu;
+- niezmiennych obserwacji HR, rewizji, ocen/snapshotów i powiązań dowodów;
+- biznesowego nakładu pracy analityka i jego kolejki.
+
+To kandydaci do nowych struktur dopiero po potwierdzeniu metadanych bieżącej bazy. Nazwy employee_availability i employee_traits z dokumentacji nie zostały potwierdzone jako tabele w przeszukanych src/migrations. Nie traktować ich jako istniejącego DDL. Cechy lojalność/ambicja/korupcja rzeczywiście są kolumnami board_members i technical_staff.
+
+Model §18.9 można uprościć fizycznie: assessment_current jako kontrolowany wskaźnik, eligibility jako wersjonowana część powiązania dowodu, a przebiegi techniczne według wspólnej infrastruktury. Warunek: zachować historię, CAS, ownership i odtwarzalność. Nie redukować liczby tabel przez upychanie wszystkich procesów w jednym JSON.
+
+#### D. Krytyczne pułapki migracji
+
+1. source_id jest unikalny tylko wraz z source_type; staff_type w szkoleniach używa technical/board, a EmployeeRef technical_staff/board_member. Wymagana jawna mapa.
+2. player_id nie jest automatycznie company_id. Mapowanie świata/firmy musi być jednoznaczne; prywatne obserwacje zostają u dawnego pracodawcy.
+3. Rekordy lustrzane łączymy wyłącznie na podstawie istniejącego linku lub udokumentowanego dowodu. Imię i nazwisko nie wystarczają.
+4. technical_staff.salary jest INT, board_members.salary i employee_contracts.salary DECIMAL. Przed konwersją ustalić jednostkę i źródło prawdy; nie traktować starego INT jako groszy i nie mnożyć etatu dwukrotnie.
+5. W źródłach występują zerowe daty oraz expires_at z ON UPDATE. Konwersja do UTC/NULL wymaga raportu wyjątków; edycja oferty nie może przedłużać ważności przypadkowo.
+6. staff_trainings.active_guard chroni jedną aktywną naukę, ale nie kolizję z jazdą lub pracą HR. Wspólny kalendarz nadal potrzebny.
+7. technical_staff_skills i training_certificates mają źródłowe ON DELETE CASCADE. Przeniesienie historii do nowego silnika musi zapobiec utracie osiągnięć po zwolnieniu; nie wykonywać usunięć w tej rundzie.
+8. Legacy employee_state ma jeden bieżący stan per źródło, nie pełną historię firmy/osoby. Nie aktualizować owner w sposób udostępniający nowej firmie stare prywatne oceny.
+9. Nie tworzyć wstecz fikcyjnych obserwacji ani ukrytych cech z liczby starych komunikatów. Brak danych = nieznane, nie zero ani nowe losowanie przy GET.
+
+#### E. Plan wdrożenia i odbioru
+
+Etap1: eksport SAMYCH metadanych SHOW CREATE TABLE, indeksów i FK z uzgodnionego środowiska oraz wersji migracji. Bez uruchamiania init.php/ensure() — bootstrapy wykonują DDL. Bez kopiowania danych produkcyjnych do lokalnego środowiska.
+
+Etap2: raport różnic source→target, typów/signedness/collation, niezgodnych dat, braków powiązań i źródeł kwot. Uzupełnić pełny katalog technicznych specjalizacji, przydziałów obiektowych i księgowania płac; obecny przegląd nie potwierdza kompletności tych obszarów.
+
+Etap3: migracje addytywne i idempotentna mapa legacy_type+legacy_id→person/employment/target_id. Dla braków zachować status unresolved; nie scalać ani nie wymyślać historii. Testy na syntetycznej bazie MySQL.
+
+Etap4: adaptery odczytu, backfill i porównania liczności osób po deduplikacji, aktywnych umów, sum płac, certyfikatów, przydziałów i otwartych procesów. Jeden właściciel zapisów; dual-write tylko po osobnym projekcie transakcyjnym.
+
+Etap5: kontrolowane przełączenie, backup i punkt odcięcia. Rollback wymaga uzgodnienia nowych zapisów, nie samego cofnięcia kodu. Usunięcie legacy struktur dopiero osobnym zatwierdzonym etapem.
+
+Testy wymagane: kolizje ID między źródłami, mirror bez podwójnej pensji, rehire tej samej osoby, przejście między firmami bez ujawnienia ocen, mapowanie obu enumów źródła, precyzja kwot, zerowe daty, rollback/backfill retry, aktywne szkolenie/strajk/negocjacje zachowane, brak kaskadowej utraty certyfikatów.
+
+Wynik tej rundy: mapa oparta na statycznych definicjach i fragmentach kodu. Nie wykonano SHOW CREATE TABLE na działającej bazie, migracji, testów Laravel/MySQL ani wdrożenia. Testy runtime/build nie dotyczą zmiany dokumentacyjnej. Wycofanie: odwrócenie wyłącznie commitu dokumentacji; dane pozostają nietknięte.
