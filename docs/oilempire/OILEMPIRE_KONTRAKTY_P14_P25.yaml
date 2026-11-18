@@ -1,0 +1,1759 @@
+{
+  "schema_version": "1.0.0",
+  "status": "implementation_spec_not_active_balance",
+  "source": "OILEMPIRE_PLAN_PROGRAMOWANIA.md §3, architecture §23.5a, OPEN01-OPEN12",
+  "mysql": "8.4 InnoDB utf8mb4",
+  "openapi": "OILEMPIRE_OPENAPI_P14_P25_V1.yaml",
+  "ddl": "OILEMPIRE_DDL_P14_P25_MYSQL84.sql",
+  "policy_gate": {
+    "status": "proposed_pending_owner_approval",
+    "error": "POLICY_NOT_APPROVED",
+    "http_status": 409,
+    "fail_closed": true
+  },
+  "lock_plan": [
+    [
+      "idempotency",
+      1
+    ],
+    [
+      "operations",
+      5
+    ],
+    [
+      "company",
+      10
+    ],
+    [
+      "settlement",
+      11
+    ],
+    [
+      "due",
+      12
+    ],
+    [
+      "core",
+      13
+    ],
+    [
+      "staff",
+      14
+    ],
+    [
+      "legal",
+      15
+    ],
+    [
+      "tech",
+      16
+    ],
+    [
+      "incidents",
+      17
+    ],
+    [
+      "tasks",
+      18
+    ],
+    [
+      "finance",
+      19
+    ],
+    [
+      "ledger",
+      20
+    ],
+    [
+      "fund",
+      21
+    ],
+    [
+      "banking",
+      30
+    ],
+    [
+      "extraction",
+      39
+    ],
+    [
+      "well",
+      40
+    ],
+    [
+      "pipeline",
+      50
+    ],
+    [
+      "hub",
+      60
+    ],
+    [
+      "storage",
+      70
+    ],
+    [
+      "trip",
+      80
+    ],
+    [
+      "escrow",
+      90
+    ],
+    [
+      "market",
+      100
+    ],
+    [
+      "contract",
+      110
+    ],
+    [
+      "refinery",
+      120
+    ],
+    [
+      "monetization",
+      121
+    ],
+    [
+      "social",
+      122
+    ],
+    [
+      "onboarding",
+      123
+    ],
+    [
+      "cms_privacy",
+      124
+    ],
+    [
+      "global_market",
+      130
+    ],
+    [
+      "outbox",
+      140
+    ]
+  ],
+  "table_owners": {
+    "Market": [
+      "market_offers",
+      "market_price_snapshots",
+      "market_trades",
+      "black_market_trades",
+      "world_events"
+    ],
+    "Contracts": [
+      "system_contract_offers",
+      "contracts",
+      "contract_tranches",
+      "b2b_offers",
+      "escrow_accounts",
+      "escrow_movements",
+      "delivery_receipts",
+      "contract_disputes"
+    ],
+    "Finance": [
+      "department_budgets",
+      "player_finance_decisions",
+      "asset_valuations",
+      "net_worth_snapshots",
+      "wealth_tax_assessments"
+    ],
+    "Banking": [
+      "bank_trust_scores",
+      "credit_score_history",
+      "loans",
+      "loan_installments",
+      "bailiff_proceedings",
+      "auctions"
+    ],
+    "Legal": [
+      "sabotage_operations",
+      "victim_attack_windows",
+      "protection_policies",
+      "protection_activations",
+      "abuse_reports"
+    ],
+    "Refining": [
+      "refinery_plots",
+      "epc_contracts",
+      "epc_stages",
+      "refinery_recipe_versions",
+      "refinery_runs",
+      "product_movements",
+      "insurance_policies",
+      "insurance_claims"
+    ],
+    "Monetization": [
+      "payment_orders",
+      "payment_events",
+      "payment_transactions",
+      "gbbl_ledger",
+      "premium_entitlements",
+      "gbbl_conversions",
+      "gbbl_accounts"
+    ],
+    "Social": [
+      "chat_threads",
+      "chat_messages",
+      "cartels",
+      "cartel_memberships",
+      "diplomacy_relations",
+      "moderation_reports",
+      "channel_grants"
+    ],
+    "Onboarding": [
+      "tutorial_progress",
+      "achievement_grants",
+      "notifications",
+      "notification_deliveries",
+      "notification_preferences"
+    ],
+    "CMS": [
+      "static_pages",
+      "page_versions",
+      "privacy_policies",
+      "consent_records",
+      "privacy_requests",
+      "newsletter_campaigns",
+      "newsletter_deliveries"
+    ],
+    "Client": [
+      "client_version_support",
+      "ui_preferences"
+    ],
+    "Operations": [
+      "release_reports",
+      "restore_reports",
+      "reconciliation_runs",
+      "alert_events",
+      "runbook_versions"
+    ]
+  },
+  "actions": [
+    {
+      "id": "P14-F01",
+      "action": "QuoteSale",
+      "owner": "Market",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/market/spot/quotes"
+      },
+      "command": null,
+      "dependencies": "P03/P04/P12",
+      "read_write_tables": [
+        {
+          "table": "market_price_snapshots",
+          "owner": "Market"
+        },
+        {
+          "table": "stock_reservations",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "company, source_storage, bbl, expected_state_version → cena/fee/ważność quote",
+      "transition": "odczyt aktualnego zapasu i ceny; bez rezerwacji oraz FTS",
+      "denial": "brak wolumenu/nieaktualna wersja → odmowa, bez ceny klienta",
+      "acceptance_test": "granica limit/B2B, równoczesna rezerwacja",
+      "requires_policy_approval": [
+        "DOM14"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "market.quote_sale.v1"
+    },
+    {
+      "id": "P14-F02",
+      "action": "ExecuteSpot",
+      "owner": "Market",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/market/spot/sales"
+      },
+      "command": null,
+      "dependencies": "P03/P04/P12",
+      "read_write_tables": [
+        {
+          "table": "market_trades",
+          "owner": "Market"
+        },
+        {
+          "table": "oil_movements",
+          "owner": "P01-P13 (public contract)"
+        },
+        {
+          "table": "ledger_accounts",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "quote_id, bbl, idempotency_key → trade_id/FTS/ref",
+      "transition": "available → sold, ruch bbl raz i wpływ PLN_BANK przez Ledger, zajęcie komornika w tej samej transakcji",
+      "denial": "brak zapasu, wygasła wycena lub limit awaryjny → rollback całości",
+      "acceptance_test": "2 sprzedaże tej samej baryłki, retry, egzekucja",
+      "requires_policy_approval": [
+        "DOM14"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "market.execute_spot.v1"
+    },
+    {
+      "id": "P14-F03",
+      "action": "PlaceLimitOrder",
+      "owner": "Market",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/market/limit-orders"
+      },
+      "command": null,
+      "dependencies": "P03/P04/P12",
+      "read_write_tables": [
+        {
+          "table": "market_offers",
+          "owner": "Market"
+        },
+        {
+          "table": "stock_reservations",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "storage, bbl, limit_price_minor, expected_version → offer_id",
+      "transition": "available → reserved_bbl, published; cena zmieniana tylko wersjonowaną akcją",
+      "denial": "brak zapasu/limit niespełniony → brak oferty",
+      "acceptance_test": "spot kontra limit, anulowanie i zwrot rezerwacji",
+      "requires_policy_approval": [
+        "DOM14"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "market.place_limit_order.v1"
+    },
+    {
+      "id": "P14-F04",
+      "action": "MatchOrders",
+      "owner": "Market",
+      "route": null,
+      "command": "internal:Market.MatchOrders",
+      "dependencies": "P03/P04/P12",
+      "read_write_tables": [
+        {
+          "table": "market_offers",
+          "owner": "Market"
+        },
+        {
+          "table": "market_trades",
+          "owner": "Market"
+        },
+        {
+          "table": "market_price_snapshots",
+          "owner": "Market"
+        }
+      ],
+      "input_output": "due_slot, price_snapshot → list trade_id",
+      "transition": "published → filled/partial tylko przez fazę globalnego matchingu; stabilny porządek ofert i effect_key",
+      "denial": "po nieudanym workerze replay bez drugiej sprzedaży",
+      "acceptance_test": "2 workery, kryzys cenowy, partial",
+      "requires_policy_approval": [
+        "DOM14"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "market.match_orders.v1"
+    },
+    {
+      "id": "P14-F05",
+      "action": "TradeBlackMarket",
+      "owner": "Market",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/market/black-market/trades"
+      },
+      "command": null,
+      "dependencies": "P03/P04/P12",
+      "read_write_tables": [
+        {
+          "table": "black_market_trades",
+          "owner": "Market"
+        },
+        {
+          "table": "company_reputation_state",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "storage, bbl, quote_id → trade_id/cash_minor",
+      "transition": "available → sold; PLN_CASH, black_market_score +2; limit 5 transakcji i 1500 bbl/dobę UTC",
+      "denial": "przekroczenie limitu, brak zapasu lub kontrola → jawny wynik",
+      "acceptance_test": "2 równoległe transakcje na progu, score decay",
+      "requires_policy_approval": [
+        "DOM14"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "market.trade_black_market.v1"
+    },
+    {
+      "id": "P15-F01",
+      "action": "GenerateNpcOffers",
+      "owner": "Contracts",
+      "route": null,
+      "command": "internal:Contracts.GenerateNpcOffers",
+      "dependencies": "P10/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "system_contract_offers",
+          "owner": "Contracts"
+        }
+      ],
+      "input_output": "region_id, due_slot, balance_version → oferta NPC",
+      "transition": "HMAC seed; pula 3+floor(gracze/25), max8/region, odstęp 24h; oferta ważna 24–72h",
+      "denial": "brak miejsca w puli → no-op",
+      "acceptance_test": "retry i dwa sweepy nie dublują oferty",
+      "requires_policy_approval": [
+        "DOM12",
+        "DOM13",
+        "DOM15"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "contracts.generate_npc_offers.v1"
+    },
+    {
+      "id": "P15-F02",
+      "action": "AcceptContract",
+      "owner": "Contracts",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/contracts/offers/{id}/accept"
+      },
+      "command": null,
+      "dependencies": "P10/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "contracts",
+          "owner": "Contracts"
+        },
+        {
+          "table": "contract_tranches",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_accounts",
+          "owner": "Contracts"
+        }
+      ],
+      "input_output": "offer_id, company_id, quote_version → contract/tranche plan",
+      "transition": "open → accepted; kaucja NPC 10% lub premium 5%; B2B osobny depozyt/zakres",
+      "denial": "wygasła oferta, reputacja lub brak środków → bez kontraktu",
+      "acceptance_test": "limit tier, kaucja raz, kontrakt po retry",
+      "requires_policy_approval": [
+        "DOM12",
+        "DOM13",
+        "DOM15"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "contracts.accept_contract.v1"
+    },
+    {
+      "id": "P15-F03",
+      "action": "FundEscrow",
+      "owner": "Contracts",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/contracts/b2b/offers/{id}/accept"
+      },
+      "command": null,
+      "dependencies": "P10/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "b2b_offers",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_accounts",
+          "owner": "Contracts"
+        },
+        {
+          "table": "stock_reservations",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "b2b_offer_id, buyer, expected_version → escrow_id",
+      "transition": "published → accepted; rezerwacja 100% wartości i ropy sprzedawcy w jednej transakcji",
+      "denial": "brak środków albo wolumenu → rollback obu stron",
+      "acceptance_test": "dwie akceptacje, cross-company access, saldo",
+      "requires_policy_approval": [
+        "DOM12",
+        "DOM13",
+        "DOM15"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "contracts.fund_escrow.v1"
+    },
+    {
+      "id": "P15-F04",
+      "action": "SettleReceipt",
+      "owner": "Contracts",
+      "route": null,
+      "command": "internal:Contracts.SettleReceipt",
+      "dependencies": "P10/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "delivery_receipts",
+          "owner": "Contracts"
+        },
+        {
+          "table": "contract_tranches",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_accounts",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_movements",
+          "owner": "Contracts"
+        }
+      ],
+      "input_output": "tranche_id, receipt_id, logical_at → settlement_id",
+      "transition": "in_transit/waiting_bay → delivered/settled; ruch bbl, prowizja 1,5%, wypłata na PLN_BANK, garnishment raz",
+      "denial": "receipt po refund → rozstrzygnięcie według logic_at i stanu, bez podwójnej wypłaty",
+      "acceptance_test": "receipt kontra timeout/refund i 168h",
+      "requires_policy_approval": [
+        "DOM12",
+        "DOM13",
+        "DOM15"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "contracts.settle_receipt.v1"
+    },
+    {
+      "id": "P15-F05",
+      "action": "ResolveDispute",
+      "owner": "Contracts",
+      "route": null,
+      "command": "internal:Contracts.ResolveDispute",
+      "dependencies": "P10/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "contract_disputes",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_accounts",
+          "owner": "Contracts"
+        },
+        {
+          "table": "escrow_movements",
+          "owner": "Contracts"
+        }
+      ],
+      "input_output": "dispute_id, dowody, decision, expected_version → resolved outcome",
+      "transition": "disputed → resolved_settled/split/refunded; max168h; późny GM award poza escrow",
+      "denial": "brak uprawnienia/konflikt dowodów → jawne wstrzymanie do twardego limitu",
+      "acceptance_test": "freeze 72h, cap 168h, replays",
+      "requires_policy_approval": [
+        "DOM12",
+        "DOM13",
+        "DOM15"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "contracts.resolve_dispute.v1"
+    },
+    {
+      "id": "P16-F01",
+      "action": "ChangeBudget",
+      "owner": "Finance",
+      "route": {
+        "method": "PUT",
+        "path": "/api/v1/finance/budgets/{department}"
+      },
+      "command": null,
+      "dependencies": "P03/P06/P08/P11/P12/P15",
+      "read_write_tables": [
+        {
+          "table": "department_budgets",
+          "owner": "Finance"
+        },
+        {
+          "table": "player_finance_decisions",
+          "owner": "Finance"
+        }
+      ],
+      "input_output": "department, low|standard|high, expected_version → effective_at",
+      "transition": "24h cooldown; obniżka emituje morale −6 raz, koszt od kolejnego segmentu czasu",
+      "denial": "brak dyrektora finansów poza jawnie dozwoloną ścieżką emergency → odmowa",
+      "acceptance_test": "zmiana na granicy 24h, strajk, retry",
+      "requires_policy_approval": [
+        "DOM03",
+        "DOM04"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "finance.change_budget.v1"
+    },
+    {
+      "id": "P16-F02",
+      "action": "AccrueCosts",
+      "owner": "Finance",
+      "route": null,
+      "command": "internal:Finance.AccrueCosts",
+      "dependencies": "P03/P06/P08/P11/P12/P15",
+      "read_write_tables": [
+        {
+          "table": "department_budgets",
+          "owner": "Finance"
+        },
+        {
+          "table": "obligations",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "company, from,to, balance_version → obligations/FTS refs",
+      "transition": "segmentowe OPEX/budżety/HR; subgroszowa reszta przenoszona; niedobór tworzy zobowiązanie 72h",
+      "denial": "pauza/vacation/dormant zgodnie z §19.2, bez ujemnego konta",
+      "acceptance_test": "długi Δt, zmiana stawki, dwa workery",
+      "requires_policy_approval": [
+        "DOM03",
+        "DOM04"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "finance.accrue_costs.v1"
+    },
+    {
+      "id": "P16-F03",
+      "action": "ValueAsset",
+      "owner": "Finance",
+      "route": {
+        "method": "GET",
+        "path": "/api/v1/finance/assets/{id}/valuation"
+      },
+      "command": null,
+      "dependencies": "P03/P06/P08/P11/P12/P15",
+      "read_write_tables": [
+        {
+          "table": "asset_valuations",
+          "owner": "Finance"
+        }
+      ],
+      "input_output": "asset_ref, as_of, valuation_purpose → breakdown_minor",
+      "transition": "publiczne snapshoty właścicieli; CAPEX razy stan, depleted ×0,10; refinery według §31.7 bez drugiego ×0,70",
+      "denial": "brak wycenialnego aktywa → typed unavailable, bez zera z domysłu",
+      "acceptance_test": "przeniesienie aktywa, brak podwójnego pozwolenia",
+      "requires_policy_approval": [
+        "DOM03",
+        "DOM04"
+      ],
+      "idempotency": "read_only",
+      "event": null
+    },
+    {
+      "id": "P16-F04",
+      "action": "SnapshotTaxBase",
+      "owner": "Finance",
+      "route": null,
+      "command": "internal:Finance.SnapshotTaxBase",
+      "dependencies": "P03/P06/P08/P11/P12/P15",
+      "read_write_tables": [
+        {
+          "table": "net_worth_snapshots",
+          "owner": "Finance"
+        }
+      ],
+      "input_output": "company, date_utc → immutable tax_base",
+      "transition": "00:00 UTC; kwoty rzeczowe i wierzytelności raz; zawiera aktywa i zapasy według OWNERSHIP",
+      "denial": "ponowny snapshot zwraca ten sam hash, korekta append-only",
+      "acceptance_test": "granica północy, ropa w trasie, escrow",
+      "requires_policy_approval": [
+        "DOM03",
+        "DOM04"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "finance.snapshot_tax_base.v1"
+    },
+    {
+      "id": "P16-F05",
+      "action": "AssessWealthTax",
+      "owner": "Finance",
+      "route": null,
+      "command": "internal:Finance.AssessWealthTax",
+      "dependencies": "P03/P06/P08/P11/P12/P15",
+      "read_write_tables": [
+        {
+          "table": "wealth_tax_assessments",
+          "owner": "Finance"
+        }
+      ],
+      "input_output": "snapshot_id, policy_version → assessment_minor",
+      "transition": "marginalnie od nadwyżki, post Ledger raz; tarcza/tier nie używa dyskonta podatkowego",
+      "denial": "niezatwierdzona polityka → POLICY_NOT_APPROVED",
+      "acceptance_test": "200M/400M/1,2B i retry",
+      "requires_policy_approval": [
+        "DOM03",
+        "DOM04"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "finance.assess_wealth_tax.v1"
+    },
+    {
+      "id": "P17-F01",
+      "action": "EvaluateCreditScore",
+      "owner": "Banking",
+      "route": {
+        "method": "GET",
+        "path": "/api/v1/banking/credit-score"
+      },
+      "command": null,
+      "dependencies": "P15/P16",
+      "read_write_tables": [
+        {
+          "table": "bank_trust_scores",
+          "owner": "Banking"
+        },
+        {
+          "table": "credit_score_history",
+          "owner": "Banking"
+        }
+      ],
+      "input_output": "company, as_of → score/tier/breakdown",
+      "transition": "credibility35%, history35%, solvency20%, tenure10%, bonus clean cap15; cap bankructwo/late/egzekucja",
+      "denial": "brak historii =40, bez arbitralnego neutral=100",
+      "acceptance_test": "start48,5, bonus i aktywne late",
+      "requires_policy_approval": [],
+      "idempotency": "read_only",
+      "event": null
+    },
+    {
+      "id": "P17-F02",
+      "action": "ApplyLoan",
+      "owner": "Banking",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/banking/loans"
+      },
+      "command": null,
+      "dependencies": "P15/P16",
+      "read_write_tables": [
+        {
+          "table": "loans",
+          "owner": "Banking"
+        },
+        {
+          "table": "loan_installments",
+          "owner": "Banking"
+        }
+      ],
+      "input_output": "company, amount_minor, term_days, expected_version → loan/payment plan",
+      "transition": "eligible → approved/funded; tier cap i stawka z YAML, BoardAccess finance; Ledger raz",
+      "denial": "brak zdolności, wakat dyrektora lub dług → odmowa",
+      "acceptance_test": "dwa wnioski pod limitem, retry funding",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "banking.apply_loan.v1"
+    },
+    {
+      "id": "P17-F03",
+      "action": "PayInstallment",
+      "owner": "Banking",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/banking/loans/{id}/payments"
+      },
+      "command": null,
+      "dependencies": "P15/P16",
+      "read_write_tables": [
+        {
+          "table": "loan_installments",
+          "owner": "Banking"
+        },
+        {
+          "table": "loans",
+          "owner": "Banking"
+        }
+      ],
+      "input_output": "loan_id, due_slot, amount_minor → paid/late",
+      "transition": "PLN_BANK → wierzyciel raz; late nalicza +150% stopy bazowej i trust −5/tydzień",
+      "denial": "brak środków → late bez ujemnego salda",
+      "acceptance_test": "deadline kontra wpłata, FTS raz",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "banking.pay_installment.v1"
+    },
+    {
+      "id": "P17-F04",
+      "action": "StartEnforcement",
+      "owner": "Banking",
+      "route": null,
+      "command": "internal:Banking.StartEnforcement",
+      "dependencies": "P15/P16",
+      "read_write_tables": [
+        {
+          "table": "bailiff_proceedings",
+          "owner": "Banking"
+        },
+        {
+          "table": "obligations",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "obligation, logical_at → proceeding/phase",
+      "transition": "late72h→Faza1; wpływy 50%; po7d bez planu Faza2, potem Faza3 zgodnie z kanonem",
+      "denial": "escrow i zarezerwowana ropa wyłączone; brak długu → no-op",
+      "acceptance_test": "receipt kontra zajęcie, timeout i replay",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "banking.start_enforcement.v1"
+    },
+    {
+      "id": "P17-F05",
+      "action": "AuctionAsset",
+      "owner": "Banking",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/banking/auctions/{id}/bids"
+      },
+      "command": null,
+      "dependencies": "P15/P16",
+      "read_write_tables": [
+        {
+          "table": "auctions",
+          "owner": "Banking"
+        }
+      ],
+      "input_output": "proceeding, asset_ref, bid → award/transfer",
+      "transition": "seized → auctioned/transferred; wells/refinery wg kolejności §17.2; procesy i historia zachowane",
+      "denial": "niewłaściwy właściciel lub brak prawa kupującego → odmowa",
+      "acceptance_test": "aukcja kontra dostawa/strajk/EPC",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "banking.auction_asset.v1"
+    },
+    {
+      "id": "P18-F01",
+      "action": "PlanSabotage",
+      "owner": "Legal",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/legal/sabotage-operations"
+      },
+      "command": null,
+      "dependencies": "P10/P13/P15/P17",
+      "read_write_tables": [
+        {
+          "table": "sabotage_operations",
+          "owner": "Legal"
+        },
+        {
+          "table": "victim_attack_windows",
+          "owner": "Legal"
+        }
+      ],
+      "input_output": "attacker, victim, target_ref, operation_code, expected_version → op_id/due_at",
+      "transition": "planned opłaca koszt PLN_CASH raz; zapisuje seed i termin; sprawdza cooldown",
+      "denial": "własna firma, osłona celu, limit ofiary → odmowa/refund wg fazy",
+      "acceptance_test": "dwa ataki na granicy5/7dni",
+      "requires_policy_approval": [
+        "DOM09"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "legal.plan_sabotage.v1"
+    },
+    {
+      "id": "P18-F02",
+      "action": "ResolveSabotage",
+      "owner": "Legal",
+      "route": null,
+      "command": "internal:Legal.ResolveSabotage",
+      "dependencies": "P10/P13/P15/P17",
+      "read_write_tables": [
+        {
+          "table": "sabotage_operations",
+          "owner": "Legal"
+        },
+        {
+          "table": "victim_attack_windows",
+          "owner": "Legal"
+        }
+      ],
+      "input_output": "op_id, due_slot → succeeded/failed/cancelled",
+      "transition": "ponownie sprawdza target/tarcza, trwały RNG; sukces stosuje limit szkody, wpadka −15 cred+100k",
+      "denial": "replay job/sweeper nie losuje ani nie obciąża ponownie",
+      "acceptance_test": "sprzedaż celu, urlop i ochrona tuż przed due",
+      "requires_policy_approval": [
+        "DOM09"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "legal.resolve_sabotage.v1"
+    },
+    {
+      "id": "P18-F03",
+      "action": "BuyProtection",
+      "owner": "Legal",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/legal/protections"
+      },
+      "command": null,
+      "dependencies": "P10/P13/P15/P17",
+      "read_write_tables": [
+        {
+          "table": "protection_policies",
+          "owner": "Legal"
+        },
+        {
+          "table": "protection_activations",
+          "owner": "Legal"
+        }
+      ],
+      "input_output": "module, asset_ref, quoted_cost_minor → policy/effective_at",
+      "transition": "basic/armed jeden kurs; drony/hub 7dni od następnego sweepa; Ledger i wersja polityki raz",
+      "denial": "niewystarczające środki albo brak dyrektora dla konwoju → odmowa",
+      "acceptance_test": "ochrona kupiona po starcie ataku nie działa wstecz",
+      "requires_policy_approval": [
+        "DOM09"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "legal.buy_protection.v1"
+    },
+    {
+      "id": "P18-F04",
+      "action": "InvestigateAbuse",
+      "owner": "Legal",
+      "route": null,
+      "command": "internal:Legal.InvestigateAbuse",
+      "dependencies": "P10/P13/P15/P17",
+      "read_write_tables": [
+        {
+          "table": "abuse_reports",
+          "owner": "Legal"
+        }
+      ],
+      "input_output": "report_id, evidence_refs, GM decision → audited outcome",
+      "transition": "raport → reviewing/resolved; decyzja zapisuje audit i ewentualną sankcję przez ownera",
+      "denial": "bez audytu/bez capability → odmowa",
+      "acceptance_test": "cross-company data, spam report, retry GM",
+      "requires_policy_approval": [
+        "DOM09"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "legal.investigate_abuse.v1"
+    },
+    {
+      "id": "P19-F01",
+      "action": "StartEpcBuild",
+      "owner": "Refining",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/refining/epc-contracts"
+      },
+      "command": null,
+      "dependencies": "P08/P10/P12/P13/P14/P15/P16/P17",
+      "read_write_tables": [
+        {
+          "table": "refinery_plots",
+          "owner": "Refining"
+        },
+        {
+          "table": "epc_contracts",
+          "owner": "Refining"
+        },
+        {
+          "table": "epc_stages",
+          "owner": "Refining"
+        }
+      ],
+      "input_output": "plot_id, archetype, quote_version, expected_version → epc_id/stage plan",
+      "transition": "plot owned/permit valid → signed/building; rata przez Ledger raz, snapshot archetypu i due events",
+      "denial": "limit2 budów, brak środków/pozwolenia → rollback",
+      "acceptance_test": "równoległy start, gray F flag, takeover",
+      "requires_policy_approval": [
+        "DOM06",
+        "DOM08",
+        "DOM10",
+        "DOM11"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "refining.start_epc_build.v1"
+    },
+    {
+      "id": "P19-F02",
+      "action": "AdvanceBuild",
+      "owner": "Refining",
+      "route": null,
+      "command": "internal:Refining.AdvanceBuild",
+      "dependencies": "P08/P10/P12/P13/P14/P15/P16/P17",
+      "read_write_tables": [
+        {
+          "table": "epc_contracts",
+          "owner": "Refining"
+        },
+        {
+          "table": "epc_stages",
+          "owner": "Refining"
+        },
+        {
+          "table": "refineries",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "epc_id, due_stage, state_version → stage/result",
+      "transition": "signed/building/paused_funds → next/completed; exact due_at, cap kosztu, brak reroll",
+      "denial": "brak raty → paused_funds; worker retry no-op",
+      "acceptance_test": "awaria job, aukcja w budowie, drugi worker",
+      "requires_policy_approval": [
+        "DOM06",
+        "DOM08",
+        "DOM10",
+        "DOM11"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "refining.advance_build.v1"
+    },
+    {
+      "id": "P19-F03",
+      "action": "SelectRecipe",
+      "owner": "Refining",
+      "route": {
+        "method": "PUT",
+        "path": "/api/v1/refining/refineries/{id}/recipe"
+      },
+      "command": null,
+      "dependencies": "P08/P10/P12/P13/P14/P15/P16/P17",
+      "read_write_tables": [
+        {
+          "table": "refinery_recipe_versions",
+          "owner": "Refining"
+        },
+        {
+          "table": "refineries",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "refinery_id, recipe_code, effective_from, demand_snapshot, expected_version → selected recipe",
+      "transition": "jawny wybór A/B/C na kolejny segment; podgląd popytu i kontraktów, ale nie automatyczna zmiana bez akcji",
+      "denial": "brak wsadu, nielegalna receptura/umowa → odmowa",
+      "acceptance_test": "zmiana w połowie segmentu, kontrakt jet/RARS",
+      "requires_policy_approval": [
+        "DOM06",
+        "DOM08",
+        "DOM10",
+        "DOM11"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "refining.select_recipe.v1"
+    },
+    {
+      "id": "P19-F04",
+      "action": "SettleRefinery",
+      "owner": "Refining",
+      "route": null,
+      "command": "internal:Refining.SettleRefinery",
+      "dependencies": "P08/P10/P12/P13/P14/P15/P16/P17",
+      "read_write_tables": [
+        {
+          "table": "refinery_runs",
+          "owner": "Refining"
+        },
+        {
+          "table": "product_movements",
+          "owner": "Refining"
+        },
+        {
+          "table": "refineries",
+          "owner": "P01-P13 (public contract)"
+        }
+      ],
+      "input_output": "refinery_id, from,to,balance_version → oil/product movements, OPEX/FTS refs",
+      "transition": "faza2.9 przerób i flara max2h, faza5 FTS; produkty tworzone tylko z realnego wsadu, pełny zbiornik → standby",
+      "denial": "strike/awaria/zmiana właściciela segmentuje czas",
+      "acceptance_test": "długi Δt, brak double OPEX, receptury i jakość",
+      "requires_policy_approval": [
+        "DOM06",
+        "DOM08",
+        "DOM10",
+        "DOM11"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "refining.settle_refinery.v1"
+    },
+    {
+      "id": "P19-F05",
+      "action": "SubmitInsuranceClaim",
+      "owner": "Refining",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/refining/claims"
+      },
+      "command": null,
+      "dependencies": "P08/P10/P12/P13/P14/P15/P16/P17",
+      "read_write_tables": [
+        {
+          "table": "insurance_claims",
+          "owner": "Refining"
+        },
+        {
+          "table": "insurance_policies",
+          "owner": "Refining"
+        }
+      ],
+      "input_output": "incident_id, policy_id, evidence_refs → claim/status",
+      "transition": "reported→validated→queued/paid; deductible przed cap50M/dobę i saldem pool, malus raz",
+      "denial": "duplikat szkody albo brak polisy → odmowa",
+      "acceptance_test": "wiele szkód tego dnia, wypłata po retry",
+      "requires_policy_approval": [
+        "DOM06",
+        "DOM08",
+        "DOM10",
+        "DOM11"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "refining.submit_insurance_claim.v1"
+    },
+    {
+      "id": "P20-F01",
+      "action": "CreateOrder",
+      "owner": "Monetization",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/monetization/orders"
+      },
+      "command": null,
+      "dependencies": "P02/P03/P05/P06/P17",
+      "read_write_tables": [
+        {
+          "table": "payment_orders",
+          "owner": "Monetization"
+        }
+      ],
+      "input_output": "product_code, channel, client_key → order_id/payment_intent",
+      "transition": "draft→pending; cena i benefit z zatwierdzonej wersji katalogu",
+      "denial": "brak aktywnego produktu/nielegalny kanał → odmowa",
+      "acceptance_test": "dwa kliknięcia jedna intencja",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "monetization.create_order.v1"
+    },
+    {
+      "id": "P20-F02",
+      "action": "VerifyWebhook",
+      "owner": "Monetization",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/payments/webhooks/{provider}"
+      },
+      "command": null,
+      "dependencies": "P02/P03/P05/P06/P17",
+      "read_write_tables": [
+        {
+          "table": "payment_events",
+          "owner": "Monetization"
+        },
+        {
+          "table": "payment_transactions",
+          "owner": "Monetization"
+        }
+      ],
+      "input_output": "provider_event_id, signature, payload_hash → accepted/no-op",
+      "transition": "pending→paid/failed/refunded według adaptera; zapisz surowy id i zredagowany audit raz",
+      "denial": "błędny podpis/kwota/waluta → reject bez benefitów",
+      "acceptance_test": "out-of-order i duplikat eventu",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "monetization.verify_webhook.v1"
+    },
+    {
+      "id": "P20-F03",
+      "action": "GrantGbbl",
+      "owner": "Monetization",
+      "route": null,
+      "command": "internal:Monetization.GrantGbbl",
+      "dependencies": "P02/P03/P05/P06/P17",
+      "read_write_tables": [
+        {
+          "table": "gbbl_ledger",
+          "owner": "Monetization"
+        },
+        {
+          "table": "premium_entitlements",
+          "owner": "Monetization"
+        }
+      ],
+      "input_output": "paid_order_id, receipt_ref → grant_id/balance",
+      "transition": "paid→granted; gbbl_ledger i benefit raz, outbox po commit",
+      "denial": "niepotwierdzona płatność → no-op/odmowa",
+      "acceptance_test": "webhook kontra retry/reversal",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "monetization.grant_gbbl.v1"
+    },
+    {
+      "id": "P20-F04",
+      "action": "ConvertGbbl",
+      "owner": "Monetization",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/monetization/gbbl/conversions"
+      },
+      "command": null,
+      "dependencies": "P02/P03/P05/P06/P17",
+      "read_write_tables": [
+        {
+          "table": "gbbl_conversions",
+          "owner": "Monetization"
+        },
+        {
+          "table": "gbbl_accounts",
+          "owner": "Monetization"
+        }
+      ],
+      "input_output": "company_id, amount, expected_version → conversion_id/cash_minor",
+      "transition": "GBBL debit→PLN game FTS, drip30d/tier_base; blokada recovery/faza2 egzekucji",
+      "denial": "brak GBBL/nieaktywny balans → odmowa",
+      "acceptance_test": "równoległe konwersje, tier północ",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "monetization.convert_gbbl.v1"
+    },
+    {
+      "id": "P20-F05",
+      "action": "ApplyChargeback",
+      "owner": "Monetization",
+      "route": null,
+      "command": "internal:Monetization.ApplyChargeback",
+      "dependencies": "P02/P03/P05/P06/P17",
+      "read_write_tables": [
+        {
+          "table": "payment_events",
+          "owner": "Monetization"
+        },
+        {
+          "table": "gbbl_accounts",
+          "owner": "Monetization"
+        }
+      ],
+      "input_output": "payment_event_id, order_id → chargeback/debt",
+      "transition": "granted→charged_back; historia immutable, dług GBBL i blokada zakupów/kroplówki",
+      "denial": "duplikat eventu bez drugiego długu",
+      "acceptance_test": "zużyty benefit, refund po grant, retry",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "monetization.apply_chargeback.v1"
+    },
+    {
+      "id": "P21-F01",
+      "action": "SendMessage",
+      "owner": "Social",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/social/threads/{id}/messages"
+      },
+      "command": null,
+      "dependencies": "P02/P04/P06/P18",
+      "read_write_tables": [
+        {
+          "table": "chat_threads",
+          "owner": "Social"
+        },
+        {
+          "table": "chat_messages",
+          "owner": "Social"
+        }
+      ],
+      "input_output": "thread_id, text, client_key → message_id",
+      "transition": "member→posted; sanitize i ograniczenie długości, outbox po commit",
+      "denial": "cudzy kanał/ban/rate limit → odmowa",
+      "acceptance_test": "dwa urządzenia, replay, XSS",
+      "requires_policy_approval": [
+        "DOM05"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "social.send_message.v1"
+    },
+    {
+      "id": "P21-F02",
+      "action": "JoinCartel",
+      "owner": "Social",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/social/cartels/{id}/members"
+      },
+      "command": null,
+      "dependencies": "P02/P04/P06/P18",
+      "read_write_tables": [
+        {
+          "table": "cartels",
+          "owner": "Social"
+        },
+        {
+          "table": "cartel_memberships",
+          "owner": "Social"
+        }
+      ],
+      "input_output": "cartel_id, expected_version → membership",
+      "transition": "eligible→active; max5 członków i limit produkcji40%, relacja B2B od effective_at",
+      "denial": "brak prawa/pełny kartel → 409",
+      "acceptance_test": "równoległe zaproszenia i limit40%",
+      "requires_policy_approval": [
+        "DOM05"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "social.join_cartel.v1"
+    },
+    {
+      "id": "P21-F03",
+      "action": "LeaveCartel",
+      "owner": "Social",
+      "route": {
+        "method": "DELETE",
+        "path": "/api/v1/social/cartels/{id}/members/me"
+      },
+      "command": null,
+      "dependencies": "P02/P04/P06/P18",
+      "read_write_tables": [
+        {
+          "table": "cartel_memberships",
+          "owner": "Social"
+        }
+      ],
+      "input_output": "membership_id → ended_at",
+      "transition": "active→left; przyszłe prowizje wg snapshot, stare rozliczenia bez zmian",
+      "denial": "retry → ten sam wynik",
+      "acceptance_test": "B2B w locie, fee collar",
+      "requires_policy_approval": [
+        "DOM05"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "social.leave_cartel.v1"
+    },
+    {
+      "id": "P21-F04",
+      "action": "ModerateMessage",
+      "owner": "Social",
+      "route": null,
+      "command": "internal:Social.ModerateMessage",
+      "dependencies": "P02/P04/P06/P18",
+      "read_write_tables": [
+        {
+          "table": "chat_messages",
+          "owner": "Social"
+        },
+        {
+          "table": "moderation_reports",
+          "owner": "Social"
+        }
+      ],
+      "input_output": "message_id, decision, reason_code → moderation_record",
+      "transition": "visible→hidden/redacted z trwałą historią, osobny audit",
+      "denial": "moderator bez scope →403, brak cichego UPDATE treści",
+      "acceptance_test": "appeal, data retention, race",
+      "requires_policy_approval": [
+        "DOM05"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "social.moderate_message.v1"
+    },
+    {
+      "id": "P21-F05",
+      "action": "AuthorizeChannel",
+      "owner": "Social",
+      "route": null,
+      "command": "internal:Social.AuthorizeChannel",
+      "dependencies": "P02/P04/P06/P18",
+      "read_write_tables": [
+        {
+          "table": "channel_grants",
+          "owner": "Social"
+        }
+      ],
+      "input_output": "actor, channel, connection_epoch → grant/deny",
+      "transition": "scope po logowaniu i przy każdej rewokacji; WS bez payload prywatnych danych po zmianie ról",
+      "denial": "stara sesja/ban → disconnect",
+      "acceptance_test": "otwarty WebSocket po revokacji",
+      "requires_policy_approval": [
+        "DOM05"
+      ],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "social.authorize_channel.v1"
+    },
+    {
+      "id": "P22-F01",
+      "action": "AdvanceTutorial",
+      "owner": "Onboarding",
+      "route": null,
+      "command": "internal:Onboarding.AdvanceTutorial",
+      "dependencies": "P02/P04/P06/P11/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "tutorial_progress",
+          "owner": "Onboarding"
+        }
+      ],
+      "input_output": "company_id, step_code, source_event → progress/reward",
+      "transition": "pending→complete raz po domenowym dowodzie; etap szkoleniowego odwiertu i logistyki według §27.1a",
+      "denial": "pusty event/obca firma → odmowa",
+      "acceptance_test": "dwa wejścia i ponowny start firmy",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "onboarding.advance_tutorial.v1"
+    },
+    {
+      "id": "P22-F02",
+      "action": "GrantAchievement",
+      "owner": "Onboarding",
+      "route": null,
+      "command": "internal:Onboarding.GrantAchievement",
+      "dependencies": "P02/P04/P06/P11/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "achievement_grants",
+          "owner": "Onboarding"
+        }
+      ],
+      "input_output": "company, achievement_code, evidence_id → grant",
+      "transition": "not_granted→granted; reward przez Ledger/GBBL raz",
+      "denial": "stary event replay → no-op",
+      "acceptance_test": "exactly once reward",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "onboarding.grant_achievement.v1"
+    },
+    {
+      "id": "P22-F03",
+      "action": "DeliverNotification",
+      "owner": "Onboarding",
+      "route": null,
+      "command": "internal:Onboarding.DeliverNotification",
+      "dependencies": "P02/P04/P06/P11/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "notifications",
+          "owner": "Onboarding"
+        },
+        {
+          "table": "notification_deliveries",
+          "owner": "Onboarding"
+        }
+      ],
+      "input_output": "event_id, recipient_id, channel → delivery result",
+      "transition": "outbox→pending→sent/failed/retry; centrum in-app trwałe, push/email adaptery",
+      "denial": "wyłączenie push nie usuwa wpisu in-app",
+      "acceptance_test": "awaria FCM, duplicate job, offline",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "onboarding.deliver_notification.v1"
+    },
+    {
+      "id": "P22-F04",
+      "action": "UpdatePreferences",
+      "owner": "Onboarding",
+      "route": {
+        "method": "PUT",
+        "path": "/api/v1/notifications/preferences"
+      },
+      "command": null,
+      "dependencies": "P02/P04/P06/P11/P12/P14",
+      "read_write_tables": [
+        {
+          "table": "notification_preferences",
+          "owner": "Onboarding"
+        }
+      ],
+      "input_output": "user_id, categories/channels, expected_version → preferences",
+      "transition": "CAS; krytyczne systemowe nie zależą od opt-in marketingu",
+      "denial": "brak zgody newsletter → nie wysyłaj",
+      "acceptance_test": "zmiana zgody w trakcie kolejki",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "onboarding.update_preferences.v1"
+    },
+    {
+      "id": "P23-F01",
+      "action": "PublishPage",
+      "owner": "Core Privacy",
+      "route": null,
+      "command": "internal:Core Privacy.PublishPage",
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "static_pages",
+          "owner": "CMS"
+        },
+        {
+          "table": "page_versions",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "draft_id, locale, expected_hash → page_version",
+      "transition": "draft→published immutable; sanitizacja HTML i bezpieczny preview",
+      "denial": "zabroniony element/konflikt hash → odmowa",
+      "acceptance_test": "XSS, dwie publikacje",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.publish_page.v1"
+    },
+    {
+      "id": "P23-F02",
+      "action": "PublishPolicy",
+      "owner": "Core Privacy",
+      "route": null,
+      "command": "internal:Core Privacy.PublishPolicy",
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "privacy_policies",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "policy_version, effective_at → active",
+      "transition": "draft→active; snapshot treści i hash, nowa zgoda przy wymaganej zmianie",
+      "denial": "brak tłumaczenia/akceptacji → odmowa",
+      "acceptance_test": "wersja historyczna i odwołanie",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.publish_policy.v1"
+    },
+    {
+      "id": "P23-F03",
+      "action": "RecordConsent",
+      "owner": "Core Privacy",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/privacy/consents"
+      },
+      "command": null,
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "consent_records",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "user_id, policy_version, purpose, action → consent_event",
+      "transition": "grant/withdraw append-only; preferencje wynikają z ostatniego zdarzenia",
+      "denial": "obcy użytkownik →403/404",
+      "acceptance_test": "równoległa zgoda i withdrawal",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.record_consent.v1"
+    },
+    {
+      "id": "P23-F04",
+      "action": "ExportPersonalData",
+      "owner": "Core Privacy",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/privacy/exports"
+      },
+      "command": null,
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "privacy_requests",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "verified_actor, request_id → private archive/ref",
+      "transition": "requested→prepared→downloaded; chwilowy link, audyt pobrania",
+      "denial": "brak identity step-up → odmowa",
+      "acceptance_test": "cudze dane, wygaśnięcie linku",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.export_personal_data.v1"
+    },
+    {
+      "id": "P23-F05",
+      "action": "AnonymizeUser",
+      "owner": "Core Privacy",
+      "route": {
+        "method": "POST",
+        "path": "/api/v1/privacy/anonymization-requests"
+      },
+      "command": null,
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "privacy_requests",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "approved_request, scope → anonymization_report",
+      "transition": "pending→completed; PII ukryte/usunięte wg retencji, FTS i historia gospodarcza zachowane",
+      "denial": "aktywny obowiązek/hold → kontrolowany stan oczekiwania",
+      "acceptance_test": "rekoncyliacja po anonimizacji",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.anonymize_user.v1"
+    },
+    {
+      "id": "P23-F06",
+      "action": "SendNewsletter",
+      "owner": "Core Privacy",
+      "route": null,
+      "command": "internal:Core Privacy.SendNewsletter",
+      "dependencies": "P02/P05/P06/P21/P22",
+      "read_write_tables": [
+        {
+          "table": "newsletter_campaigns",
+          "owner": "CMS"
+        },
+        {
+          "table": "newsletter_deliveries",
+          "owner": "CMS"
+        }
+      ],
+      "input_output": "campaign_id, audience_snapshot → delivery batch",
+      "transition": "draft→approved→sending→completed; TinyMCE sanitized, zgoda sprawdzona przy wysyłce",
+      "denial": "withdrawn consent → skip",
+      "acceptance_test": "duplikat job, unsubscribe i bounce",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "core privacy.send_newsletter.v1"
+    },
+    {
+      "id": "P24-F01",
+      "action": "SnapshotResource",
+      "owner": "Client Delivery",
+      "route": null,
+      "command": "internal:Client Delivery.SnapshotResource",
+      "dependencies": "P05–P23",
+      "read_write_tables": [
+        {
+          "table": "client_version_support",
+          "owner": "Client"
+        }
+      ],
+      "input_output": "resource_type/id, as_of → server snapshot/version",
+      "transition": "GET rozlicza przez Settlement, maskuje prywatne pola, ETag/state_version",
+      "denial": "cudzy zasób →404",
+      "acceptance_test": "web/mobile ten sam wynik",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "client delivery.snapshot_resource.v1"
+    },
+    {
+      "id": "P24-F02",
+      "action": "ApiClientContract",
+      "owner": "Client Delivery",
+      "route": null,
+      "command": "internal:Client Delivery.ApiClientContract",
+      "dependencies": "P05–P23",
+      "read_write_tables": [
+        {
+          "table": "client_version_support",
+          "owner": "Client"
+        }
+      ],
+      "input_output": "OpenAPI package and auth state → generated client binding",
+      "transition": "Bearer 15min/refresh rotation, web cookie+CSRF; brak tokenu w localStorage; retry tylko przy idempotencji",
+      "denial": "expired token → refresh raz; conflict→sync UI",
+      "acceptance_test": "stara wersja klienta, logout/revocation",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "client delivery.api_client_contract.v1"
+    },
+    {
+      "id": "P24-F03",
+      "action": "DeepLinkRouting",
+      "owner": "Client Delivery",
+      "route": null,
+      "command": "internal:Client Delivery.DeepLinkRouting",
+      "dependencies": "P05–P23",
+      "read_write_tables": [
+        {
+          "table": "ui_preferences",
+          "owner": "Client"
+        }
+      ],
+      "input_output": "app link, auth state, locale → safe screen",
+      "transition": "allowlista domen i tras; route to active resource after auth",
+      "denial": "brak dostępu → safe 404, bez ujawniania istnienia",
+      "acceptance_test": "Android/iOS, offline, 320–1440 px",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "client delivery.deep_link_routing.v1"
+    },
+    {
+      "id": "P25-F01",
+      "action": "BuildReleaseReport",
+      "owner": "Operations",
+      "route": null,
+      "command": "internal:Operations.BuildReleaseReport",
+      "dependencies": "P01–P24",
+      "read_write_tables": [
+        {
+          "table": "release_reports",
+          "owner": "Operations"
+        }
+      ],
+      "input_output": "commit, schema version, balance hash, test artifacts → signed report",
+      "transition": "draft→verified; wszystkie bramki i artefakty, bez ręcznego oznaczania PASS",
+      "denial": "brak dowodu → blocked",
+      "acceptance_test": "fałszywy green CI kontra real deploy",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "operations.build_release_report.v1"
+    },
+    {
+      "id": "P25-F02",
+      "action": "RunReconciliation",
+      "owner": "Operations",
+      "route": null,
+      "command": "internal:Operations.RunReconciliation",
+      "dependencies": "P01–P24",
+      "read_write_tables": [
+        {
+          "table": "reconciliation_runs",
+          "owner": "Operations"
+        }
+      ],
+      "input_output": "world snapshot, interval → discrepancy report",
+      "transition": "read-only źródła FTS, bbl, escrow, GBBL, due/outbox; korekta oddzielną autoryzowaną akcją",
+      "denial": "wykryta różnica → alert, nie cicha naprawa",
+      "acceptance_test": "double FTS, orphan due, stock divergence",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "operations.run_reconciliation.v1"
+    },
+    {
+      "id": "P25-F03",
+      "action": "RestoreWorld",
+      "owner": "Operations",
+      "route": null,
+      "command": "internal:Operations.RestoreWorld",
+      "dependencies": "P01–P24",
+      "read_write_tables": [
+        {
+          "table": "restore_reports",
+          "owner": "Operations"
+        }
+      ],
+      "input_output": "backup_id, target_env, expected_checksum → restore report",
+      "transition": "test w izolacji, RPO/RTO pomiar, worker fencing i replay idempotentny",
+      "denial": "checksum mismatch → stop",
+      "acceptance_test": "przerwana kopia i odtworzenie",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "operations.restore_world.v1"
+    },
+    {
+      "id": "P25-F04",
+      "action": "VerifyRelease",
+      "owner": "Operations",
+      "route": null,
+      "command": "internal:Operations.VerifyRelease",
+      "dependencies": "P01–P24",
+      "read_write_tables": [
+        {
+          "table": "release_reports",
+          "owner": "Operations"
+        },
+        {
+          "table": "alert_events",
+          "owner": "Operations"
+        }
+      ],
+      "input_output": "release_id, probes, rollback_ref → ready/blocked",
+      "transition": "health HTTP/queue/DB, migracje, klient, 90dni i inflacja<5% stałego koszyka",
+      "denial": "jakikolwiek wymagany FAIL → blocked",
+      "acceptance_test": "pełny gate P25, rollback drill",
+      "requires_policy_approval": [],
+      "idempotency": "Idempotency-Key or stable domain key + CAS",
+      "event": "operations.verify_release.v1"
+    }
+  ]
+}
