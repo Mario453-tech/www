@@ -1584,3 +1584,28 @@ Przed aktywacją A: (1) test 90 dni z co najmniej starterem, zmianami, chorobami
 
 Status po tej decyzji: otwarte pozostają **kalibracja** cen/ryzyka/marży, rzeczywiste baseline HR, dokładne karty DDL/OpenAPI i integracja safe-stop z domenami. Nie wpisujemy „zamknięte” w historycznym rejestrze DOM przed propagacją zmian do kart i testów.
 
+
+
+### 19.8. Podział kodu Staff — obowiązkowa granica implementacji
+
+Staff jest modułem odpowiedzialnym za kadry, **nie jedną klasą ani jednym serwisem**. Docelowy podział wewnętrzny:
+
+| Część | Właściciel zapisu | Przykładowe akcje |
+|---|---|---|
+| Recruitment | kampanie, kandydatury, oferty | QuoteCampaign, StartCampaign, MakeOffer |
+| Employment | zatrudnienia, wersje umów, aneksy, zakończenia | HireEmployee, AmendContract, EndEmployment |
+| Scheduling | grafiki, rezerwacje czasu, przydziały | PublishRoster, ReserveTime, ReleaseAssignment |
+| Absences | wnioski urlopowe, epizody chorobowe, zastępstwa | ApproveLeave, RecordIllness, RequestReplacement |
+| Payroll | należności pracownicze i składniki naliczeń | AccruePay, FinalizePay; księgowanie przez Finance/Ledger |
+| Training | zapisy, postęp, egzaminy, uprawnienia | EnrollTraining, CompleteExam |
+| Assessments | dowody i oceny HR, kolejka analiz | RecordObservation, RequestAssessment, PublishAssessment |
+
+Każda akcja ma własną odpowiedzialność, walidację wejścia, autoryzację, idempotencję i testy. Nie tworzymy `StaffService` prowadzącego wszystkie procesy ani kontrolera/Resource Filament z logiką gry. Wspólne małe kontrakty, np. EmployeeRef, AvailabilityQuery, TimeReservation i EmploymentTerms, łączą części Staff; nie dają im prawa do bezpośredniej zmiany cudzych tabel.
+
+Jedna czynność domenowa ma jeden tor wykonania: web Vue, mobilne API, panel Filament, job i sweeper wywołują właściwą akcję lub usługę aplikacyjną. Transport odpowiada za uwierzytelnienie, walidację i odpowiedź, a reguły i zapis wykonuje właściciel. Akcje nie wywołują wzajemnie prywatnych repozytoriów; przepływ między częściami odbywa się przez publiczny kontrakt/zdarzenie z jednoznacznym właścicielem transakcji.
+
+Staff nie księguje gotówki samodzielnie. Payroll wystawia należność i komponent z unikalnym source key, Finance/Ledger wykonuje zapis finansowy raz. Scheduling jest źródłem dostępności; Recruitment i Assessments korzystają z jego zapytań, nie prowadzą własnego kalendarza. Assessment nigdy nie otrzymuje ukrytego profilu jako wejścia.
+
+Wariant B rozwija wybraną część przez nową wersję katalogu lub zarejestrowaną strategię. Nie wymaga kopiowania modułu, równoległego endpointu z drugą logiką ani przepisania Payroll po zmianie Recruitment. Migracje i publiczne kontrakty wersjonujemy tylko tam, gdzie faktycznie zmieniają pola lub semantykę.
+
+Przed kodowaniem każdej funkcji karta implementacyjna wskazuje: część Staff, akcję, właściciela tabel, publiczne kontrakty, zdarzenia, transakcję/lock order, DTO i testy. Code review odrzuca duplikację tej samej reguły w web/API/Filament oraz bezpośredni zapis danych części przez inną część. Ta zasada obowiązuje również nowe funkcje wariantu B.
