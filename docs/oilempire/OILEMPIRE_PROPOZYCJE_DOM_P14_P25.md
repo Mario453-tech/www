@@ -18,13 +18,14 @@ Status wszystkich poniższych wartości: **do zatwierdzenia przez właściciela 
 - **Testy graniczne:** 0/2/15/16%, brak środków, retry, jednoczesna zmiana płacy.
 - **Stan:** `proposed_pending_owner_approval`; dla niezatwierdzonej części `POLICY_NOT_APPROVED`.
 
-## DOM05 — Kara kartelu
+## DOM05 — Propagacja sankcji kartelowej
 
-- **Propozycja:** Jedno udowodnione naruszenie: −15 wiarygodności i −15 reputacji B2B; propagację drugiego efektu z tego samego event_id zmniejszyć o 50%, zaokrąglić w dół tylko na końcu; brak duplikacji po retry.
-- **Przykład:** B2B 80 i wiarygodność 70 → B2B 65, wiarygodność 55; wtórna propagacja 15×0,5 = 7,5 wg istniejącej reguły rounding.
-- **Wpływ na balans:** Silna, ale ograniczona sankcja; weryfikować wolumen kontraktów i arbitraż.
-- **Testy graniczne:** Dwa raporty o tym samym event_id, wynik 0 i 100, równoległa publikacja.
-- **Stan:** `proposed_pending_owner_approval`; dla niezatwierdzonej części `POLICY_NOT_APPROVED`.
+- **Reguła już ustalona w kanonie §21/§26.3:** po 3 oflagowanych transakcjach w 7 dni obie strony otrzymują −15 company_credibility i −15 b2b_reputation_score oraz 30 dni zawieszenia zwolnienia z prowizji. Propozycja nie zmienia progu, kar ani czasu.
+- **Propozycja tylko dla otwartej części:** oba bezpośrednie spadki są wynikiem końcowym pojedynczego sanction_event_id; ogólny listener propagacji reputacji nie nalicza od tego samego event_id kolejnego spadku B2B. Dwa różne zdarzenia nadal mogą mieć odrębne skutki według kanonu.
+- **Przykład:** 2 flagi → brak sankcji. Trzecia flaga w 7 dni: credibility 70→55, B2B 80→65, zwolnienie z prowizji zawieszone na 30 dni; retry tego samego event_id nie zmienia wyniku.
+- **Wpływ na balans:** brak podwójnej kary z jednego wyzwalacza; sprawdzić częstotliwość progu i obroty B2B, bez zmiany aktywnego YAML.
+- **Testy graniczne:** 2/3/4 flagi, 7 dni ±1 ms, dwie strony, dwa równoległe handlery, retry event_id, 30 dni ±1 ms.
+- **Stan:** `proposed_pending_owner_approval` wyłącznie dla propagacji; sankcja progowa pozostaje kanoniczna.
 
 ## DOM06 — Techniczne szkolenia — częściowe
 
