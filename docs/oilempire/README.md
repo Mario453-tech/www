@@ -121,8 +121,8 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 - [P19–P20: rafineria/EPC/ubezpieczenia i płatności](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md)
 - [P21–P24: komunikacja, powiadomienia, CMS/prywatność i klient](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md)
 - [P25: wydanie i eksploatacja](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md)
-- [Manifest 56 kart i właścicieli tabel](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [projekt DDL MySQL 8.4](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [projekt OpenAPI 3.1](OILEMPIRE_OPENAPI_P14_P25_V1.yaml)
-- [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md) i [raport weryfikacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md)
+- [Manifest 89 kart i właścicieli tabel](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [kontrakty szczegółowe](OILEMPIRE_KONTRAKTY_AKCJI_P14_P25.md), [projekt DDL MySQL 8.4](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) i [providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml)
+- [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md), [migracje](OILEMPIRE_MIGRACJE_P14_P25.md), [runbook P25](OILEMPIRE_RUNBOOK_P25.md) i [raport weryfikacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md)
 - [Propozycje DOM do zatwierdzenia](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md)
 
 To dokumentacja do programowania. Nie stanowi działającego silnika ani zatwierdzonej wersji balansu. DDL wymaga sprawdzenia preflight na rzeczywistym schemacie P01–P13, a pełne testy MySQL, PHP, API, UI i 90 dni wymagają implementacji.
