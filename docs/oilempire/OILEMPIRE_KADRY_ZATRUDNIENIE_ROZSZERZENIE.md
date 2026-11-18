@@ -1208,3 +1208,107 @@ B20 panel waliduje legalne komórki, zakres0..1, dodatni span, hash i kompletno�
 
 Domknięte dokumentacyjnie: katalog obserwacji, jednostki, zasady przypisania, dobór porównywalnych norm i procedura kalibracji. Otwarte: mapowanie role_code/producerów i DDL/OpenAPI, liczbowe bandy/ekspozycja oraz rzeczywiste expected/tolerance/span z harnessu. Nie oznaczać ASSESS-CFG01 ani ASSESS-QA01 jako zakończonych na podstawie samego opisu. Żaden z testów B01–B22 nie jest tu deklarowany jako uruchomiony test Laravel.
 
+
+
+### 18.17. Organizacja działu HR — HR-OPS-01
+
+Status: kandydat reguł gry do kalibracji; dokumentacja, bez aktywacji balansu i implementacji. Rozwija §18.8; nie zmienia progów poznawania pracownika z §18.15 ani ochrony ukrytego profilu.
+
+#### A. Obsada i mandat
+
+Analizę może wykonywać dyrektor HR lub pracownik z istniejącej rodziny analityków, któremu nadano funkcję analityka HR. Nie tworzymy nowego duplikatu umiejętności: używamy skill_analysis i skill_organization. Mapa role_code → dopuszczalna funkcja musi zostać zatwierdzona przed aktywacją; nie każdy analityk ma automatyczny dostęp do kadr.
+
+Warunki: aktywna umowa, uprawniona rola, przydział do HR, dodatnia dostępność, brak kolizji z urlopem, chorobą, strajkiem, szkoleniem i inną pracą. Dyrektor HR nie jest obowiązkowy do działania podstawowych kadr. Właściciel firmy zarządza personelem przez UI, ale jego konto nie jest darmowym pracownikiem wykonującym analizy.
+
+Gracz ustala udział czasu na analizy0–100% i priorytet względem pozostałych obowiązków. Rezerwacje obejmują rzeczywisty grafik. Kandydat domyślny przy włączeniu funkcji:25%, wymagający zatwierdzenia planu. Przydział nie jest dodatkowym etatem. Nie można wykorzystać tej samej godziny na analizę, rekrutację i szkolenie.
+
+#### B. Jednostka pracy i czas
+
+Jedno zlecenie dotyczy jednej osoby, jednej domeny oceny i jednego slotu analizy. Profil czterech domen może wymagać czterech zleceń; zbiorcze kliknięcie nie daje darmowych analiz.
+
+| Parametr kandydata | Wartość |
+|---|---:|
+| Pierwsza analiza domeny | 30min pracy przy organizacji0 |
+| Aktualizacja istniejącej oceny | 15min pracy przy organizacji0 |
+| Mnożnik czasu | 1−0,03×skill_organization |
+| Zakres organizacji | 0–10 |
+| Minimum wynikające z tabeli | 21min pierwsza /10,5min aktualizacja |
+| Równoległe aktywne analizy jednej osoby HR | 1 |
+| Maksimum regularnych publikacji person+domain | 1 na aktywny slot dobowy |
+
+Czas jest nakładem pracy w grze, nie czasem wykonywania kodu PHP. Przechowujemy wymagane sekundy i wykonane sekundy; nie zaokrąglamy10,5min do11min. Organizacja nie zwiększa pewności oceny. Analiza wpływa na jakość kontekstu wyłącznie zgodnie z §18.15B, bez nowych bonusów.
+
+Skill i wersję polityki czasu utrwalamy przy rozpoczęciu pracy. Po kursie nowe zlecenia korzystają z nowej wartości. Brak baseline lub wymaganych dowodów wykrywany bezpłatnym preflightem: zlecenie oczekuje na dane, nie zajmuje analityka.
+
+Przykład:8h zmiany,25% czasu na analizy =120min. Przy organizacji0 wystarczą na4 pierwsze analizy albo8 aktualizacji. Przy organizacji10 pierwsza analiza trwa21min:5 zakończonych i15min postępu szóstej. Pół etatu z4h pracy i25% przydziału daje60min. To pojemność teoretyczna przed absencjami i innymi rezerwacjami, nie gwarancja terminów.
+
+#### C. Koszt i budżet
+
+Własny analityk w nominalnym czasie jest opłacany przez zwykłe płace. Zlecenie nie nalicza drugiej pensji ani opłaty za odczyt. HR może pokazać informacyjny koszt przypisany do czasu: pełny koszt godzinowy z wersjonowanej polityki płac × rzeczywiste godziny analizy. Ten koszt nie jest nowym zapisem obciążenia.
+
+Nadgodziny tylko po zgodzie, przy legalnym grafiku i budżecie zgodnie z §4.1. Umowa godzinowa rozlicza faktycznie wykonany czas raz. Brak przydziału do analiz nie znosi pensji miesięcznej.
+
+Przykład informacyjny: pełny koszt100 jednostek waluty/h, analiza30min →50; aktualizacja15min →25. Nie zmienia to istniejących stawek stanowisk. Koszt analiz zewnętrznych pozostaje w przyszłym module Agencji; HR-OPS-01 nie zamawia automatycznie płatnej usługi.
+
+#### D. Kolejka i priorytety
+
+Kolejka biznesowa jest w bazie Staff. Kolejka Laravel jedynie wybudza wspólną procedurę; nie jest źródłem czasu pracy, dostępności ani kolejności. Job, odczyt leniwy i sweeper muszą odtworzyć identyczny wynik.
+
+Kandydat priorytetów:0 korekta nieważnej podstawy;1 pierwsza kwalifikująca analiza;2 aktualizacja nieaktualnej oceny;3 zwykłe nowe dowody. Ręczne żądanie trafia do odpowiedniej klasy, nie omija limitu dobowego. Gracz może ustawić kolejność osób w tej samej klasie.
+
+Ochrona przed zagłodzeniem: effective_priority=max(0,base_priority−floor(ready_wait_active_days/7)). Czas oczekiwania liczymy tylko w ready/queued, nie waiting_evidence. Kolejność: effective_priority, ready_at, ręczny ranking dla jednakowego ready_at, stabilny id. Priorytet nie przerywa już wykonywanej analizy; służy wyborowi następnej.
+
+Najwyżej jedno niezakończone zlecenie person+domain w firmie. Kolejne dowody ustawiają dirty/latest_requested_version, zamiast dodawać duplikat. Limit aktywnych prac = liczba rzeczywiście dostępnych uprawnionych analityków. Nadmiar oczekuje bez opłat; backlog nie usuwa zleceń.
+
+#### E. Stany i przebieg
+
+Proponowane stany: waiting_evidence, queued, reserved, working, paused, ready_to_compute, computing, published, cancelled, failed. Techniczny retry nie jest nową pracą biznesową.
+
+1. Trigger sprawdza ownership, zakres, slot i istnienie zmian; bez zmian zwraca poprzedni wynik.
+2. Preflight sprawdza kompletność norm/dowodów. Brak danych daje przyczynę waiting_evidence.
+3. Planista wybiera dostępnego analityka i rezerwuje rzeczywisty czas.
+4. Settlement rozlicza nakład wyłącznie w legalnych, dostępnych przedziałach.
+5. Po wykonaniu nakładu utrwalamy snapshot wejść i HR context, zlecając obliczenie.
+6. Publikacja zgodna z §18.10: sprawdzenie aktualności, CAS, outbox i historia atomowo.
+
+Pauza firmy/koniec zmiany/absencja zatrzymują postęp; wznowienie zachowuje wykonany czas. Nie tworzymy automatycznych nadgodzin. Zmiana analityka przed ukończeniem: zachowujemy wykonany nakład, a wymagany całkowity czas przeliczamy według nowego analityka i tej samej wersji polityki, nigdy poniżej już wykonanej pracy. HR context jakości pochodzi od analityka kończącego i jest jawny w audycie. Takie przekazanie wymaga realnej rezerwacji co najmniej5min pracy nowej osoby; koszt czasu przekazania osobny od nakładu, bez dodatkowego bonusu pewności.
+
+Zwolnienie ocenianego pracownika anuluje nieukończone zlecenia aktualnej oceny, zachowując fakty, postęp historyczny i należne płace. Rehire nie wznawia automatycznie starej rezerwacji. Utrata uprawnień analityka blokuje publikację i wymaga przekazania uprawnionej osobie.
+
+#### F. Sloty, nowe dane i retry
+
+Sloty używają istniejącego aktywnego zegara firmy i trwałej definicji doby z §18.8; klient nie wyznacza as_of. Analiza ukończona później korzysta z najnowszego osiągalnego slotu na moment utrwalenia wejść. Nie odtwarzamy wszystkich zaległych ocen dzień po dniu.
+
+Zmiana wejść w computing: wynik nie zastępuje nowszego; jedna scalona aktualizacja czeka na przeliczenie. Sam techniczny retry/correction input race nie nalicza ponownie nakładu pracy. Nowe dowody po skutecznej publikacji wymagają zwykłej aktualizacji w kolejnym dozwolonym slocie.
+
+Korekta źródła może od razu oznaczyć ocenę jako nieaktualną/wycofaną z rekomendacji. Nie musi czekać na analityka. Nie publikuje jednak drugiej regularnej oceny tego samego dnia. Wygaśnięcie ważności również działa bez analityka jako deterministyczna bramka świeżości, nie jako nowa analiza.
+
+Zadanie techniczne ma retry z backoff i limit prób według wspólnej polityki kolejki. Po wyczerpaniu failed z alertem operatora i możliwością wznowienia tego samego zlecenia. Awaria infrastruktury nie obciąża ponownie budżetu gracza i nie produkuje fikcyjnych godzin pracy.
+
+#### G. Firma bez HR
+
+Nadal działają: zatrudnianie, umowy, płace, grafiki, urlopy, absencje, zakończenie współpracy, rejestrowanie zdarzeń i podstawowe powiadomienia. Automatyczne układanie legalnego grafiku nie wymaga Agencji ani analityka.
+
+Gracz widzi fakty i ostatnie oceny z datą/aktualnością. Nowe oceny czekają; komunikat „Brak dostępnego analityka HR”. Nigdy nie podstawiamy skilla10, nie ujawniamy profilu i nie kasujemy dowodów. Sam brak HR nie obniża morale ani produktywności. Po przydzieleniu analityka kolejka analizuje bieżące dane i publikuje scalone powiadomienia.
+
+#### H. Panel i interfejs
+
+Gracz: obsada HR, przydział czasu, lista analiz, przyczyna oczekiwania, wykonany/wymagany nakład, przewidywane okno ukończenia, ostatnia ocena i jej aktualność. ETA jest prognozą opartą na grafiku, nie obietnicą; brak grafiku daje „termin nieustalony”. Akcje: zleć, ustaw kolejność, zmień przydział, anuluj niewykonaną część. Wszystko autoryzowane serwerowo.
+
+Admin: mapowanie ról, czas pierwszej/aktualizacji, wpływ organizacji, limit publikacji, priorytety i starzenie kolejki, minimalny czas przekazania, katalog przyczyn i powiadomień. Wersjonowane kandydaty, preview kosztu/przepustowości i bramka balansu. Główny administrator bez obowiązkowego komentarza; automatyczny audyt pozostaje.
+
+Niezmienniki niewyłączalne: brak podwójnego czasu/pensji, ownership, deduplikacja, ochrona profilu, legalna dostępność i niezmienna historia. Komunikaty SVG, PL/EN/DE, własne komponenty zamiast okien systemowych.
+
+#### I. Dane, testy i gotowość
+
+Zlecenie przechowuje company/person/domain, slot, status, priority, ready_at, policy_version, required/worked_seconds, analyst_ref, reservation_ref, input_hash, dirty flag, publication_ref i state_version. Rezerwacje/czas pracy korzystają ze wspólnego kalendarza Staff. Oddzielić rekord pracy biznesowej od staff_assessment_runs. Indeksy kolejki i unikalność niezakończonego zlecenia wymagają projektu MySQL, bez zakładania częściowych indeksów PostgreSQL.
+
+O01 brak HR nie blokuje płac/grafiku. O02 realny przydział ogranicza pojemność. O03 brak podwójnego przydziału. O04 koniec zmiany/choroba zatrzymują nakład.
+O05 retry nie nalicza ponownie czasu/pieniędzy. O06 brak baseline nie zużywa analityka. O07 priorytety i starzenie deterministyczne.
+O08 nowe dowody scalają się. O09 max jedna publikacja na slot. O10 spóźniony worker nie nadpisuje aktualnego snapshotu.
+O11 korekta/utrata świeżości blokują rekomendację bez HR. O12 brak drugiej pensji. O13 brak samowolnych nadgodzin.
+O14 rehire nie wznawia starej rezerwacji. O15 przekazanie wymaga czasu i nowego HR context. O16 nieuprawniony analityk nie publikuje.
+O17 długi offline daje jeden stan docelowy. O18 techniczna awaria nie tworzy godzin pracy. O19 izolacja firm i brak profilu w DTO. O20 panel/ETA/tłumaczenia/mobile.
+
+Do wykonania: DDL/OpenAPI i mapa ról, dokładna integracja rezerwacji z Settlement, kalibracja nakładu dla firm różnej wielkości oraz testy O01–O20. Liczby w tabeli są kandydatem, nie wynikiem testów wydajności. Zmiana dotyczy dokumentacji; nie uruchamia płac, kolejek ani produkcyjnych analiz.
+
