@@ -41,7 +41,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/QuoteSaleResult"
                 }
               }
             }
@@ -51,7 +51,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/QuoteSaleResult"
                 }
               }
             }
@@ -68,6 +68,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -136,7 +146,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "odczyt aktualnego zapasu i ceny; bez rezerwacji oraz FTS",
+        "x-denial": "brak wolumenu/nieaktualna wersja → odmowa, bez ceny klienta",
+        "x-policy-gates": [
+          "DOM14"
+        ],
+        "x-owner": "Market"
       }
     },
     "/api/v1/market/spot/sales": {
@@ -174,7 +190,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ExecuteSpotResult"
                 }
               }
             }
@@ -184,7 +200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ExecuteSpotResult"
                 }
               }
             }
@@ -201,6 +217,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -269,7 +295,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "available → sold, ruch bbl raz i wpływ PLN_BANK przez Ledger, zajęcie komornika w tej samej transakcji",
+        "x-denial": "brak zapasu, wygasła wycena lub limit awaryjny → rollback całości",
+        "x-policy-gates": [
+          "DOM14"
+        ],
+        "x-owner": "Market"
       }
     },
     "/api/v1/market/limit-orders": {
@@ -307,7 +339,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PlaceLimitOrderResult"
                 }
               }
             }
@@ -317,7 +349,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PlaceLimitOrderResult"
                 }
               }
             }
@@ -334,6 +366,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -412,7 +454,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "available → reserved_bbl, published; cena zmieniana tylko wersjonowaną akcją",
+        "x-denial": "brak zapasu/limit niespełniony → brak oferty",
+        "x-policy-gates": [
+          "DOM14"
+        ],
+        "x-owner": "Market"
       }
     },
     "/api/v1/market/black-market/trades": {
@@ -450,7 +498,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/TradeBlackMarketResult"
                 }
               }
             }
@@ -460,7 +508,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/TradeBlackMarketResult"
                 }
               }
             }
@@ -477,6 +525,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -545,7 +603,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "available → sold; PLN_CASH, black_market_score +2; limit 5 transakcji i 1500 bbl/dobę UTC",
+        "x-denial": "przekroczenie limitu, brak zapasu lub kontrola → jawny wynik",
+        "x-policy-gates": [
+          "DOM14"
+        ],
+        "x-owner": "Market"
       }
     },
     "/api/v1/contracts/offers/{id}/accept": {
@@ -592,7 +656,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AcceptContractResult"
                 }
               }
             }
@@ -602,7 +666,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AcceptContractResult"
                 }
               }
             }
@@ -619,6 +683,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -682,7 +756,15 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "open → accepted; kaucja NPC 10% lub premium 5%; B2B osobny depozyt/zakres",
+        "x-denial": "wygasła oferta, reputacja lub brak środków → bez kontraktu",
+        "x-policy-gates": [
+          "DOM12",
+          "DOM13",
+          "DOM15"
+        ],
+        "x-owner": "Contracts"
       }
     },
     "/api/v1/contracts/b2b/offers/{id}/accept": {
@@ -729,7 +811,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/FundEscrowResult"
                 }
               }
             }
@@ -739,7 +821,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/FundEscrowResult"
                 }
               }
             }
@@ -756,6 +838,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -824,7 +916,15 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "published → accepted; rezerwacja 100% wartości i ropy sprzedawcy w jednej transakcji",
+        "x-denial": "brak środków albo wolumenu → rollback obu stron",
+        "x-policy-gates": [
+          "DOM12",
+          "DOM13",
+          "DOM15"
+        ],
+        "x-owner": "Contracts"
       }
     },
     "/api/v1/finance/budgets/{department}": {
@@ -872,7 +972,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ChangeBudgetResult"
                 }
               }
             }
@@ -882,7 +982,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ChangeBudgetResult"
                 }
               }
             }
@@ -899,6 +999,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -962,7 +1072,14 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "24h cooldown; obniżka emituje morale −6 raz, koszt od kolejnego segmentu czasu",
+        "x-denial": "brak dyrektora finansów poza jawnie dozwoloną ścieżką emergency → odmowa",
+        "x-policy-gates": [
+          "DOM03",
+          "DOM04"
+        ],
+        "x-owner": "Finance"
       }
     },
     "/api/v1/finance/assets/{id}/valuation": {
@@ -999,7 +1116,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ValueAssetResult"
                 }
               }
             }
@@ -1009,7 +1126,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ValueAssetResult"
                 }
               }
             }
@@ -1026,6 +1143,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1064,7 +1191,14 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "publiczne snapshoty właścicieli; CAPEX razy stan, depleted ×0,10; refinery według §31.7 bez drugiego ×0,70",
+        "x-denial": "brak wycenialnego aktywa → typed unavailable, bez zera z domysłu",
+        "x-policy-gates": [
+          "DOM03",
+          "DOM04"
+        ],
+        "x-owner": "Finance"
       }
     },
     "/api/v1/banking/credit-score": {
@@ -1091,7 +1225,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/EvaluateCreditScoreResult"
                 }
               }
             }
@@ -1101,7 +1235,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/EvaluateCreditScoreResult"
                 }
               }
             }
@@ -1118,6 +1252,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1156,7 +1300,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "credibility35%, history35%, solvency20%, tenure10%, bonus clean cap15; cap bankructwo/late/egzekucja",
+        "x-denial": "brak historii =40, bez arbitralnego neutral=100",
+        "x-policy-gates": [],
+        "x-owner": "Banking"
       }
     },
     "/api/v1/banking/loans": {
@@ -1194,7 +1342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ApplyLoanResult"
                 }
               }
             }
@@ -1204,7 +1352,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ApplyLoanResult"
                 }
               }
             }
@@ -1221,6 +1369,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1289,7 +1447,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "eligible → approved/funded; tier cap i stawka z YAML, BoardAccess finance; Ledger raz",
+        "x-denial": "brak zdolności, wakat dyrektora lub dług → odmowa",
+        "x-policy-gates": [],
+        "x-owner": "Banking"
       }
     },
     "/api/v1/banking/loans/{id}/payments": {
@@ -1336,7 +1498,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PayInstallmentResult"
                 }
               }
             }
@@ -1346,7 +1508,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PayInstallmentResult"
                 }
               }
             }
@@ -1363,6 +1525,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1426,7 +1598,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "PLN_BANK → wierzyciel raz; late nalicza +150% stopy bazowej i trust −5/tydzień",
+        "x-denial": "brak środków → late bez ujemnego salda",
+        "x-policy-gates": [],
+        "x-owner": "Banking"
       }
     },
     "/api/v1/banking/auctions/{id}/bids": {
@@ -1473,7 +1649,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AuctionAssetResult"
                 }
               }
             }
@@ -1483,7 +1659,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AuctionAssetResult"
                 }
               }
             }
@@ -1500,6 +1676,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1563,7 +1749,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "seized → auctioned/transferred; wells/refinery wg kolejności §17.2; procesy i historia zachowane",
+        "x-denial": "niewłaściwy właściciel lub brak prawa kupującego → odmowa",
+        "x-policy-gates": [],
+        "x-owner": "Banking"
       }
     },
     "/api/v1/legal/sabotage-operations": {
@@ -1601,7 +1791,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PlanSabotageResult"
                 }
               }
             }
@@ -1611,7 +1801,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/PlanSabotageResult"
                 }
               }
             }
@@ -1628,6 +1818,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1702,7 +1902,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "planned opłaca koszt PLN_CASH raz; zapisuje seed i termin; sprawdza cooldown",
+        "x-denial": "własna firma, osłona celu, limit ofiary → odmowa/refund wg fazy",
+        "x-policy-gates": [
+          "DOM09"
+        ],
+        "x-owner": "Legal"
       }
     },
     "/api/v1/legal/protections": {
@@ -1740,7 +1946,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/BuyProtectionResult"
                 }
               }
             }
@@ -1750,7 +1956,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/BuyProtectionResult"
                 }
               }
             }
@@ -1767,6 +1973,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1842,7 +2058,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "basic/armed jeden kurs; drony/hub 7dni od następnego sweepa; Ledger i wersja polityki raz",
+        "x-denial": "niewystarczające środki albo brak dyrektora dla konwoju → odmowa",
+        "x-policy-gates": [
+          "DOM09"
+        ],
+        "x-owner": "Legal"
       }
     },
     "/api/v1/refining/epc-contracts": {
@@ -1880,7 +2102,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/StartEpcBuildResult"
                 }
               }
             }
@@ -1890,7 +2112,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/StartEpcBuildResult"
                 }
               }
             }
@@ -1907,6 +2129,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -1976,7 +2208,16 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "plot owned/permit valid → signed/building; rata przez Ledger raz, snapshot archetypu i due events",
+        "x-denial": "limit2 budów, brak środków/pozwolenia → rollback",
+        "x-policy-gates": [
+          "DOM06",
+          "DOM08",
+          "DOM10",
+          "DOM11"
+        ],
+        "x-owner": "Refining"
       }
     },
     "/api/v1/refining/refineries/{id}/recipe": {
@@ -2023,7 +2264,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SelectRecipeResult"
                 }
               }
             }
@@ -2033,7 +2274,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SelectRecipeResult"
                 }
               }
             }
@@ -2050,6 +2291,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2119,7 +2370,16 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "jawny wybór A/B/C na kolejny segment; podgląd popytu i kontraktów, ale nie automatyczna zmiana bez akcji",
+        "x-denial": "brak wsadu, nielegalna receptura/umowa → odmowa",
+        "x-policy-gates": [
+          "DOM06",
+          "DOM08",
+          "DOM10",
+          "DOM11"
+        ],
+        "x-owner": "Refining"
       }
     },
     "/api/v1/refining/claims": {
@@ -2157,7 +2417,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SubmitInsuranceClaimResult"
                 }
               }
             }
@@ -2167,7 +2427,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SubmitInsuranceClaimResult"
                 }
               }
             }
@@ -2184,6 +2444,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2252,7 +2522,16 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "reported→validated→queued/paid; deductible przed cap50M/dobę i saldem pool, malus raz",
+        "x-denial": "duplikat szkody albo brak polisy → odmowa",
+        "x-policy-gates": [
+          "DOM06",
+          "DOM08",
+          "DOM10",
+          "DOM11"
+        ],
+        "x-owner": "Refining"
       }
     },
     "/api/v1/monetization/orders": {
@@ -2290,7 +2569,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/CreateOrderResult"
                 }
               }
             }
@@ -2300,7 +2579,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/CreateOrderResult"
                 }
               }
             }
@@ -2317,6 +2596,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2381,7 +2670,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "draft→pending; cena i benefit z zatwierdzonej wersji katalogu",
+        "x-denial": "brak aktywnego produktu/nielegalny kanał → odmowa",
+        "x-policy-gates": [],
+        "x-owner": "Monetization"
       }
     },
     "/api/v1/payments/webhooks/{provider}": {
@@ -2425,7 +2718,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/VerifyWebhookResult"
                 }
               }
             }
@@ -2435,7 +2728,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/VerifyWebhookResult"
                 }
               }
             }
@@ -2452,6 +2745,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2527,7 +2830,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "pending→paid/failed/refunded według adaptera; zapisz surowy id i zredagowany audit raz",
+        "x-denial": "błędny podpis/kwota/waluta → reject bez benefitów",
+        "x-policy-gates": [],
+        "x-owner": "Monetization"
       }
     },
     "/api/v1/monetization/gbbl/conversions": {
@@ -2565,7 +2872,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ConvertGbblResult"
                 }
               }
             }
@@ -2575,7 +2882,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ConvertGbblResult"
                 }
               }
             }
@@ -2592,6 +2899,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2655,7 +2972,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "GBBL debit→PLN game FTS, drip30d/tier_base; blokada recovery/faza2 egzekucji",
+        "x-denial": "brak GBBL/nieaktywny balans → odmowa",
+        "x-policy-gates": [],
+        "x-owner": "Monetization"
       }
     },
     "/api/v1/social/threads/{id}/messages": {
@@ -2702,7 +3023,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SendMessageResult"
                 }
               }
             }
@@ -2712,7 +3033,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/SendMessageResult"
                 }
               }
             }
@@ -2729,6 +3050,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2793,7 +3124,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "member→posted; sanitize i ograniczenie długości, outbox po commit",
+        "x-denial": "cudzy kanał/ban/rate limit → odmowa",
+        "x-policy-gates": [
+          "DOM05"
+        ],
+        "x-owner": "Social"
       }
     },
     "/api/v1/social/cartels/{id}/members": {
@@ -2840,7 +3177,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/JoinCartelResult"
                 }
               }
             }
@@ -2850,7 +3187,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/JoinCartelResult"
                 }
               }
             }
@@ -2867,6 +3204,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -2930,7 +3277,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "eligible→active; max5 członków i limit produkcji40%, relacja B2B od effective_at",
+        "x-denial": "brak prawa/pełny kartel → 409",
+        "x-policy-gates": [
+          "DOM05"
+        ],
+        "x-owner": "Social"
       }
     },
     "/api/v1/social/cartels/{id}/members/me": {
@@ -2977,7 +3330,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/LeaveCartelResult"
                 }
               }
             }
@@ -2987,7 +3340,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/LeaveCartelResult"
                 }
               }
             }
@@ -3004,6 +3357,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -3062,7 +3425,13 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "active→left; przyszłe prowizje wg snapshot, stare rozliczenia bez zmian",
+        "x-denial": "retry → ten sam wynik",
+        "x-policy-gates": [
+          "DOM05"
+        ],
+        "x-owner": "Social"
       }
     },
     "/api/v1/notifications/preferences": {
@@ -3100,7 +3469,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/UpdatePreferencesResult"
                 }
               }
             }
@@ -3110,7 +3479,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/UpdatePreferencesResult"
                 }
               }
             }
@@ -3127,6 +3496,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -3201,7 +3580,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "CAS; krytyczne systemowe nie zależą od opt-in marketingu",
+        "x-denial": "brak zgody newsletter → nie wysyłaj",
+        "x-policy-gates": [],
+        "x-owner": "Onboarding"
       }
     },
     "/api/v1/privacy/consents": {
@@ -3239,7 +3622,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/RecordConsentResult"
                 }
               }
             }
@@ -3249,7 +3632,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/RecordConsentResult"
                 }
               }
             }
@@ -3266,6 +3649,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -3333,7 +3726,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "grant/withdraw append-only; preferencje wynikają z ostatniego zdarzenia",
+        "x-denial": "obcy użytkownik →403/404",
+        "x-policy-gates": [],
+        "x-owner": "Core Privacy"
       }
     },
     "/api/v1/privacy/exports": {
@@ -3371,7 +3768,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ExportPersonalDataResult"
                 }
               }
             }
@@ -3381,7 +3778,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/ExportPersonalDataResult"
                 }
               }
             }
@@ -3398,6 +3795,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -3456,7 +3863,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "requested→prepared→downloaded; chwilowy link, audyt pobrania",
+        "x-denial": "brak identity step-up → odmowa",
+        "x-policy-gates": [],
+        "x-owner": "Core Privacy"
       }
     },
     "/api/v1/privacy/anonymization-requests": {
@@ -3494,7 +3905,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AnonymizeUserResult"
                 }
               }
             }
@@ -3504,7 +3915,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OperationResult"
+                  "$ref": "#/components/schemas/AnonymizeUserResult"
                 }
               }
             }
@@ -3521,6 +3932,16 @@
           },
           "403": {
             "description": "Brak uprawnienia do obiektu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Obiekt nie istnieje lub nie jest widoczny",
             "content": {
               "application/json": {
                 "schema": {
@@ -3579,7 +4000,11 @@
               }
             }
           }
-        }
+        },
+        "x-state-transition": "pending→completed; PII ukryte/usunięte wg retencji, FTS i historia gospodarcza zachowane",
+        "x-denial": "aktywny obowiązek/hold → kontrolowany stan oczekiwania",
+        "x-policy-gates": [],
+        "x-owner": "Core Privacy"
       }
     }
   },
@@ -3660,6 +4085,1492 @@
               "state_version": {
                 "type": "integer",
                 "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "QuoteSaleResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "quote_id",
+              "unit_price_minor",
+              "fee_minor",
+              "expires_at",
+              "available_bbl"
+            ],
+            "properties": {
+              "quote_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "unit_price_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "fee_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "available_bbl": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,4})?$"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ExecuteSpotResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trade_id",
+              "sold_bbl",
+              "credited_minor",
+              "state_version"
+            ],
+            "properties": {
+              "trade_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "sold_bbl": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,4})?$"
+              },
+              "credited_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PlaceLimitOrderResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "offer_id",
+              "reserved_bbl",
+              "state_version"
+            ],
+            "properties": {
+              "offer_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "reserved_bbl": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,4})?$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "TradeBlackMarketResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "trade_id",
+              "sold_bbl",
+              "credited_minor",
+              "state_version"
+            ],
+            "properties": {
+              "trade_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "sold_bbl": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)(\\.[0-9]{1,4})?$"
+              },
+              "credited_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AcceptContractResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract_id",
+              "deposit_minor",
+              "state_version"
+            ],
+            "properties": {
+              "contract_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "deposit_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "FundEscrowResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "contract_id",
+              "escrow_id",
+              "held_minor",
+              "state_version"
+            ],
+            "properties": {
+              "contract_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "escrow_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "held_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ChangeBudgetResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "department_code",
+              "daily_limit_minor",
+              "cooldown_until",
+              "state_version"
+            ],
+            "properties": {
+              "department_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "daily_limit_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "cooldown_until": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ValueAssetResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "asset_id",
+              "gross_minor",
+              "taxable_minor",
+              "formula_version"
+            ],
+            "properties": {
+              "asset_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "gross_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "taxable_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "formula_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "EvaluateCreditScoreResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "score",
+              "score_version",
+              "calculated_at"
+            ],
+            "properties": {
+              "score": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "score_version": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "calculated_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ApplyLoanResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "loan_id",
+              "principal_minor",
+              "outstanding_minor",
+              "state_version"
+            ],
+            "properties": {
+              "loan_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "principal_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "outstanding_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PayInstallmentResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "loan_id",
+              "paid_minor",
+              "outstanding_minor",
+              "state_version"
+            ],
+            "properties": {
+              "loan_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "paid_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "outstanding_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AuctionAssetResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "auction_id",
+              "bid_id",
+              "bid_minor",
+              "state_version"
+            ],
+            "properties": {
+              "auction_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "bid_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "bid_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "PlanSabotageResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operation_id",
+              "resolve_at",
+              "state_version"
+            ],
+            "properties": {
+              "operation_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "resolve_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "BuyProtectionResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "policy_id",
+              "premium_minor",
+              "ends_at",
+              "state_version"
+            ],
+            "properties": {
+              "policy_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "premium_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "ends_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "StartEpcBuildResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "epc_contract_id",
+              "first_stage_due_at",
+              "price_minor",
+              "state_version"
+            ],
+            "properties": {
+              "epc_contract_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "first_stage_due_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "price_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SelectRecipeResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "recipe_version_id",
+              "effective_at",
+              "state_version"
+            ],
+            "properties": {
+              "recipe_version_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "effective_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SubmitInsuranceClaimResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim_id",
+              "eligible_minor",
+              "state_version"
+            ],
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "eligible_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "CreateOrderResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "order_id",
+              "state",
+              "provider_checkout_reference"
+            ],
+            "properties": {
+              "order_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "state": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "provider_checkout_reference": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "VerifyWebhookResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "event_id",
+              "accepted",
+              "order_id"
+            ],
+            "properties": {
+              "event_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "accepted": {
+                "type": "boolean"
+              },
+              "order_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ConvertGbblResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "conversion_id",
+              "units",
+              "credited_minor",
+              "state_version"
+            ],
+            "properties": {
+              "conversion_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "units": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "credited_minor": {
+                "type": "string",
+                "pattern": "^(0|[1-9][0-9]*)$"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SendMessageResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "message_id",
+              "created_at",
+              "state_version"
+            ],
+            "properties": {
+              "message_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "created_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "JoinCartelResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "membership_id",
+              "joined_at",
+              "state_version"
+            ],
+            "properties": {
+              "membership_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "joined_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "LeaveCartelResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "membership_id",
+              "left_at",
+              "state_version"
+            ],
+            "properties": {
+              "membership_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "left_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "UpdatePreferencesResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "category_code",
+              "channel_code",
+              "enabled",
+              "state_version"
+            ],
+            "properties": {
+              "category_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "channel_code": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "enabled": {
+                "type": "boolean"
+              },
+              "state_version": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "RecordConsentResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "consent_id",
+              "policy_id",
+              "granted",
+              "recorded_at"
+            ],
+            "properties": {
+              "consent_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "policy_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "granted": {
+                "type": "boolean"
+              },
+              "recorded_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ExportPersonalDataResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "request_id",
+              "state",
+              "due_at"
+            ],
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "state": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "due_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "required": [
+              "logical_at",
+              "balance_version",
+              "contract_version"
+            ],
+            "properties": {
+              "logical_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "balance_version": {
+                "type": "string"
+              },
+              "contract_version": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "AnonymizeUserResult": {
+        "type": "object",
+        "required": [
+          "data",
+          "meta"
+        ],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "request_id",
+              "state",
+              "due_at"
+            ],
+            "properties": {
+              "request_id": {
+                "type": "string",
+                "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+              },
+              "state": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "due_at": {
+                "type": "string",
+                "format": "date-time"
               }
             }
           },
