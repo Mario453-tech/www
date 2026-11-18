@@ -575,6 +575,8 @@ Aktywna polityka niezmienna; preview nie zapisuje skutków. Główny administrat
 
 Pierwsze wdrożenie panelu Staff realizuje [wariant A i cennik startowy §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Resource Filament edytuje wersjonowane wiersze polityk, a nie własne wzory w kontrolerze; źródłem rozliczenia są te same akcje Staff/Finance co dla API. Wariant B dodaje nowe wiersze i zarejestrowane strategie po osobnej kalibracji. Panel pokazuje jednostkę PLN/GBBL, zakres, wersję, preview i wynik bramki; owner admin nie musi wpisywać komentarza. Aktywacja wartości nadal podlega testom i regułom §29.5/§29.7 specyfikacji głównej.
 
+Kontrakt tabel, akcji i uprawnień: [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md). Filament korzysta z tych samych akcji co web i API; wartości panelu są kandydatami wersji balansu.
+
 ### Granice implementacji panelu Kadr
 
 Filament dzieli nawigację i formularze według części Staff: Recruitment, Employment, Scheduling, Absences, Payroll, Training i Assessments. Resource, Page i Action Filament wywołują odpowiednie akcje aplikacyjne opisane w [podziale Staff §19.8](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md); nie zapisują bezpośrednio reguł domenowych w komponentach panelu. Widoki mogą łączyć dane z kilku części przez uprawnione zapytania, lecz mutacja ma jednego właściciela. Ta sama akcja obsługuje panel, web i API przy odrębnych uprawnieniach transportu.
