@@ -32,7 +32,7 @@ Karty rozszerzają [plan P01–P25](OILEMPIRE_PLAN_PROGRAMOWANIA.md) i [fundamen
 
 **Wspólne dane:** publiczne ID i FK według konwencji fundamentu, czasy DATETIME(3) UTC, pieniądze BIGINT grosze (API string), reputacje i morale DECIMAL(7,3) dla zachowania połówek, enum w PHP i VARCHAR w DB. Aktor i firma ustalane z sesji/polityki, nigdy z dowolnego company_id klienta. Mutacje mają Idempotency-Key, oczekiwaną state_version i ponowną walidację pod blokadą; błędy 401/403/404/409/422/429 wg API. Każdy response zawiera właściwe dane i meta state_version/server_time/balance_version.
 
-Obowiązuje jedna tabela §23.5a architektury. Core13; Staff/Training14 (dla A pełna lista 29 tabel jest w §23.5a.1 i kontrakcie maszynowym); Legal15; Technical/BHP16; Incidents17; TechnicalTasks18; geologia39; aktywa40–80; append140. Wewnętrzna kolejność tabel to dokładna kolejność z §23.5a, nie lokalny wariant z przykładu.
+Obowiązuje jedna tabela §23.5a architektury. Core13; Staff/Training14 (dla A pełna lista 30 tabel jest w §23.5a.1 i kontrakcie maszynowym); Legal15; Technical/BHP16; Incidents17; TechnicalTasks18; geologia39; aktywa40–80; append140. Wewnętrzna kolejność tabel to dokładna kolejność z §23.5a, nie lokalny wariant z przykładu.
 
 ### P06-F01 — Utworzenie firmy i jednorazowy starter
 
@@ -155,15 +155,11 @@ strike_members: strike_id,employee_id,joined_at,left_at nullable; UNIQUE(strike_
 
 ### P09-F01 — katalog, kwalifikowalność i niezmienna oferta kursu
 
-**Właściciel:** Staff. Publiczny kontrakt staff.training.v1: ListPrograms(Actor, company_id, employee_id?) i QuoteEnrollment(employee_id, program_id, level) zwracają DTO, nie modele. Źródło kosztu/czasu/pass_rate to zatwierdzony balans oraz wersjonowany katalog, nie pola ręcznie podane przez klienta.
+**Właściciel:** Staff. Publiczny kontrakt staff.training.v1: ListPrograms(Actor, company_id, employment_id?) i QuoteEnrollment(employment_id, program_version_id) zwracają DTO, nie modele. Źródło kosztu/czasu/pass_rate to zatwierdzony balans oraz wersjonowany katalog, nie pola ręcznie podane przez klienta.
 
-**Dane:**
-- training_programs: id/public_id, program_key VARCHAR(64) UNIQUE, target_skill VARCHAR(64), is_active BOOL, translation_key VARCHAR(128), created_at. Nie zawiera edytowanych poza balansem aktualnych kosztów lub szansy.
-- training_program_levels: id, program_id FK RESTRICT, level SMALLINT, prerequisites_schema_version SMALLINT, prerequisites_json, UNIQUE(program_id,level); poziomy 1–3, wymagania katalogu jawnie opisane.
-- training_catalog_versions: id, program_level_id FK, balance_version_id FK, params_json, params_hash BINARY(32), created_at; UNIQUE(program_level_id,balance_version_id). Materializowany zatwierdzony fragment parametrów: cost_minor BIGINT, duration_seconds INTEGER, base_pass_rate_pct DECIMAL, skill_delta=1, skill_cap=10, retry cooldown i bonus. Snapshot jest niezmienny. Dokładne kursy wiercenia/utrzymania/BHP/analizy/negocjacji wymagają katalogu w balansie przed aktywacją; min/max ceny 10–100 tys. nie jest samodzielną ceną pojedynczego kursu.
-- training_quotes: id, company_id, employee_id, program_level_id, catalog_version_id, employee_state_version, cost_minor, duration_seconds, pass_rate_pct, retry_bonus_pp, quoted_at; odczyt nie pobiera środków. Oferta jest informacyjna; zapis ponownie weryfikuje snapshot i stan, bez przyjmowania ceny klienta.
+**Dane A:** `staff_training_program_versions` przechowuje jeden zatwierdzony wiersz programu/poziomu: program_code, skill_code, level, version_no, duration_seconds, price_minor, base_pass_rate_pct, pass_threshold, skill_delta, skill_cap, policy_version i params_hash. `QuoteEnrollment` jest odczytem tej niezmiennej wersji i stanu pracownika; nie tworzy drugiego katalogu `training_programs/training_program_levels/training_catalog_versions` ani tabeli `training_quotes`. Dla technicznych I/II/III wariant A wybiera 20k/50k/100k PLN, 24/48/72h, próg70 i cap10 (Kadry §19.5); inne role/skill są niedostępne bez jawnego wpisu.
 
-**API:** GET /api/v1/training/programs?employee_id={id}; GET /api/v1/training/programs/{id}/quote?employee_id={id}&level={1..3}. Odpowiedź zawiera program_id, level, target_skill, eligibility, reasons[], cost_minor jako string, duration_seconds, pass_rate_pct, retry_available_at, catalog_version_id i balance_version. Cudzy pracownik →404; nieznany poziom/skill→422; nieaktywny program lub brak katalogu→409 PROGRAM_UNAVAILABLE. Zapytanie ma allowlistę filtrów i paginację; nie ujawnia tajnego seedu.
+**API:** GET `/api/v1/hr/training-programs`; GET `/api/v1/hr/training-programs/{id}/quote?employment_id={id}` według [OpenAPI Staff A](OILEMPIRE_KADRY_OPENAPI_V1.yaml). Cudzy pracownik →404; brak wpisu →409 PROGRAM_UNAVAILABLE. Cena jest stringiem groszy, bez ujawnienia seedu.
 
 **Reguły:** subskill cap10, +1 po zaliczeniu; certificate UNIQUE(employee,course,level). Nie dopisujemy niewskazanej w katalogu zależności „ukończ I, aby zacząć II” ani ukrytego mnożnika. Kurs przy skill=10 odrzuca się jako TRAINING_SKILL_CAPPED zamiast pobierać pieniądze bez możliwości efektu. Nie tworzony jest drugi certyfikat dla już zaliczonego poziomu.
 
@@ -173,12 +169,12 @@ strike_members: strike_id,employee_id,joined_at,left_at nullable; UNIQUE(strike_
 
 ### P09-F02 — zapis pracownika na kurs i wyłączna zajętość
 
-**Wejście:** EnrollEmployeeInCourse(ActorContext, company_id, employee_id, program_level_id, expected_employee_version, expected_catalog_version, client_key). POST /api/v1/training/enrollments z employee_id, program_id, level, expected_state_version, expected_catalog_version; Idempotency-Key. Klient nie wysyła kwoty do obciążenia.
+**Wejście:** EnrollEmployeeInCourse(ActorContext, company_id, employment_id, program_version_id, expected_state_version, client_key). POST /api/v1/hr/trainings z employment_id, program_version_id, expected_state_version; Idempotency-Key. Klient nie wysyła kwoty do obciążenia.
 
 **Dane:**
-- staff_trainings: id/public_id, company_id FK, employment_id FK, program_level_id FK, catalog_version_id FK, balance_version_id FK, state VARCHAR(32), attempt_sequence INTEGER, paid_cost_minor BIGINT, payment_operation_id, starts_at DATETIME(3), due_at DATETIME(3), completed_at nullable, cancelled_at nullable, cancellation_reason nullable, expected_employee_version, state_version BIGINT, exam_slot_id VARCHAR(128) UNIQUE, params_snapshot_json; INDEX(company_id,state,due_at), INDEX(employment_id,created_at).
-- training_progress: employment_id + program_level_id UNIQUE, active_enrollment_id nullable FK do staff_trainings, last_passed_at nullable, state_version. Zajętość całej osoby chroni wspólny kalendarz staff_time_reservations pod blokadą staff_persons/staff_employments (§23.5a.1), a nie sam indeks postępu kursu.
-- training_retry_state: employment_id + program_level_id UNIQUE, consecutive_failures INTEGER, accumulated_bonus_pp DECIMAL, next_attempt_at nullable, last_enrollment_id nullable, state_version. Wartości wyliczone przez zakończenie poprzedniej próby, nie przez klienta.
+- `staff_trainings`: company_id, employment_id, program_version_id, attempt_sequence, payment_operation_id, exam_slot_id, params_snapshot_json, started_at, due_at, completed_at/cancelled_at nullable, paid_minor, status, rng_slot, state_version; FK/UNIQUE/indeksy w [DDL Staff A](OILEMPIRE_KADRY_DDL_MYSQL84.sql).
+- `training_progress`: employment_id + program_version_id UNIQUE, active_enrollment_id nullable FK do staff_trainings, last_passed_at, state_version. Wspólny kalendarz staff_time_reservations chroni zajętość całej osoby.
+- `training_retry_state`: employment_id + program_version_id UNIQUE, consecutive_failures, accumulated_bonus_pp, next_attempt_at, last_training_id, state_version.
 
 **Stany:** utworzenie od razu in_progress po opłaceniu; później passed | failed | cancelled_employee_left. Opłata i utworzenie to jedna transakcja — nie ma trwałego paid bez kursu ani kursu bez pobrania. Nie dodajemy stanu delayed, który mógłby opóźnić należny egzamin.
 
@@ -191,15 +187,15 @@ Zapis staff_trainings, rezerwacji czasu, due_event exam i outbox training.enroll
 
 ### P09-F03 — egzamin, certyfikat, powtórki i dokończenie w draining
 
-**Akcje:** CompleteCourse(event_id, logical_due_at), CancelForEmploymentEnd(employee_id,effective_at), AccelerateTrainingTime(enrollment_id, purchase_receipt_ref) jako wewnętrzny kontrakt dla P20. GET /api/v1/training/enrollments/{id} odczytuje własny stan przez wspólny Settlement. Przyspieszenie nie jest publicznym endpointem pozwalającym ustawić passed.
+**Akcje:** CompleteCourse(event_id, logical_due_at), CancelForEmploymentEnd(employment_id,effective_at), AccelerateTrainingTime(training_id, purchase_receipt_ref) jako wewnętrzny kontrakt dla P20. GET /api/v1/hr/trainings/{id} odczytuje własny stan przez wspólny Settlement. Przyspieszenie nie jest publicznym endpointem pozwalającym ustawić passed.
 
-**Dane:** training_exam_results: enrollment_id UNIQUE FK, exam_slot_id UNIQUE, logical_at, base_pass_rate_pct, retry_bonus_pp, effective_pass_rate_pct, roll_value, secret_id, outcome, balance_version_id, params_hash; append-only. training_certificates: id/public_id, employee_id FK, course_id FK(training_programs), level SMALLINT, enrollment_id UNIQUE FK, awarded_at, skill_before SMALLINT, skill_after SMALLINT; UNIQUE(employee_id,course_id,level), INDEX(employee_id,awarded_at). Nazwa course_id w certyfikacie oznacza stabilny kurs, nie efemeryczną próbę.
+**Dane A:** `staff_training_exam_results` jest niezmiennym wynikiem egzaminu z UNIQUE(training_id) i UNIQUE(exam_slot_id); przechowuje logical_at, bazową/efektywną szansę, bonus, roll, secret_id, outcome, wersję i hash. `staff_certificates` wskazuje person_id, employment_id i training_id oraz skill_before/after; certyfikat jest osobnym typowanym faktem, nie drugim wynikiem egzaminu. Szczegółowe FK w [DDL Staff A](OILEMPIRE_KADRY_DDL_MYSQL84.sql).
 
 **Rozliczenie:** idempotency domeny training.exam:{enrollment_id}:{exam_slot_id}, operations5 gdy lease, firma10/settlement11/due12/Staff14/konta20 jeśli należny koszt; raz zapisany wynik i certyfikat nie są losowane ponownie. RNG według trwałej tożsamości egzaminu, z secret_id i balance_version. Szansa efektywna = clamp do zakresu prawdopodobieństwa0–100 bazowej szansy plus utrwalony bonus; nie mnożymy +10% jako ×1.10. Po zaliczeniu +1 do wskazanego skillu z cap10 i certyfikat; kosztu ponownie nie pobieramy. Staff publikuje training.exam.passed/failed oraz pracownik wraca do legalnej dostępności P07.
 
-**Powtórki:** pierwsza/druga porażka blokuje ponowny zapis przez12h. Trzecia porażka uruchamia7dni (ten dłuższy termin zastępuje12h), bonus +10p.p. za porażkę, max30p.p. Przebieg zachowania licznika/bonusu po powrocie z 7-dniowego locku musi być jawny: źródło nie określa resetu. Nie resetować go w kodzie po cichu; patrz T09-L01 i rejestr blokad na końcu dokumentu. Kolejny kurs jest nową opłaconą próbą według warunków nowego zapisu.
+**Powtórki:** pierwsza/druga porażka blokuje ponowny zapis przez12h. Trzecia porażka uruchamia7dni (ten dłuższy termin zastępuje12h), bonus +10p.p. za porażkę, max30p.p. Wariant A po 7 aktywnych dniach blokady resetuje licznik kolejnych porażek do 0; historia, skill i wyniki zostają, a nowa próba nie dostaje automatycznego bonusu. Test czwartej próby jest bramką aktywacji (Kadry §19.5, DOM07). Kolejny kurs jest nową opłaconą próbą według warunków nowego zapisu.
 
-**Zwolnienie/strajk:** opłata bezzwrotna przy zakończeniu zatrudnienia w trakcie kursu; cancelled_employee_left bez certyfikatu. W pojedynku egzaminu ze zwolnieniem porównujemy logiczne due_at i effective_at (nie czas workera); równość wymaga ustalonej kolejności zdarzeń z P07/P04, nie losowego locka. Strajk nie zatrzymuje kursu. Draining Staff blokuje nowe zapisy, lecz kończy in_progress, egzamin, powiadomienie i legalny zwrot dostępności.
+**Zwolnienie/strajk:** opłata bezzwrotna przy zakończeniu zatrudnienia w trakcie kursu; cancelled_employee_left bez certyfikatu. W pojedynku egzaminu ze zwolnieniem porównujemy logiczne due_at i effective_at (nie czas workera); w wariancie A równość kończy zatrudnienie przed egzaminem: cancelled_employee_left bez certyfikatu (§19.3); inne remisy domenowe DOM08 pozostają osobne. Strajk nie zatrzymuje kursu. Draining Staff blokuje nowe zapisy, lecz kończy in_progress, egzamin, powiadomienie i legalny zwrot dostępności.
 
 **Premium:** przyspieszenie15GBBL skraca pozostały czas do zera, nie zmienia wyniku/pass_rate i nie omija cap/certyfikatu. P20 musi dostarczyć zweryfikowany receipt i idempotencję zakupu; brak endpointu „kup zdanie egzaminu”. Przyspieszenie aktualizuje due_at/event przez CAS; stary opóźniony job jest neutralny.
 
@@ -421,8 +417,8 @@ Poniższe punkty są ujawnionymi brakami starych źródeł, nie błędami SQL dz
 | DOM03 | P08-F04 | NEGOTIATION-01 | Brak pełnej formuły rund zbiorowych i etapów eskalacji; ustalić współczynniki i koszt oferty przed produkcyjną negocjacją. | §5.2; staff params |
 | DOM04 | P08-F02 | RAISE-AMOUNT-01 | Próg/deadline kontroferty istnieją, brak formuły żądanej kwoty podwyżki; potrzebna wersjonowana polityka generatora. | §4.2 |
 | DOM05 | P06-F02 (wyłącznie event sankcji P21) | CARTEL-PROPAGATION-01 | Jawne −15cred/−15B2B vs propagacja50%; określić czy B2B finalne czy dodatkowe. Pozostałe reputacje i wyjątek2FA są rozpisane. | §2/§26.3 |
-| DOM06 | P09-F01, P09-F02 | T09-L02 | Uzupełnić wersjonowany cennik i parametry każdego bazowego kursu/poziomu; przedział10–100k nie jest ceną. Istniejące kursy Refining bez zmiany liczb. | §6/§31; staff/refining training |
-| DOM07 | P09-F03 (powrót po locku) | T09-L01 | Czy po7 dniach resetuje się licznik porażek i bonus? Ustalić bez arbitralnego resetu, z testem czwartej próby. | §6; training.max_failures_before_lock |
+| DOM06 | P09-F01, P09-F02 | T09-L02 | Techniczny I/II/III ma decyzję A: 20k/50k/100k PLN i 24/48/72h, próg70, cap10; inne role/skill wymagają jawnych wpisów katalogu i testów. Refining bez zmian. | §6/§31; staff/refining training |
+| DOM07 | P09-F03 (powrót po locku) | T09-L01 | Wariant A: po7 aktywnych dniach licznik kolejnych porażek=0, bez automatycznego bonusu nowej próby; historia zostaje. Test czwartej próby przed aktywacją. | §6; training.max_failures_before_lock |
 | DOM08 | P09-F03, P13-F04 | T09-L03/DPL07-remis | Równość egzamin/koniec zatrudnienia oraz repair/escalation wymaga jawnego priorytetu zdarzeń przy identycznym logical_at. | §6/§17.4/§23.6 |
 | DOM09 | P10-F02 (appeal) | T10-L01 | Zwrot opłaty appeal i kolejność bonusu2p.p.×skill vs clamp podstawowy; nie dopisywać refundu ani wyższego cap bez decyzji. | §7.3 |
 | DOM10 | P10-F03 | T10-L02 | Wzór wyceny regionu dla5% odnowienia i zachowanie aktywów w30d grace/po utracie uprawnienia. | §19.4 |
