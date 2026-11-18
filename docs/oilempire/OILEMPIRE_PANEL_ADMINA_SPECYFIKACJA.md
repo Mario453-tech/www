@@ -570,3 +570,7 @@ Wszystkie zmiany parametrów przez wersjonowany kandydat/preview/aktywację. Gł
 Ekrany Filament: katalog domen, źródła dowodów, progi etapów/ekspozycji, baseline i strategie atrybucji, jakość podstaw/aktualność, kompetencje HR i kolejka, komunikaty, snapshoty i korekty, preview/porównanie wersji.
 Rzeczywisty profil jest oddzielny od obserwacji i wyliczonej oceny. Nie edytować computed confidence ręcznie. Korekta faktu tworzy rewizję i nowy snapshot. GM hidden profile wymaga osobnego prawa i audytu.
 Aktywna polityka niezmienna; preview nie zapisuje skutków. Główny administrator bez wymaganego komentarza; audit pozostaje. Testy A01–A22 oraz bramki ASSESS-CFG01/CONTRACT01/QA01 obowiązują przed aktywacją.
+
+### Wariant A kadr i droga do B
+
+Pierwsze wdrożenie panelu Staff realizuje [wariant A i cennik startowy §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md). Resource Filament edytuje wersjonowane wiersze polityk, a nie własne wzory w kontrolerze; źródłem rozliczenia są te same akcje Staff/Finance co dla API. Wariant B dodaje nowe wiersze i zarejestrowane strategie po osobnej kalibracji. Panel pokazuje jednostkę PLN/GBBL, zakres, wersję, preview i wynik bramki; owner admin nie musi wpisywać komentarza. Aktywacja wartości nadal podlega testom i regułom §29.5/§29.7 specyfikacji głównej.
