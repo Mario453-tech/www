@@ -11,7 +11,7 @@ Status: przegląd projektowy kontraktów, nie wynik MySQL ani PHP. Implementacja
 
 ## S01. Escrow kontra refund
 
-Stan: B2B funded, 100 bbl w podróży, 1 mln gr w escrow, granica 168h. SettleReceipt i ResolveDispute/timeout startują razem. Obie Action deklarują firmy10, trip80, escrow90, contract110, append140. Pierwsza transakcja ustawia terminalny CAS; druga po locku zwraca trwały wynik albo STATE_CONFLICT. Niezmiennik: released_minor + refunded_minor ≤ held_minor; własność 100 bbl przenosi się raz. Testować obie kolejności commit, logical_at=expires_at, crash przed i po commit.
+Stan: B2B funded, 100 bbl w podróży, 1 mln gr w escrow, granica 168h. SettleReceipt i ResolveDispute/timeout startują razem. Obie Action deklarują firmy10, trip80, escrow90, contract110, append140. Rozstrzygnięcie nie zależy od kolejności startu/commit: fizyczny rozładunek i systemowy delivery_receipt należący do P12 Logistics dla tego samego logical_at są finalizowane przed fazą autozwrotu. Handler refundu pod lockiem trip80→escrow90 ponownie odczytuje receipt przez publiczny kontrakt Logistics i stan kursu; gdy receipt istnieje, wywołuje SettleReceipt lub odmawia refundu. Gdy rozładunek jest w stanie przejściowym, odkłada autozwrot z tym samym due_slot do rozstrzygnięcia Logistics, bez wydania środków. Dopiero brak kwalifikowanego receipt po zamknięciu slotu pozwala na refund; terminalny CAS i effect_key chronią powtórzenie. Niezmiennik: released_minor + refunded_minor ≤ held_minor; własność 100 bbl przechodzi raz. Testować obie kolejności startu/commit przy logical_at=expires_at, receipt przed/po granicy oraz crash przed i po commit.
 
 ## S02. Matching kontra sprzedaż
 
@@ -33,6 +33,14 @@ Dwa workery pobierają ten sam event_key i kanał; jeden dostaje lease/fencing. 
 
 SelectRecipe zapisuje wybór gracza oraz snapshot popytu i zobowiązań. SettleRefinery liczy slot z wersją receptury. Zmiana popytu później nie przepisuje historii. Dwa handlery dla slotu tworzą jeden refinery_runs(refinery_id,slot_at) i jeden zestaw product movements. Suma input/output/flare zachowuje bilans masowy. Testować pełny magazyn i flarę do 2h, brak surowca, skrajny popyt, 2 EPC równolegle i insurance claim.
 
+## S07. Receipt mobilny, refund i promo
+
+Serwer przyjmuje VerifyPlatformReceipt, sprawdza transakcję u Apple/Google oraz przypisanie produktu i użytkownika. VerifyStoreNotification może przyjść przed odpowiedzią sklepu, po grant albo po refundzie; provider+transaction_id oraz fulfillment_key pozostają UNIQUE. ApplyRefund zapisuje refund i recovery bez kasowania historycznego GBBL/FTS. Dwa żądania RedeemPromoCode ostatniego slotu quota blokują promo_codes121 przed promo_redemptions/payment_orders; tylko jedno rezerwuje limit. Testować niezgodny produkt, obce konto, replay receipt, częściowy refund, refund po konwersji, chargeback i wygaśnięcie promo.
+
+## S08. Nagroda i powiadomienie
+
+GrantAchievement z nagrodą blokuje firmy10→Ledger20/Monetization121→Onboarding123→append140. Dwa handlery dla source_event_key zapisują jedno achievement_grants i jeden grant GBBL/FTS. DeliverNotification działa po commit; nieudany push nie cofa nagrody. Rejestracja/rotacja device token zapisuje tylko szyfrowany token i HMAC, revokacja uniemożliwia kolejną wysyłkę. Testować odwrócony porządek commit, retry po utracie odpowiedzi i profil prywatności.
+
 ## Bramka odbioru
 
-Każdy scenariusz wymaga testu MySQL w dwóch sesjach, wycofania transakcji w połowie, retry po commit, kontroli UNIQUE, sumy księgi zero, zachowania wolumenu, pojedynczego outbox i telemetrii deadlocków. RestoreWorld mierzy RPO≤5 min i RTO≤60 min na docelowym serwerze. 90 dni z ustalonym koszykiem i seedami to osobny test runtime.
+Każdy scenariusz S01–S08 wymaga testu MySQL w dwóch sesjach, wycofania transakcji w połowie, retry po commit, kontroli UNIQUE, sumy księgi zero, zachowania wolumenu, pojedynczego outbox i telemetrii deadlocków. RestoreWorld mierzy RPO≤5 min i RTO≤60 min na docelowym serwerze. 90 dni z ustalonym koszykiem i seedami to osobny test runtime.
