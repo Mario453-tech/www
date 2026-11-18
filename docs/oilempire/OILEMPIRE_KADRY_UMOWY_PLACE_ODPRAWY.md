@@ -4,7 +4,7 @@
 Data opracowania: 2026-11-17. Właściciel Staff; rozliczenia Finance/Ledger.
 
 Status: konkretna specyfikacja kandydującej polityki gry. Algorytmy i przykłady do programowania; nowe współczynniki wymagają kalibracji i zwykłej bramki balance_version. To nie aktywny balans, nie kompletny kalkulator polskich wynagrodzeń i nie implementacja Laravel.
-Rozwija HR-CFG02/04. Nie zamyka grafików, urlopów/chorób, kar morale DOM02 ani pełnych kontraktów HR-CONTRACT01.
+Rozwija HR-CFG02/04. Kadry §19.3 rozstrzygają wariant A dla kar morale DOM02; grafiki, urlopy/choroby opisują dalsze sekcje Kadr. [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) określa docelowe tabele i akcje, a finalne migracje/OpenAPI i testy pozostają bramką aktywacji.
 
 ## 1. Co jest prawem, a co modelem gry
 
@@ -97,7 +97,7 @@ Każda pozycja ma UNIQUE(employment_period_id, benefit_type, entitlement_slot). 
 Quote jest ważny5min i tylko dla aktualnych wersji umowy/polityki/ewidencji. Potwierdzenie rozlicza do teraz, przelicza koszty i odrzuca stale quote; nie pobiera starej kwoty mimo zmiany podstawy.
 Odprawa w quote dla przyszłego końca to prognoza. Potwierdzenie ustala regułę, nie zamraża przyszłych należnych pensji. Każdy późniejszy aneks pokazuje zaktualizowaną prognozę; finalizacja wylicza dokładny stan na końcu.
 Niepłynność firmy nie usuwa świadczenia. Finance tworzy dług i płatności częściowe, bez ujemnego konta i bez ponownego kosztu przy spłacie.
-Kary morale pozostają DOM02: ta polityka nie zamyka rozbieżności −10/−8 ani24h populacji sporu.
+Kary morale wariantu A określa Kadry §19.3: −10 albo −8 z limitem −24/14 dni, bez sumowania. Populacja sporu jest snapshotem z logical_at decyzji, bez fikcyjnych 24h po zakończeniu.
 
 ## 6. Przykłady kontrolne (PLN)
 
@@ -123,15 +123,15 @@ Przed implementacją: jedna projekcja warunków pensji z employment_contract_ver
 Panel GM: kandydat profilu narzutów, macierz wypowiedzeń/odpraw, podstawa i daty, preview kosztów, walidacja jednostek/bps, zakresów i kompletności. Główny administrator bez obowiązkowego komentarza zgodnie z wcześniejszym ustaleniem; audit pozostaje.
 UI gracza: pensja/brutto lub faktura/netto oznaczone, pełny koszt, dostępność, koszt odejścia z rozbiciem, szacunek vs należność. SVG i PL/EN/DE.
 Autoryzacja i idempotencja we wspólnej akcji Staff. Finance przyjmuje source_component_id i chroni przed duplikatem. Job/HTTP/sweeper korzystają z jednej finalizacji i jednego logical timestamp.
-Nowe tabele/unikaty/lock order oraz OpenAPI wymagają karty delta HR-CONTRACT01; nie są deklarowane jako już wdrożone.
+[HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) określa docelowe tabele/unikaty/lock order i deltę API; finalne migracje i pełny OpenAPI pozostają do wykonania.
 
 ## 8. Odbiór i następne bramki
 
 Przypadki obowiązkowe:28/29/30/31dni; granice miesiąca i aneksu; wiele odczytów vs jeden; każdy narzut osobno; pół etatu i zadowolenie; koniec próby; progi29/30/89/90dni; przerwy; anulowanie/expiry; odprawa z trzech triggerów; płatność częściowa; nieobecność; urlop firmy; quote po zmianie wersji; odmowa cudzej firmy.
 Lokalna kontrola przykładów nie zastępuje testów Laravel/MySQL, 90dni ekonomii ani prawdziwego kalkulatora ustawowego.
 HR-CFG02: naliczanie podstawowe opisane; dodatkowe stawki i absencje zależą od HR-CFG03.
-HR-CFG04: kandydat macierzy kosztowej opisany; pozostają kalibracja i DOM02/DOM08.
-Następny krok: grafiki/obsada/urlopy z pełnym kosztem zastępstw, potem cennik rekrutacji. Nie aktywować nowego narzutu20,48% w YAML v1 bez badania marży i startu firmy.
+HR-CFG04: kandydat macierzy kosztowej opisany; DOM02 ma decyzję wariantu A w Kadry §19.3, a pozostały remis domenowy DOM08 i kalibracja wymagają odbioru.
+Następny krok: finalne migracje/OpenAPI oraz testy grafiku, absencji, płac i cennika rekrutacji §19.2. Nie aktywować nowego narzutu20,48% w YAML v1 bez badania marży i startu firmy.
 
 
 Kontrola tej rundy:19 asercji arytmetycznych PASS (narzuty, miesiące28–31dni, aneks, progi odpraw, pół etatu i faktura). Agent przejrzał założenia algorytmu; uwzględniono staż, podstawę, pauzę firmy i granice umowy. Nie uruchamiano Laravel/MySQL ani 90dni nowego balansu. Wycofanie dokumentacyjne bez wpływu na dane gry.
