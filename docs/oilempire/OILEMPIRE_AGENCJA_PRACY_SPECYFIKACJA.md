@@ -154,7 +154,7 @@ Główny administrator nie musi wpisywać komentarza; nadal obowiązuje audyt i 
 A: rekomendacje i plan obsady, bez samodzielnych mutacji.
 B: kontrolowane rekrutacje/zastępstwa w mandacie i budżecie.
 C: grafiki, urlopy, szkolenia i negocjacje po stabilizacji Staff.
-Nie uruchamiać C przed domknięciem HR-CFG01–05 i HR-CONTRACT01.
+Nie uruchamiać C przed wdrożeniem i przetestowaniem wariantu A Kadr §19 oraz HR-CONTRACT01, zamknięciem pozostałych bramek HR-CFG03/05 i osobną kalibracją automatyzacji Agencji.
 
 | Bramka | Do przygotowania |
 |---|---|
