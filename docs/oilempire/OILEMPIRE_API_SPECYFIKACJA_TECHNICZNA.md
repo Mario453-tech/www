@@ -164,3 +164,11 @@ Android: Google Play Billing; iOS: Apple In-App Purchase; web: operator płatno�
 ## 11. Powiązanie domeny P06–P13
 
 [31 kart P06–P13](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) rozwija wejścia i wyniki dla firmy, Staff/Training, Legal, Extraction, Logistics i Incidents. [Wycinek OpenAPI](OILEMPIRE_KONTRAKTY_P06_P13.yaml) formalizuje8wejść i przypisuje operacje do kart oraz warunków gotowości. Prefiks wszystkich ścieżek to /api/v1; Logistics pozostaje w /api/v1/logistics. Wewnętrzne kontrakty nie są automatycznie publicznymi endpointami. Polityki DOM01–DOM16 wymagają decyzji przed aktywacją wskazanych procesów; odpowiedź kontrolowana nie zastępuje obowiązku ich domknięcia przed wydaniem.
+
+## Załącznik P14–P25 po audycie — kontrakty odczytu i dostawców
+
+[OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) zawiera 56 operacji z mapą kart, w tym GET /api/v1/game/snapshot (P24-F01), GET ofert, kontraktów, finansów, kredytów, produktów, zamówień, wątków, karteli, powiadomień i polityk. Odczyt zawiera ETag/as_of, filtr pól właściciela i stabilną paginację cursor; nie emituje eventu ani nie wymaga mutacyjnego Idempotency-Key. P24 nie przejmuje danych ekonomicznych, korzysta z publicznych Queries właścicieli.
+
+[OpenAPI providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml) obejmuje web webhook oraz Apple/Google store notifications z odrębną natywną weryfikacją. Podpis/uwierzytelnienie sprawdzić na surowych bajtach przed parsowaniem, a transakcję z serwerem sklepu przed grantem. Klient mobile może przesłać receipt tylko do VerifyPlatformReceipt; nie może wywołać webhooka. Refund i chargeback przechodzą przez jedną księgę P20, z idempotentnym recovery po grant.
+
+Zgoda/eksport/anonimizacja są self-service użytkownika; user_id pochodzi z sesji, nie z body. Eksport/anonimizacja wymagają step-up. Consent DTO zawiera purpose_code i wersję polityki. Wybór receptury przyjmuje recipe_code oraz expected_state_version; serwer utrwala snapshot popytu/kontraktów. Każda mutacja sesją web wymaga CSRF; bearer mobile nie uruchamia sesji WWW.
