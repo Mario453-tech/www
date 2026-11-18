@@ -369,6 +369,8 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 
 ## 11. Mapa wykonawcza P14–P25
 
+> **Status po audycie:** [P14–P25 mają otwarte błędy P0/P1 i nie są jeszcze Definition of Ready](OILEMPIRE_P14_P25_AUDYT_KOMPLETNOSCI.md). Karty i kontrakty są szkicami do poprawy przed kodowaniem.
+
 | Fala | Pakiety i kolejność | Karty | Kontrakty i dane | Bramka przed kodem |
 |---|---|---|---|---|
 | E3 | P14 Market → P15 Contracts → P16 Finance → P17 Banking → P18 Legal/PvP | [P14–P18](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md) | [manifest](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [DDL](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) | zamknięcie DOM i test współbieżności: matching/sprzedaż, escrow/refund, egzekucja/transfer |
