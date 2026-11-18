@@ -115,14 +115,14 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 
 ## Karty wykonawcze P14–P25
 
-> **Status:** [audyt kompletności wykazał błędy P0/P1](OILEMPIRE_P14_P25_AUDYT_KOMPLETNOSCI.md). Karty wymagają korekt przed programowaniem.
+> **Status:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). Zależne DOM wymagają decyzji, a wykonanie DDL i silnika wymaga testów runtime.
 
 - [P14–P18: gospodarka, kontrakty, finanse, bankowość i PvP](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md)
 - [P19–P20: rafineria/EPC/ubezpieczenia i płatności](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md)
 - [P21–P24: komunikacja, powiadomienia, CMS/prywatność i klient](OILEMPIRE_KARTY_IMPLEMENTACJI_P21_P24.md)
 - [P25: wydanie i eksploatacja](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md)
 - [Manifest 89 kart i właścicieli tabel](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [kontrakty szczegółowe](OILEMPIRE_KONTRAKTY_AKCJI_P14_P25.md), [projekt DDL MySQL 8.4](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) i [providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml)
-- [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md), [migracje](OILEMPIRE_MIGRACJE_P14_P25.md), [runbook P25](OILEMPIRE_RUNBOOK_P25.md) i [raport weryfikacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md)
+- [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md), [migracje](OILEMPIRE_MIGRACJE_P14_P25.md), [runbook P25](OILEMPIRE_RUNBOOK_P25.md) i [raport weryfikacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) oraz [raport napraw](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md)
 - [Propozycje DOM do zatwierdzenia](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md)
 
 To dokumentacja do programowania. Nie stanowi działającego silnika ani zatwierdzonej wersji balansu. DDL wymaga sprawdzenia preflight na rzeczywistym schemacie P01–P13, a pełne testy MySQL, PHP, API, UI i 90 dni wymagają implementacji.
