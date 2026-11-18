@@ -383,7 +383,7 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 
 ## 11. Mapa wykonawcza P14–P25
 
-> **Status po naprawach:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). Przed wdrożeniem pozostają zatwierdzenia właściwych DOM oraz testy MySQL 8.4, Laravel, API/UI i 90 dni; dokumenty nie stanowią dowodu działania silnika.
+> **Status po naprawach:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). Przed wdrożeniem pozostają decyzje DOM06/DOM15, publikacja wersji parametrów oraz testy MySQL 8.4, Laravel, API/UI i 90 dni; dokumenty nie stanowią dowodu działania silnika.
 
 | Fala | Pakiety i kolejność | Karty | Kontrakty i dane | Bramka przed kodem |
 |---|---|---|---|---|
@@ -394,7 +394,7 @@ A = architektura, B = bezpieczeństwo; odnośniki do plików znajdują się w RE
 
 [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md) stanowią bramkę dla P14–P25. [Raport kontroli dokumentacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) rozdziela kontrole statyczne, symulator i testy runtime.
 
-Manifest mapuje 89 kart na 56 operacji API gracza, 2 odrębne endpointy providera i 31 komend/kontraktów wewnętrznych. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05, DOM06/08 i DOM09–15](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md) są propozycjami do zatwierdzenia. Zależna akcja zwraca `POLICY_NOT_APPROVED` do zatwierdzenia i aktywacji wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
+Manifest mapuje 89 kart na 56 operacji API gracza, 2 odrębne endpointy providera i 31 komend/kontraktów wewnętrznych. Każda tabela ma jednego właściciela; FTS, ruchy ropy i rezerwacje pozostają w modułach fundamentu. [DOM03–05 i DOM08–14](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) są zatwierdzone przez właściciela do programowania; [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) i [DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) są kandydatami. Zależna akcja zwraca `POLICY_NOT_APPROVED` do aktywacji opublikowanej wersjonowanej polityki. Zmiana decyzji wymaga jednoczesnej aktualizacji kanonu, kart, kontraktów, kandydującego YAML i testów. Nie jest to aktywacja balansu.
 
 
 ## 12. Artefakty uzupełniające DoR
