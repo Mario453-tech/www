@@ -41,7 +41,8 @@
       "per_full_dissatisfaction_point_pp": 1,
       "employer_offer_min_pct": 0,
       "deadline_h": 72,
-      "one_deferral_h": 48
+      "one_deferral_h": 48,
+      "dissatisfaction_points_formula": "max(0,60-salary_satisfaction)"
     },
     "DOM05": {
       "module": "social",
@@ -64,7 +65,9 @@
       "legal_skill_bonus_pp": 2,
       "chance_floor_pct": 5,
       "chance_cap_pct": 90,
-      "draw_key": "case_id"
+      "draw_key": "case_id",
+      "legal_skill_bonus_cap_pp": 10,
+      "cap_applies_to": "appeal_only_not_initial_P1_P2"
     },
     "DOM10": {
       "module": "legal",
