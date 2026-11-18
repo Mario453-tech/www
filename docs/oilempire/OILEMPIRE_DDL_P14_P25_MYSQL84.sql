@@ -623,6 +623,26 @@ CREATE TABLE refinery_plots (
   UNIQUE KEY uq_refinery_plots_domain (region_code, plot_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+CREATE TABLE refineries (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  company_id BIGINT UNSIGNED NULL,
+  plot_id BIGINT UNSIGNED NOT NULL,
+  tier_code VARCHAR(20) NOT NULL,
+  capacity_bbl_day DECIMAL(16,4) NOT NULL,
+  commissioned_at DATETIME(3) NULL,
+  selected_recipe_id BIGINT UNSIGNED NULL,
+  state VARCHAR(32) NOT NULL DEFAULT 'draft',
+  state_version BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  balance_version VARCHAR(24) NULL,
+  logical_at DATETIME(3) NULL,
+  created_at DATETIME(3) NOT NULL,
+  updated_at DATETIME(3) NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_refineries_ulid (public_ulid),
+  KEY ix_refineries_company_state (company_id, state, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
 CREATE TABLE epc_contracts (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   public_ulid CHAR(26) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
@@ -1380,6 +1400,7 @@ CREATE TABLE runbook_versions (
   UNIQUE KEY uq_runbook_versions_domain (runbook_code, version_no)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+ALTER TABLE refineries ADD CONSTRAINT fk_refineries_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 -- FK po CREATE, aby cykle page/version i refinery/recipe nie blokowały tworzenia.
 ALTER TABLE market_offers ADD CONSTRAINT fk_market_offers_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
 ALTER TABLE market_trades ADD CONSTRAINT fk_market_trades_company_id FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE RESTRICT ON UPDATE RESTRICT;
