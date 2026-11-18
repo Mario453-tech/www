@@ -9,6 +9,8 @@ Status: zatwierdzony zakres funkcjonalny z rozmowy właściciela, specyfikacja d
 Właściciel: Staff. Powiązania: [architektura](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) §3–§6, §19, §23; [karty](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) P07–P09; P06 reputacja, P11–P13 obsada, P16 finanse, P24 interfejs.
 Ten rozdział jest źródłem wymagań dla rozszerzenia HR, nie zmianą aktywnego YAML v1. DOM01, DOM02 i DOM16 otrzymują szerszy zakres; pozostałe propozycje DOM nie zostają automatycznie zatwierdzone.
 
+> **DOM03/DOM04:** [decyzje właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) przyjęte do programowania. [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) nadal wymaga decyzji o cenach i kalibracji.
+
 ## 1. Granica względem wcześniejszego modelu
 
 | Obszar | Docelowa reguła |
