@@ -115,7 +115,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ## P16. Finance
 Źródło: §10, §19.1, §24, §22.6.1. Właściciel zapisu: **Finance**; korzeń balansu: `economy`; poprzedniki: P03/P06/P08/P11/P12/P15.
 Dane: department_budgets, player_finance_decisions, asset_valuations, net_worth_snapshots, wealth_tax_assessments. Właściciele cudzych tabel są odpytywani przez publiczny kontrakt. Mutowalne ID wewnętrzne BIGINT, publiczne ULID; kwoty BIGINT grosze/API string, ropa DECIMAL(16,4), czas UTC DATETIME(3).
-LockPlan: firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Zasoby obu firm deklaruje się przed pierwszym lockiem; żaden handler nie wraca do wcześniejszej rangi.
+LockPlan: firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Zasoby obu firm deklaruje się przed pierwszym lockiem; żaden handler nie wraca do wcześniejszej rangi.
 Reguły: Finance liczy kwoty i zleca Ledger, nie zapisuje FTS samodzielnie. Podatek majątkowy jest marginalny; tarcza/Tier używa pełnej wyceny, podatek nocnego snapshotu. Ropa w tranzycie liczona raz. Rafineria ma dyskonto już we własnej wycenie.
 UI/GM: Filament: polityki budżetów/podatku i podgląd wyceny z uzasadnieniem składników; aktywacja balance_version przez bramkę. Web Vue3 i aplikacja mobile korzystają z tej samej Action; PL/EN/DE, lokalne SVG, dostępny modal zamiast okna systemowego.
 Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, równoległości MySQL i awarii workera. Parametry tylko z zatwierdzonej balance_version; propozycje DOM nie aktywują funkcji.
@@ -124,7 +124,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ### P16-F01 — ChangeBudget
 - **Aktor i kontrakt:** aktor firmy z capability `finance.manage`. department, low|standard|high, expected_version → effective_at. `PUT /api/v1/finance/budgets/{department}` — request/response w OpenAPI; ten sam kontrakt Action dla web/mobile.
 - **Dane i przejście:** `department_budgets`, `player_finance_decisions`. 24h cooldown; obniżka emituje morale −6 raz, koszt od kolejnego segmentu czasu. Wymagane FK, indeksy i UNIQUE definiuje projekt DDL; bez bezpośredniego zapisu prywatnej tabeli innego modułu.
-- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
+- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
 - **Czas i zdarzenie:** Clock UTC; proces utrwala logical_at, due_slot (gdy terminowy), balance_version oraz seed/wynik RNG jeśli używa losowania. HTTP, job i sweeper wywołują tę samą Action. Outbox `finance.change_budget.v1` z ID, company_id, logical_at i wersją; bez sekretów oraz prywatnych modeli.
 - **Odmowa/awaria:** brak dyrektora finansów poza jawnie dozwoloną ścieżką emergency → odmowa. Brak środków, konflikt wersji i przekroczenie limitu nie pozostawiają półoperacji; retry czyta trwały wynik.
 - **Test odbioru:** zmiana na granicy 24h, strajk, retry; dodatkowo własność, 401/403/404/409/422/429 gdzie dotyczy, outbox raz, rollback oraz brak wycieku danych.
@@ -133,7 +133,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ### P16-F02 — AccrueCosts
 - **Aktor i kontrakt:** wewnętrzny handler/worker z trwałym due_slot. company, from,to, balance_version → obligations/FTS refs. Bez publicznej trasy; kontrakt Action/DTO i wyzwalacz w kontrakcie maszynowym.
 - **Dane i przejście:** `department_budgets`, `obligations`. segmentowe OPEX/budżety/HR; subgroszowa reszta przenoszona; niedobór tworzy zobowiązanie 72h. Wymagane FK, indeksy i UNIQUE definiuje projekt DDL; bez bezpośredniego zapisu prywatnej tabeli innego modułu.
-- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
+- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
 - **Czas i zdarzenie:** Clock UTC; proces utrwala logical_at, due_slot (gdy terminowy), balance_version oraz seed/wynik RNG jeśli używa losowania. HTTP, job i sweeper wywołują tę samą Action. Outbox `finance.accrue_costs.v1` z ID, company_id, logical_at i wersją; bez sekretów oraz prywatnych modeli.
 - **Odmowa/awaria:** pauza/vacation/dormant zgodnie z §19.2, bez ujemnego konta. Brak środków, konflikt wersji i przekroczenie limitu nie pozostawiają półoperacji; retry czyta trwały wynik.
 - **Test odbioru:** długi Δt, zmiana stawki, dwa workery; dodatkowo własność, 401/403/404/409/422/429 gdzie dotyczy, outbox raz, rollback oraz brak wycieku danych.
@@ -142,7 +142,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ### P16-F03 — ValueAsset
 - **Aktor i kontrakt:** aktor firmy z capability `finance.manage`. asset_ref, as_of, valuation_purpose → breakdown_minor. `GET /api/v1/finance/assets/{id}/valuation` — request/response w OpenAPI; ten sam kontrakt Action dla web/mobile.
 - **Dane i przejście:** `asset_valuations`. publiczne snapshoty właścicieli; CAPEX razy stan, depleted ×0,10; refinery według §31.7 bez drugiego ×0,70. Wymagane FK, indeksy i UNIQUE definiuje projekt DDL; bez bezpośredniego zapisu prywatnej tabeli innego modułu.
-- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Odczyt autoryzowany, bez side effectów.
+- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Odczyt autoryzowany, bez side effectów.
 - **Czas i zdarzenie:** Brak księgowania i losowania w GET/quote. Brak zdarzenia domenowego z samego odczytu.
 - **Odmowa/awaria:** brak wycenialnego aktywa → typed unavailable, bez zera z domysłu. Brak środków, konflikt wersji i przekroczenie limitu nie pozostawiają półoperacji; retry czyta trwały wynik.
 - **Test odbioru:** przeniesienie aktywa, brak podwójnego pozwolenia; dodatkowo własność, 401/403/404/409/422/429 gdzie dotyczy, outbox raz, rollback oraz brak wycieku danych.
@@ -151,7 +151,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ### P16-F04 — SnapshotTaxBase
 - **Aktor i kontrakt:** wewnętrzny handler/worker z trwałym due_slot. company, date_utc → immutable tax_base. Bez publicznej trasy; kontrakt Action/DTO i wyzwalacz w kontrakcie maszynowym.
 - **Dane i przejście:** `net_worth_snapshots`. 00:00 UTC; kwoty rzeczowe i wierzytelności raz; zawiera aktywa i zapasy według OWNERSHIP. Wymagane FK, indeksy i UNIQUE definiuje projekt DDL; bez bezpośredniego zapisu prywatnej tabeli innego modułu.
-- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
+- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
 - **Czas i zdarzenie:** Clock UTC; proces utrwala logical_at, due_slot (gdy terminowy), balance_version oraz seed/wynik RNG jeśli używa losowania. HTTP, job i sweeper wywołują tę samą Action. Outbox `finance.snapshot_tax_base.v1` z ID, company_id, logical_at i wersją; bez sekretów oraz prywatnych modeli.
 - **Odmowa/awaria:** ponowny snapshot zwraca ten sam hash, korekta append-only. Brak środków, konflikt wersji i przekroczenie limitu nie pozostawiają półoperacji; retry czyta trwały wynik.
 - **Test odbioru:** granica północy, ropa w trasie, escrow; dodatkowo własność, 401/403/404/409/422/429 gdzie dotyczy, outbox raz, rollback oraz brak wycieku danych.
@@ -160,7 +160,7 @@ Odbiór pakietu: każda karta ma test pozytywny, odmowy, obcej firmy, retry, ró
 ### P16-F05 — AssessWealthTax
 - **Aktor i kontrakt:** wewnętrzny handler/worker z trwałym due_slot. snapshot_id, policy_version → assessment_minor. Bez publicznej trasy; kontrakt Action/DTO i wyzwalacz w kontrakcie maszynowym.
 - **Dane i przejście:** `wealth_tax_assessments`. marginalnie od nadwyżki, post Ledger raz; tarcza/tier nie używa dyskonta podatkowego. Wymagane FK, indeksy i UNIQUE definiuje projekt DDL; bez bezpośredniego zapisu prywatnej tabeli innego modułu.
-- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
+- **Transakcja:** firma10 → settlement11 → Staff14/Legal15 według odczytu snapshot → Finance19 → ledger20 → aktywa40–120 → append140. Idempotency-Key aktora lub stabilny typ:encja:slot dla domeny; expected_state_version/CAS, FTS/ruch fizyczny przez właściciela i outbox w jednej transakcji.
 - **Czas i zdarzenie:** Clock UTC; proces utrwala logical_at, due_slot (gdy terminowy), balance_version oraz seed/wynik RNG jeśli używa losowania. HTTP, job i sweeper wywołują tę samą Action. Outbox `finance.assess_wealth_tax.v1` z ID, company_id, logical_at i wersją; bez sekretów oraz prywatnych modeli.
 - **Odmowa/awaria:** niezatwierdzona polityka → POLICY_NOT_APPROVED. Brak środków, konflikt wersji i przekroczenie limitu nie pozostawiają półoperacji; retry czyta trwały wynik.
 - **Test odbioru:** 200M/400M/1,2B i retry; dodatkowo własność, 401/403/404/409/422/429 gdzie dotyczy, outbox raz, rollback oraz brak wycieku danych.
