@@ -4,7 +4,7 @@
 
 
 
-**BIEŻĄCY STATUS (18.11.2026):** właściciel zatwierdził OPEN01–OPEN12 oraz wariant A Kadr §19. DOM01/DOM02/DOM16 mają decyzje A; historyczne wiersze poniżej pozostają zapisem wcześniejszego audytu. Ich aktywacja wymaga kalibracji, migracji, pełnego OpenAPI i testów z HR-CONTRACT01. Pozostałe DOM zachowują własne bramki. Nie oznacza to gotowego kodu. Rejestr OPEN: [plan §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md).
+**BIEŻĄCY STATUS (18.11.2026):** właściciel zatwierdził OPEN01–OPEN12 oraz wariant A Kadr §19. DDL Staff A i OpenAPI 3.1 zapisano jako artefakty projektowe; nie wykonano ich jeszcze na MySQL ani w Laravel. DOM07 ma decyzję A, DOM06 ma cennik bazowego kursu technicznego A, a inne role/skill nadal potrzebują katalogu i testów. Wiersze historyczne poniżej nie są bieżącym statusem. DOM01/DOM02/DOM16 mają decyzje A; historyczne wiersze poniżej pozostają zapisem wcześniejszego audytu. Ich aktywacja wymaga kalibracji, migracji, pełnego OpenAPI i testów z HR-CONTRACT01. Pozostałe DOM zachowują własne bramki. Nie oznacza to gotowego kodu. Rejestr OPEN: [plan §10](OILEMPIRE_PLAN_PROGRAMOWANIA.md).
 
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Dowody weryfikacji i rejestr otwartych problemów; nie zastępuje wymagań rozdziałów źródłowych. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
 
