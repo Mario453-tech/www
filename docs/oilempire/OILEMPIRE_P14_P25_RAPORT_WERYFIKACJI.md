@@ -1,6 +1,6 @@
 # OilEmpire — raport kontroli dokumentacji P14–P25
 
-> **Aktualizacja 2026-11-18:** [niezależny audyt kompletności](OILEMPIRE_P14_P25_AUDYT_KOMPLETNOSCI.md) wykazał błędy P0/P1. Wynik poniżej dotyczy kontroli strukturalnej i starego balansu; dokumentacja P14–P25 nie spełnia jeszcze Definition of Ready.
+> **Aktualizacja po poprawkach 2026-11-18:** Poniższe liczby opisują poprzedni przebieg. [Raport napraw P14–P25](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md) podaje bieżące liczby i zakres walidacji. Testy runtime pozostają do wykonania.
 
 Data: 2026-11-18. Zakres: dokumentacja na main, nie wdrożenie gry.
 
