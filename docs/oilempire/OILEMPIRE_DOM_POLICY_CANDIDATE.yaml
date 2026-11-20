@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "kind": "oilempire_dom_policy_overlay",
-  "status": "candidate_not_active",
+  "status": "owner_approved_candidate_not_active",
   "target_balance_version": 2,
   "base_balance_file": "OILEMPIRE_GAME_BALANCE_V1.yaml",
   "base_blob_sha": "944aac1d71867329e32c0452e21689a5e0273fbb",
@@ -10,18 +10,17 @@
     "DOM03",
     "DOM04",
     "DOM05",
+    "DOM06",
     "DOM08",
     "DOM09",
     "DOM10",
     "DOM11",
     "DOM12",
     "DOM13",
-    "DOM14"
-  ],
-  "pending": [
-    "DOM06",
+    "DOM14",
     "DOM15"
   ],
+  "pending": [],
   "policies": {
     "DOM03": {
       "module": "staff",
@@ -31,7 +30,16 @@
       "raise_base_pct": 4,
       "raise_per_full_advantage_pp": 1,
       "raise_min_pct": 2,
-      "raise_max_pct": 12
+      "raise_max_pct": 12,
+      "advantage_min": -2,
+      "advantage_max": 8,
+      "group_size_points_formula": "floor((n-3)/3)",
+      "dissatisfaction_points_formula": "floor(max(0,60*n-sum_salary_satisfaction)/(10*n))",
+      "hr_points": "skill_negotiation_of_active_hr_director_or_zero",
+      "negotiator_points_if_active": 2,
+      "advantage_formula": "clamp(-2,8,size_points+dissatisfaction_points-hr_points-negotiator_points)",
+      "demand_formula": "clamp(2,12,4+advantage)",
+      "source": "OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md"
     },
     "DOM04": {
       "module": "staff",
@@ -107,12 +115,10 @@
       "slot_min": 5,
       "start": "next_slot_boundary",
       "flow_during_switch_bbl": 0
-    }
-  },
-  "pending_candidates": {
+    },
     "DOM06": {
       "module": "staff",
-      "base_programs": [
+      "programs": [
         "drilling",
         "maintenance",
         "safety",
@@ -133,11 +139,20 @@
         50000,
         100000
       ],
+      "qualification": "versioned_staff_capability_mapping",
+      "capabilities": [
+        "training.drilling",
+        "training.maintenance",
+        "training.safety",
+        "training.analysis",
+        "training.refining"
+      ],
+      "new_effect_multipliers": false,
       "source": "OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md"
     },
     "DOM15": {
       "module": "incidents",
-      "well_baseline_unit_candidate_h": 24,
+      "well_baseline_unit_h": 24,
       "well_base_pct_by_stratum": {
         "shallow": 0.2,
         "mid": 0.4,
@@ -146,7 +161,17 @@
       },
       "road_base_pct_per_h_existing": 0.8,
       "slot_min_for_dedupe": 5,
+      "probability_formula": "1-(1-p_base)^(exposure_h/base_h*multiplier)",
+      "other_risk_owners": "keep_existing_explicit_units",
       "source": "OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md"
     }
-  }
+  },
+  "decision_date": "2026-11-21",
+  "activation_gates": [
+    "publish_versioned_full_game_balance",
+    "simulator_zero_fail",
+    "four_eyes_or_owner_admin_rule",
+    "mysql_laravel_api_tests",
+    "economic_90_day_run"
+  ]
 }
