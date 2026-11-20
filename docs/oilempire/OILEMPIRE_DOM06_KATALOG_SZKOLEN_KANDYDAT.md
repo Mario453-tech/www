@@ -1,6 +1,6 @@
-# OilEmpire — DOM06, katalog szkoleń technicznych v1 (kandydat)
+# OilEmpire — DOM06, katalog szkoleń technicznych v1 (wariant A)
 
-**Status:** do zatwierdzenia po kalibracji HR. Nie zmienia aktywnego YAML. Kanon §6/§31.7 zachowuje +1 do dedykowanego sub-skilla za zdany egzamin, cap 10, bazową szansę 70%, +10 p.p. za powtórkę (max +30), cooldown 12h oraz blokadę 7 dni po 3 niepowodzeniach. Przerób Ropy I/II/III zachowuje 20/50/100 tys. PLN i 24/48/72h. [Decyzje właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md).
+**Status 2026-11-21:** właściciel przyjął wariant A do programowania: ceny 10/30/60 tys. PLN dla czterech kursów bazowych i kwalifikacja przez wersjonowane capability Staff. Katalog pozostaje kandydatem do publikacji, nie zmienia aktywnego YAML. Test 90 dni i bramki wydania obowiązują przed aktywacją. Kanon §6/§31.7 zachowuje +1 do dedykowanego sub-skilla za zdany egzamin, cap 10, bazową szansę 70%, +10 p.p. za powtórkę (max +30), cooldown 12h oraz blokadę 7 dni po 3 niepowodzeniach. Przerób Ropy I/II/III zachowuje 20/50/100 tys. PLN i 24/48/72h. [Decyzje właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md).
 
 ## Katalog
 
@@ -14,7 +14,7 @@
 | analysis | skill_analysis | geologia/analiza złoża | 10 000/24 | 30 000/48 | 60 000/72 | wydobycie ×(1+0,02×skill), §9.2 |
 | refining | skill_refining | instalacja rafineryjna/proces chemiczny | **20 000/24** | **50 000/48** | **100 000/72** | przepustowość +1%/pkt i awaryjność −2%/pkt, §31.7 |
 
-**Nowe liczby do decyzji:** 10/30/60 tys. PLN są kandydatem wyłącznie dla czterech bazowych kursów. Ich skutki liczbowe już istnieją w kanonie; nie dodajemy jednocześnie nieustalonych bonusów naprawy, strat surowca lub jakości, które podwoiłyby korzyść. Capability jest mapowane przez właściciela Staff na wersjonowane specjalizacje; nie wolno przepuścić dowolnego `role_code` z klienta. Nieobsługiwana specjalizacja → `PROGRAM_UNAVAILABLE`, nie darmowy kurs.
+**Przyjęte liczby wariantu A:** 10/30/60 tys. PLN dotyczą wyłącznie czterech bazowych kursów. Ich skutki liczbowe już istnieją w kanonie; nie dodajemy jednocześnie nieustalonych bonusów naprawy, strat surowca lub jakości, które podwoiłyby korzyść. Stabilne capability katalogu to `training.drilling`, `training.maintenance`, `training.safety`, `training.analysis` i `training.refining`. Staff mapuje je na wersjonowane specjalizacje i zapisuje identyfikator wersji mapowania w enrolment; nie wolno przepuścić dowolnego `role_code` z klienta. Nieobsługiwana specjalizacja → `PROGRAM_UNAVAILABLE`, nie darmowy kurs.
 
 ## Przejścia i czas
 
@@ -28,4 +28,4 @@
 
 Filament edytuje ceny, czasy, pass rate, wymagania capability, poziomy, udostępnienie i komunikaty PL/EN/DE w wersji kandydującej; opublikowanej wersji nie edytuje. Każda zmiana wartości ma diff, symulator i audit. UI gracza pokazuje cenę, czas kalendarzowy, wpływ na obsadę, szansę egzaminu i obecny/celowy skill; komunikat i ikona są lokalnym SVG, bez systemowego `alert`/`confirm`.
 
-Testy: brak capability, poziom II bez I, cap 9→10 i 10→10, dwa równoległe zapisy, choroba na `due_at`, zwolnienie przed egzaminem, retry płatności/egzaminu, 12h/7dni granice, brak podwójnego morale `training_180d`. Przed zatwierdzeniem cen uruchomić 90 dni z kosztem kursów i niedoborem obsady; dopiero wtedy wpisać kandydat do pełnego game_balance.
+Testy: brak capability, poziom II bez I, cap 9→10 i 10→10, dwa równoległe zapisy, choroba na `due_at`, zwolnienie przed egzaminem, retry płatności/egzaminu, 12h/7dni granice, brak podwójnego morale `training_180d`. Przed aktywacją uruchomić 90 dni z kosztem kursów i niedoborem obsady; zatwierdzone przez właściciela ceny przenieść do pełnego kandydującego game_balance i uruchomić bramki wydania.
