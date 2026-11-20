@@ -22,7 +22,7 @@ def hazard_probability(base_probability, exposed_hours, base_hours, multiplier=1
 
 class Dom15CandidateTest(unittest.TestCase):
     def test_canonical_well_values_are_unchanged(self):
-        expected = CANDIDATE["pending_candidates"]["DOM15"]["well_base_pct_by_stratum"]
+        expected = CANDIDATE["policies"]["DOM15"]["well_base_pct_by_stratum"]
         for stratum, percent in expected.items():
             self.assertEqual(WELL[stratum]["base_failure_risk_pct_per_tick"], percent)
 
@@ -30,10 +30,12 @@ class Dom15CandidateTest(unittest.TestCase):
         self.assertEqual(ROAD["base_chance_pct_per_trip_h"], 0.8)
 
     def test_daily_candidate_preserves_daily_well_probability(self):
+        base_h = CANDIDATE["policies"]["DOM15"]["well_baseline_unit_h"]
+        self.assertEqual(base_h, 24)
         for row in WELL.values():
             p = row["base_failure_risk_pct_per_tick"] / 100
-            self.assertAlmostEqual(hazard_probability(p, 24, 24), p)
-            self.assertLess(hazard_probability(p, 5 / 60, 24), p)
+            self.assertAlmostEqual(hazard_probability(p, base_h, base_h), p)
+            self.assertLess(hazard_probability(p, 5 / 60, base_h), p)
 
     def test_road_short_trips_preserve_current_linear_quote(self):
         p = ROAD["base_chance_pct_per_trip_h"] / 100
