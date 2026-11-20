@@ -8729,24 +8729,24 @@
     ]
   },
   "owner_decision_batch": {
-    "date": "2026-11-18",
+    "date": "2026-11-21",
     "approved": [
       "DOM03",
       "DOM04",
       "DOM05",
+      "DOM06",
       "DOM08",
       "DOM09",
       "DOM10",
       "DOM11",
       "DOM12",
       "DOM13",
-      "DOM14"
-    ],
-    "pending": [
-      "DOM06",
+      "DOM14",
       "DOM15"
     ],
+    "pending": [],
     "source": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md",
-    "active_balance_modified": false
+    "active_balance_modified": false,
+    "activation_gate": "published_policy_and_release_checks"
   }
 }
