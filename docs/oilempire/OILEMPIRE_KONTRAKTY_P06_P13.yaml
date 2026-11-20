@@ -913,10 +913,10 @@
       "id": "DOM03",
       "scope": "P08-F04",
       "alias": "NEGOTIATION-01",
-      "decision": "Grupa >=3 jednej specjalizacji; jedno żądanie/30 dni; clamp(2%,12%,4%+1pp*pełna przewaga).",
+      "decision": "Wariant A: snapshot n/S/skill_HR/salary_negotiator; advantage=clamp(-2,8,floor((n-3)/3)+floor(max(0,60*n-S)/(10*n))-skill_HR-2*negotiator); demand=clamp(2%,12%,4%+advantage pp). Ruchome 30d pod blokadą grupy.",
       "source": "§5.2; staff params",
       "status": "owner_approved_pending_implementation_and_activation",
-      "resolution_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md"
+      "resolution_document": "OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md"
     },
     {
       "id": "DOM04",
@@ -940,9 +940,9 @@
       "id": "DOM06",
       "scope": "P09-F01, P09-F02",
       "alias": "T09-L02",
-      "decision": "Refining I/II/III zachowuje 20k/50k/100k PLN, 24/48/72h, próg70 i cap10. Cztery kursy bazowe 10k/30k/60k PLN są kandydatem DOM06; capability i test ekonomii nadal do zatwierdzenia. Brak wpisu=PROGRAM_UNAVAILABLE.",
+      "decision": "Wariant A właściciela: cztery kursy bazowe 10k/30k/60k PLN, 24/48/72h; refining 20k/50k/100k bez zmian. Kwalifikacja przez wersjonowane capability Staff, bez nowych mnożników efektu.",
       "source": "§6/§31; staff/refining training",
-      "status": "candidate_catalog_pending_owner_approval_and_calibration",
+      "status": "owner_approved_pending_implementation_and_activation",
       "resolution_document": "OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md"
     },
     {
@@ -1021,9 +1021,9 @@
       "id": "DOM15",
       "scope": "P13-F03, P13-F04",
       "alias": "DPL07-ekspozycja",
-      "decision": "Road 0,8%/h i pipeline 0,0008/0,0006 per h pozostają z YAML. Well 0,2-1,2%/tick ma nieustaloną jednostkę; kandydat 24h wymaga 90d testu i decyzji. Slot 5min służy deduplikacji, nie automatycznej stawce.",
+      "decision": "Wariant A właściciela: awaria odwiertu bazowa 0,2/0,4/0,7/1,2% na 24h ekspozycji; slot 5min tylko dedupe, road i pipeline zachowują godzinowe bazy. Test ekonomii 90d jest bramką aktywacji.",
       "source": "§9.5/§17.4/§23.6",
-      "status": "candidate_calibration_pending_90_day_test_and_owner_approval",
+      "status": "owner_approved_pending_90_day_validation_and_activation",
       "resolution_document": "OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md"
     },
     {
@@ -1393,23 +1393,22 @@
     "runtime_implemented": false
   },
   "x-owner-decision-batch": {
-    "date": "2026-11-18",
+    "date": "2026-11-21",
     "approved": [
       "DOM03",
       "DOM04",
       "DOM05",
+      "DOM06",
       "DOM08",
       "DOM09",
       "DOM10",
       "DOM11",
       "DOM12",
       "DOM13",
-      "DOM14"
-    ],
-    "pending": [
-      "DOM06",
+      "DOM14",
       "DOM15"
     ],
+    "pending": [],
     "decision_document": "OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md",
     "activation": "not_active_until_versioned_balance_and_release_gates"
   }
