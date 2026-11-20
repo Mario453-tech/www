@@ -911,12 +911,13 @@
     },
     {
       "id": "DOM03",
-      "scope": "P08-F04",
+      "scope": "P08-F04 (group demand calculation)",
       "alias": "NEGOTIATION-01",
       "decision": "Wariant A: snapshot n/S/skill_HR/salary_negotiator; advantage=clamp(-2,8,floor((n-3)/3)+floor(max(0,60*n-S)/(10*n))-skill_HR-2*negotiator); demand=clamp(2%,12%,4%+advantage pp). Ruchome 30d pod blokadą grupy.",
       "source": "§5.2; staff params",
       "status": "owner_approved_pending_implementation_and_activation",
-      "resolution_document": "OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md"
+      "resolution_document": "OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md",
+      "remaining_implementation_dependency": "separate negotiation round outcome policy per architecture §5.2"
     },
     {
       "id": "DOM04",
