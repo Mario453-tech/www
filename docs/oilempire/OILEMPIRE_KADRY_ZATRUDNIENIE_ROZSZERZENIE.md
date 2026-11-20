@@ -9,7 +9,7 @@ Status: zatwierdzony zakres funkcjonalny z rozmowy właściciela, specyfikacja d
 Właściciel: Staff. Powiązania: [architektura](OILEMPIRE_ARCHITEKTURA_SYSTEMOWA.md) §3–§6, §19, §23; [karty](OILEMPIRE_KARTY_IMPLEMENTACJI_P06_P13.md) P07–P09; P06 reputacja, P11–P13 obsada, P16 finanse, P24 interfejs.
 Ten rozdział jest źródłem wymagań dla rozszerzenia HR, nie zmianą aktywnego YAML v1. DOM01, DOM02 i DOM16 otrzymują szerszy zakres; pozostałe propozycje DOM nie zostają automatycznie zatwierdzone.
 
-> **DOM03/DOM04:** [decyzje właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) przyjęte do programowania. [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) nadal wymaga decyzji o cenach i kalibracji.
+> **DOM03/DOM04:** [decyzje właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) przyjęte do programowania. [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) ma przyjęte ceny wariantu A, lecz wymaga testu ekonomii przed aktywacją. [DOM03-A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md) podaje wzór żądania grupowego.
 
 ## 1. Granica względem wcześniejszego modelu
 
@@ -726,7 +726,7 @@ Status: katalog, kombinacje i siła efektów opisane. Otwarte: HR-TRAITS-CONTRAC
 
 Training pozostaje wewnątrz Staff. Wykorzystuje istniejące skills, certyfikaty i dostępność, nie osobny model pracownika.
 Katalog kursu: rola/skill, poziom, wymagany poprzedni poziom, minimalne kompetencje, kwalifikowalne umowy, cena, czas, tryb czasu, zajętość, próg zdania, bonusy prób, limity, zasady przerwania, certyfikat i ewentualna ważność.
-Zachowujemy kanoniczne kursy/kwoty/capy: Refining20k/50k/100k,24/48/72h, próg70, skill cap10. Brakujące ceny kursów bazowych nadal DOM06; nie zamieniamy przedziału10–100k na arbitralny cennik.
+Zachowujemy kanoniczne kursy/kwoty/capy: Refining20k/50k/100k,24/48/72h, próg70, skill cap10. Ceny czterech kursów bazowych są przyjęte w [DOM06-A](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md): 10k/30k/60k PLN; aktywacja czeka na wersjonowany balans i testy.
 
 Tryby czasu:
 - elapsed_time: upływ według dotychczasowego zegara kursu, bez samowolnego przeliczania24h na3dni robocze;
@@ -1558,7 +1558,7 @@ Urlopy A: wszystkie parametry biznesowe nadal edytowalne w panelu, zgodnie z §4
 
 ### 19.5. Szkolenia i HR A
 
-Zachować wszystkie zatwierdzone parametry Refining:20k/50k/100k,24/48/72h, próg70 i skill cap10. Dla bazowego kursu technicznego A: poziom I 20 000 PLN/24h, II 50 000/48h, III 100 000/72h; próg70, cap10. To wybrany cennik wariantu A dla bazowego kursu technicznego, nie retroaktywna zmiana starych szkoleń. Katalog roli/skill dopuszcza poziom I–III; nie wolno otworzyć kursu bez jawnego wpisu. Koszt raz przy zapisie, egzamin idempotentny, pauza chorobowa według §17. W pierwszym wydaniu tylko elapsed_time z rezerwacją **8h pracy w każdym dniu trwania kursu**, o ile istnieje zaplanowany dyżur; bez dyżuru kurs trwa kalendarzowo, ale pracownik nie jest obsadą obiektu. Rezerwacja nie łamie limitów §4.1. Wariant scheduled_training_time to B.
+Zachować wszystkie zatwierdzone parametry Refining:20k/50k/100k,24/48/72h, próg70 i skill cap10. Dla czterech bazowych kursów technicznych wariant DOM06-A: poziom I 10 000 PLN/24h, II 30 000/48h, III 60 000/72h; próg70, cap10. Cennik Przerobu Ropy 20/50/100 tys. PLN pozostaje bez zmiany. To wybór do nowej wersji parametrów, nie retroaktywna zmiana rozpoczętych szkoleń. Katalog roli/skill dopuszcza poziom I–III; nie wolno otworzyć kursu bez jawnego wpisu. Koszt raz przy zapisie, egzamin idempotentny, pauza chorobowa według §17. W pierwszym wydaniu tylko elapsed_time z rezerwacją **8h pracy w każdym dniu trwania kursu**, o ile istnieje zaplanowany dyżur; bez dyżuru kurs trwa kalendarzowo, ale pracownik nie jest obsadą obiektu. Rezerwacja nie łamie limitów §4.1. Wariant scheduled_training_time to B.
 
 Po7 aktywnych dniach blokady egzaminów A: licznik kolejnych niepowodzeń resetuje się do0, ale skill, wcześniejsze próby i historia wyników pozostają. Nowa próba płatna normalnie; nie przyznajemy automatycznego bonusu zdania za sam reset. To decyzja DOM07 dla wariantu A; przed aktywacją wymagany jest test czwartej próby.
 
