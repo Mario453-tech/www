@@ -17,7 +17,7 @@
 | DOM06 | **Przyjęty wariant A:** cztery kursy bazowe 10/30/60 tys. PLN na poziomach I/II/III, kwalifikacja przez wersjonowane capability Staff, bez nowych mnożników efektu; [katalog](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md). | Przerób Ropy zachowuje 20/50/100 tys. PLN oraz czasy 24/48/72h. Kalibracja kosztów i testy przed aktywacją. |
 | DOM15 | **Przyjęty wariant A do programowania:** baza awarii odwiertów 0,2/0,4/0,7/1,2% odnosi się do 24h ekspozycji; slot 5 min służy deduplikacji. Istniejące godzinowe bazy drogi i rurociągu pozostają bez zmian; [kalibracja](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md). | Test mechaniczny 6/6 PASS; test ekonomiczny 90 dni i obserwacja kosztów są bramką aktywacji. |
 
-**DOM03:** [Wariant A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md) podaje pełny wzór przewagi, wejścia i testy. Wynik jest serwerowym snapshotem, nigdy wartością klienta.
+**DOM03:** [Wariant A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md) podaje pełny wzór **wysokości żądania grupowego**, wejścia i testy. Wynik jest serwerowym snapshotem, nigdy wartością klienta. Osobny wynik rundy ugody z §5.2 wciąż wymaga własnej polityki; ten wybór nie dopisuje jej losowania ani współczynników.
 
 ## Publikacja i blokady
 
