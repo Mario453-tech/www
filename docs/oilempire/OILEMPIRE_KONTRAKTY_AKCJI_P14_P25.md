@@ -1453,6 +1453,7 @@ Ten plik uzupełnia karty o wymagania planu §3 dla każdej Action/Query. Normat
 
 ### P21-F10 — ApplyCartelSanction
 
+- **DOM05:** finalne −15 credibility i −15 B2B bez wtórnej propagacji; właściciel zatwierdził, runtime wymaga opublikowanej wersji polityki.
 - **Aktor/polityka:** system_worker_lease_fencing; cudzy obiekt → 404; właściciel zapisu Social. Źródło/warunek: P02/P04/P06/P18.
 - **Interface:** internal:Social.ApplyCartelSanction; 3 flags/7d event_id → sanction state. Odpowiedź i kody FORBIDDEN, NOT_FOUND, VERSION_CONFLICT, STATE_CONFLICT, VALIDATION_FAILED, POLICY_NOT_APPROVED w OpenAPI/kontrakcie Action; operacja używa expected_state_version/CAS gdy zmienia stan.
 - **DDL i własność:**
@@ -1463,7 +1464,7 @@ Ten plik uzupełnia karty o wymagania planu §3 dla każdej Action/Query. Normat
 
   | Stan przed | Warunek i zegar | Stan/efekt po | Kompensacja |
   |---|---|---|---|
-  | zapisany stan i state_version | fewer than 3 flags→no-op/POLICY_NOT_APPROVED only unresolved propagation; Clock UTC stable_domain_slot | threshold reached→30d fee exemption suspension; reputation deltas once | Przed commit rollback całej Action; po commit korekta przez oddzielny wersjonowany efekt, nigdy edycja księgi. |
+  | zapisany stan i state_version | fewer than 3 flags→no-op; DOM05 approved, POLICY_NOT_APPROVED only until published versioned policy; Clock UTC stable_domain_slot | threshold reached→30d fee exemption suspension; reputation deltas once | Przed commit rollback całej Action; po commit korekta przez oddzielny wersjonowany efekt, nigdy edycja księgi. |
 
 - **Transakcja i czas:** 10→110 gdy kontrakt→122→140; Idempotency-Key or stable domain key + CAS; logical_at=server_assigned_and_persisted; RNG=none. Długie zadanie trzyma lease/fencing, terminowy handler używa stabilnego due_slot; deadlock ponawia całą Action z tym samym kluczem.
 - **Outbox/awaria:** social.apply_cartel_sanction.v1; payload event_id, entity_public_ulid, logical_at, balance_version, contract_version; odbiorcy Contracts, Notifications; retry exponential_bounded, DLQ alert_and_manual_replay_same_event_id.
