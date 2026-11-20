@@ -36,4 +36,4 @@ Kontrola DDL jest statyczna. Projekt zawiera deklaracje wymagające preflight ty
 
 ## Bramka wdrożenia
 
-[Plan migracji](OILEMPIRE_MIGRACJE_P14_P25.md) i [runbook](OILEMPIRE_RUNBOOK_P25.md) wyznaczają kolejność. [DOM03–05 i DOM08–14](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) zostały zatwierdzone do programowania po tym raporcie. DOM06 i DOM15 pozostają kandydatami. Opublikowanie wersjonowanego balansu i symulatora nadal warunkuje aktywację zależnych akcji. Przed aktywacją wersji obowiązują four-eyes, 0 FAIL, hash YAML oraz testy MySQL/Laravel i 90 dni na docelowym środowisku.
+[Plan migracji](OILEMPIRE_MIGRACJE_P14_P25.md) i [runbook](OILEMPIRE_RUNBOOK_P25.md) wyznaczają kolejność. [DOM03–DOM15](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) otrzymały wybór wariantu do programowania. [DOM03-A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md) ma dokładny wzór; DOM06-A i DOM15-A pozostają nieaktywne do wykonania bramek wydania. Opublikowanie wersjonowanego balansu i symulatora nadal warunkuje aktywację zależnych akcji. Przed aktywacją wersji obowiązują four-eyes, 0 FAIL, hash YAML oraz testy MySQL/Laravel i 90 dni na docelowym środowisku.
