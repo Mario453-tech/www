@@ -1,10 +1,10 @@
 # OilEmpire — propozycje DOM dla P14–P25
 
-**Aktualizacja decyzji właściciela 2026-11-18:** DOM03–05 i DOM08–14 przyjęte jako reguły do programowania; DOM06 ma [katalog kandydujący](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md), DOM15 ma [kalibrację kandydującą](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md). [Rejestr decyzji](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) jest nadrzędny dla statusu. Żadna nowa reguła nie jest aktywnym balansem. Zależna akcja zwraca `POLICY_NOT_APPROVED` (409), bez rezerwacji, FTS, księgowania i zdarzenia, dopóki wersjonowana polityka nie ma `approved_at`, `approved_by`, `effective_at` oraz powiązanego `balance_version`. DOM06 i DOM08 są częściowo ustalone; gate dotyczy tylko nierozstrzygniętej części. Po decyzji w jednym PR aktualizować kanon, karty P06–P25, kontrakty, DDL jeśli dotyczy, OpenAPI, kandydujący YAML, testy i macierz zależności. Aktywacja balansu wymaga four-eyes, hash YAML i 0 FAIL symulatora; nie wolno aktywować z tego pliku.
+**Aktualizacja decyzji właściciela 2026-11-21:** DOM03, DOM06 i DOM15 również otrzymały wybór wariantu A do programowania. [Dokładny wzór DOM03](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md), [katalog DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) i [jednostka DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) są częścią decyzji. [Rejestr decyzji](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) jest nadrzędny dla statusu. Żadna nowa reguła nie jest aktywnym balansem. Zależna akcja zwraca `POLICY_NOT_APPROVED` (409), bez rezerwacji, FTS, księgowania i zdarzenia, dopóki wersjonowana polityka nie ma `approved_at`, `approved_by`, `effective_at` oraz powiązanego `balance_version`. DOM06 i DOM08 są częściowo ustalone; gate dotyczy tylko nierozstrzygniętej części. Po decyzji w jednym PR aktualizować kanon, karty P06–P25, kontrakty, DDL jeśli dotyczy, OpenAPI, kandydujący YAML, testy i macierz zależności. Aktywacja balansu wymaga four-eyes, hash YAML i 0 FAIL symulatora; nie wolno aktywować z tego pliku.
 
 ## DOM03 — Negocjacje zbiorowe
 
-- **Propozycja:** Próg: ≥3 pracowników tej samej specjalizacji w firmie. Jedno żądanie na grupę/30 dni; wynik podwyżki = min(12%, max(2%, 4% + 1 p.p. za każdy pełny punkt przewagi siły negocjacyjnej)); brak kumulacji żądań z tego samego okresu.
+- **Propozycja:** Próg: ≥3 pracowników tej samej specjalizacji w firmie. Jedno żądanie na grupę/30 dni; wynik podwyżki = min(12%, max(2%, 4% + 1 p.p. za każdy pełny punkt przewagi wyliczonej według [DOM03-A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md))); brak kumulacji żądań z tego samego okresu.
 - **Przykład:** 10 pracowników po 100 000 gr/dzień, przewaga 3 → 7%; koszt +70 000 gr/dzień; 30 dni = 2 100 000 gr.
 - **Wpływ na balans:** Ogranicza skok OPEX i spam negocjacyjny; porównać efekty na morale oraz bankructwa.
 - **Testy graniczne:** 0/2/3 pracowników, 30. dzień, siła ujemna i >8, retry i dwa równoległe żądania.
@@ -27,13 +27,13 @@
 - **Testy graniczne:** 2/3/4 flagi, 7 dni ±1 ms, dwie strony, dwa równoległe handlery, retry event_id, 30 dni ±1 ms.
 - **Stan:** `owner_approved_pending_implementation_and_activation`; reguła zatwierdzona przez właściciela, lecz wymaga wersjonowanego snapshotu i bramek wydania.
 
-## DOM06 — Techniczne szkolenia — katalog kandydujący
+## DOM06 — Techniczne szkolenia — wariant A
 
-- **Propozycja:** Zachować już ustalone poziomy I/II/III: 20k/50k/100k PLN i 24/48/72h. [Katalog kandydujący](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) podaje cztery kursy bazowe i zachowuje ustalone efekty; ceny 10/30/60 tys. PLN oraz mapa capability nadal wymagają zatwierdzenia i kalibracji. Nieznana specjalizacja odmawia.
+- **Propozycja:** Zachować już ustalone poziomy I/II/III: 20k/50k/100k PLN i 24/48/72h. [Katalog kandydujący](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) podaje cztery kursy bazowe i zachowuje ustalone efekty; ceny 10/30/60 tys. PLN i kwalifikacja przez wersjonowane capability zostały zatwierdzone do programowania; test ekonomii nadal poprzedza aktywację. Nieznana specjalizacja odmawia.
 - **Przykład:** Poziom II: 5 000 000 gr i 48h; dwa identyczne callbacki kończą jeden kurs.
 - **Wpływ na balans:** Brak nowych mnożników wydajności przed kalibracją.
 - **Testy graniczne:** Nieznana specjalizacja, poziom 0/IV, kończenie w tym samym czasie co urlop.
-- **Stan:** `proposed_pending_owner_approval`; dla niezatwierdzonej części `POLICY_NOT_APPROVED`.
+- **Stan:** `owner_approved_pending_implementation_and_activation`; do publikacji wersjonowanej polityki zależna akcja zwraca `POLICY_NOT_APPROVED`.
 
 ## DOM08 — Zdarzenie HR w tym samym terminie — częściowe
 
@@ -93,11 +93,11 @@
 
 ## DOM15 — Hazard i jednostka ekspozycji
 
-- **Propozycja:** [Kalibracja](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) wykazuje, że 5 min jest slotem deduplikacji, a nie wspólną jednostką stawki. Road ma bazę 0,8%/h; odwiert ma nieustalone 0,2–1,2%/tick. Kandydat to baza /24h dla odwiertu, do testu 90 dni. Wynik rzutu utrwala się dla zamkniętej ekspozycji; retry nie losuje ponownie.
+- **Propozycja:** [Kalibracja](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) wykazuje, że 5 min jest slotem deduplikacji, a nie wspólną jednostką stawki. Road ma bazę 0,8%/h; właściciel wybrał bazę 0,2–1,2%/24h dla odwiertu do programowania; test 90 dni jest bramką aktywacji. Wynik rzutu utrwala się dla zamkniętej ekspozycji; retry nie losuje ponownie.
 - **Przykład:** Dla kursu drogowego 0,8%/h: 12 min ekspozycji → P≈0,160514%; 5-min slot → P≈0,066912%. Dla odwiertu 1,2%/tick użyte co 5 min dałoby 96,91% szansy co najmniej jednej awarii/dobę — wariant odrzucony do czasu kalibracji.
 - **Wpływ na balans:** Jednostka czasu radykalnie zmienia awaryjność odwiertów; na typowym kursie drogowym formuła hazardowa praktycznie zachowuje istniejącą wycenę. Pełna kalibracja wymaga 90 dni silnika.
 - **Testy graniczne:** p=0/1, n=0/1, dwa workery, opóźniony slot, restart.
-- **Stan:** `proposed_pending_owner_approval`; dla niezatwierdzonej części `POLICY_NOT_APPROVED`.
+- **Stan:** `owner_approved_pending_90_day_validation_and_activation`; do publikacji wersjonowanej polityki zależna akcja zwraca `POLICY_NOT_APPROVED`.
 
 ## Kontrakt decyzji i ślad audytowy
 
