@@ -560,7 +560,7 @@ Szczegółowe procesy i granice: [Kadry §14–§17](OILEMPIRE_KADRY_ZATRUDNIENI
 - Chorobowe/zastępstwa: edytor ryzyka, długości, cooldown/cap, wynagrodzenia, kolizji i dostępności ofert. Zatwierdzony mnożnik pracownika tymczasowego250% pełnego kosztu bazowego godziny, edytowalny; brak gwarancji natychmiastowej dostępności. Quote ujawnia czas przyjazdu i pełny koszt, nie dolicza ponownie bazowych składek.
 - Rekrutacja: kanał/zasięg/region/rola, cennik, rozkłady profili, limity i ważność ofert, selekcja i relokacja; kampanie i historia rezultatów bez przycisku re-roll.
 - Ukryte cechy: wagi, mapy wpływu, dowody i progi ocen. Oddzielnie rzeczywisty profil GM oraz ocena znana firmie; osobna capability i audyt. Nie wysyłać ukrytych wartości w zwykłym DTO.
-- Rozwój: wersje kursów i tryby czasu, pauzy, mentoring, awanse oraz odnowienia uprawnień. Walidacja grafiku i kosztu obowiązkowa. DOM07 i DOM08 mają decyzje do programowania; [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) nadal wymaga zatwierdzenia katalogu i kalibracji. Publikacja wszystkich zależnych wariantów wymaga wersjonowanej polityki.
+- Rozwój: wersje kursów i tryby czasu, pauzy, mentoring, awanse oraz odnowienia uprawnień. Walidacja grafiku i kosztu obowiązkowa. DOM07 i DOM08 mają decyzje do programowania; [DOM06-A](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) ma zatwierdzony katalog do programowania; kalibracja 90 dni i publikacja wersji pozostają bramkami. Publikacja wszystkich zależnych wariantów wymaga wersjonowanej polityki.
 Wszystkie zmiany parametrów przez wersjonowany kandydat/preview/aktywację. Główny administrator bez obowiązku komentarza; audyt i integralność pozostają. Taryfy niepodane w domenie nie mają cichej wartości0.
 
 
