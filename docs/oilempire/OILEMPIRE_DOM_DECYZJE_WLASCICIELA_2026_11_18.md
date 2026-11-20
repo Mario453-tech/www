@@ -1,10 +1,10 @@
 # OilEmpire — decyzje właściciela DOM03–DOM15 (2026-11-18)
 
-**Źródło decyzji:** właściciel gry przyjął rekomendację: zatwierdzić kierunek DOM03–05 i DOM08–14, dopracować DOM06, skalibrować DOM15. Ten dokument rozróżnia **decyzję produktową** od aktywacji wersji balansu. Aktywny `OILEMPIRE_GAME_BALANCE_V1.yaml` nie został zmieniony. Żadna nowa reguła nie jest automatycznie włączona w grze.
+**Aktualizacja 2026-11-21:** właściciel gry wybrał wariant A również dla DOM03, DOM06 i DOM15. Wszystkie 12 decyzji DOM03–DOM15 z tego rejestru mają wybór produktowy. Aktywacja wersjonowanego balansu, test ekonomii 90 dni i implementacja pozostają osobnymi bramkami. Ten dokument rozróżnia **decyzję produktową** od aktywacji wersji balansu. Aktywny `OILEMPIRE_GAME_BALANCE_V1.yaml` nie został zmieniony. Żadna nowa reguła nie jest automatycznie włączona w grze.
 
 | ID | Decyzja produktowa | Zakres i status wdrożeniowy |
 |---|---|---|
-| DOM03 | Przyjęta: grupa ≥3 pracowników jednej specjalizacji; jedno żądanie na grupę/30 dni; podwyżka `clamp(2%,12%,4% + 1 p.p. × pełna przewaga siły)`. | Staff P08-F04; wymaga kodu, testów i wersji parametrów. |
+| DOM03 | Przyjęty wariant A: grupa ≥3 pracowników jednej specjalizacji, ruchome 30 dni; przewaga liczona z liczebności, zadowolenia, skill HR i negocjatora według [dokładnego kontraktu](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md). | Staff P08-F04; wynik deterministyczny, bez wartości od klienta; wymaga kodu, testów i wersji parametrów. |
 | DOM04 | Przyjęta: target 2–15%, propozycja systemu `min(15%,4% + 1 p.p. × max(0,60−salary_satisfaction))`; oferta 0–target. | Staff P08-F02; 72h i jednokrotne +48h z §4.2 pozostają bez zmian. |
 | DOM05 | Przyjęta: −15 wiarygodności i −15 reputacji B2B to **wynik końcowy jednego sanction_event_id**; ogólny listener 50% nie nalicza ponownie B2B. | P06-F02/P21-F10; próg 3 flag/7 dni i 30 dni zawieszenia zwolnienia pozostają z kanonu. |
 | DOM08 | Przyjęta: ukończona przed terminem naprawa ma pierwszeństwo przed eskalacją przy tym samym logical_at; jeśli warunki naprawy nie były spełnione, następuje eskalacja. | P13-F04; uprzednio rozstrzygnięty remis egzamin/koniec zatrudnienia w Staff A zachowany. |
@@ -14,10 +14,10 @@
 | DOM12 | Przyjęta: 30 min załadunek/demurrage i 2h waiting_bay odbiorcy są oddzielnymi zegarami; jedna minuta i przyczyna nie są naliczane dwa razy; płatnik według źródła opóźnienia. | Logistics P12-F04; stawka 2000 PLN/h pozostaje z kanonu. |
 | DOM13 | Przyjęta: 500/1500/4000 bbl na port/tier i trwały slot 5 min; replay nie zwiększa przepustowości. | Logistics P12-F04; idempotency `port:slot:flow`. |
 | DOM14 | Przyjęta: przełączenie trwa dwa pełne sloty po 5 min od następnej granicy; zerowy przepływ do początku trzeciego slotu. | Logistics P12-F01; stan i due_at wersjonowane. |
-| DOM06 | **Kandydat do osobnego zatwierdzenia:** katalog, ceny kursów bazowych, kwalifikacja i efekty opisane w [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md). | Ceny/czasy Przerobu Ropy i efekty już ustalone nie są renegocjowane. |
-| DOM15 | **Kalibracja trwa:** [raport DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) pokazuje, że wspólne 1%/slot byłoby błędem; baza odwiertów „per tick” nie ma ustalonej jednostki. | Nie aktywować nowej polityki hazardu przed testem 90 dni i decyzją o jednostce dla każdego risk_owner. |
+| DOM06 | **Przyjęty wariant A:** cztery kursy bazowe 10/30/60 tys. PLN na poziomach I/II/III, kwalifikacja przez wersjonowane capability Staff, bez nowych mnożników efektu; [katalog](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md). | Przerób Ropy zachowuje 20/50/100 tys. PLN oraz czasy 24/48/72h. Kalibracja kosztów i testy przed aktywacją. |
+| DOM15 | **Przyjęty wariant A do programowania:** baza awarii odwiertów 0,2/0,4/0,7/1,2% odnosi się do 24h ekspozycji; slot 5 min służy deduplikacji. Istniejące godzinowe bazy drogi i rurociągu pozostają bez zmian; [kalibracja](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md). | Test mechaniczny 6/6 PASS; test ekonomiczny 90 dni i obserwacja kosztów są bramką aktywacji. |
 
-**Doprecyzowanie DOM03:** „pełna przewaga siły” jest wejściem z wersjonowanego wyniku rundy negocjacyjnej Staff, nigdy wartością klienta. Wzór wyliczenia tego wyniku nie jest jeszcze podany w §5.2; zatwierdzono kierunek i limit podwyżki, a przed kodowaniem generatora trzeba opisać jego skalę i składniki. Bez opublikowanego generatora zależna gałąź pozostaje zamknięta.
+**DOM03:** [Wariant A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md) podaje pełny wzór przewagi, wejścia i testy. Wynik jest serwerowym snapshotem, nigdy wartością klienta.
 
 ## Publikacja i blokady
 
