@@ -1,6 +1,6 @@
 # OilEmpire — DOM15, kalibracja jednostki hazardu
 
-**Status:** analiza kandydująca, brak aktywacji i brak zatwierdzenia nowej stawki. Źródło: §9.5, §11A.3–4, §17.4 i §23.6 oraz aktywny `OILEMPIRE_GAME_BALANCE_V1.yaml`. Właściciel gry zatwierdził sprawdzenie przed decyzją; nie zatwierdził arbitralnego `p=1%/5 min`.
+**Status 2026-11-21:** właściciel przyjął wariant A do programowania: istniejące stawki awarii odwiertów odnoszą się do 24 godzin ekspozycji. Aktywny YAML v1 pozostaje bez zmian; test ekonomii 90 dni i bramki wydania poprzedzają aktywację. Źródło: §9.5, §11A.3–4, §17.4 i §23.6 oraz aktywny `OILEMPIRE_GAME_BALANCE_V1.yaml`. Właściciel gry zatwierdził sprawdzenie przed decyzją; nie zatwierdził arbitralnego `p=1%/5 min`.
 
 ## Wykryta pułapka jednostek
 
@@ -15,13 +15,13 @@ Cztery bazowe ryzyka awarii odwiertu mają etykietę **„per tick”** bez dłu
 
 \* Liczba 90×p jest górną miarą ekspozycji niezatrzymanej awarią; faktyczny przebieg musi uwzględnić naprawy, kondycję, BHP, koszty i produkcję.
 
-**Wniosek:** bez jawnej jednostki nie wolno uruchamiać spontanicznej awarii odwiertu. 5-minutowe traktowanie wartości z §9.5 tworzy niemal pewną awarię nawet dla płytkiego odwiertu w ciągu dnia. Kandydat do testu ekonomicznego to **24 godziny ekspozycji dla baz §9.5**, przy zachowaniu tych samych wartości procentowych. To propozycja zmiany interpretacji, nie decyzja o aktywacji.
+**Wniosek:** bez jawnej jednostki nie wolno uruchamiać spontanicznej awarii odwiertu. 5-minutowe traktowanie wartości z §9.5 tworzy niemal pewną awarię nawet dla płytkiego odwiertu w ciągu dnia. Wybrany wariant do programowania to **24 godziny ekspozycji dla baz §9.5**, przy zachowaniu tych samych wartości procentowych. Decyzja produktowa nie aktywuje tej interpretacji w wersji v1.
 
 ## Kalendarz ekspozycji dla różnych właścicieli ryzyka
 
 | risk_owner | Obecna baza | Jednostka kandydująca | Wzór w logicznym segmencie |
 |---|---|---|---|
-| Extraction/well spontaneous failure | 0,2/0,4/0,7/1,2% „per tick” | **24h do symulacji** | `1−(1−p_day)^(exposure_h/24 × m)` |
+| Extraction/well spontaneous failure | 0,2/0,4/0,7/1,2% „per tick” | **24h, przyjęte do programowania** | `1−(1−p_day)^(exposure_h/24 × m)` |
 | Logistics/road spontaneous incident | 0,8% na godzinę kursu, §11A.4 | **1h — już jawna** | `1−(1−0,008)^(trip_exposure_h × m)` |
 | Logistics/pipeline leak | 0,0008 na godzinę × warunek kondycji, §11A.3 | **1h — już jawna** | zachować §11A.3; bez drugiego rzutu P13 |
 | Logistics/pipeline explosion | 0,0006 na godzinę × mnożniki, §11A.3 | **1h — już jawna** | zachować §11A.3; osobny kind, jeden owner |
@@ -34,4 +34,4 @@ Dla drogi przy neutralnych warunkach: 5 min = **0.066912%**, 12 min = **0.160514
 
 Ekspozycję dzielić według rzeczywistego przecięcia przedziału kursu/pracy z trwałymi slotami 5 min; slot częściowy ma ułamek czasu. Ryzyko agregować przez sumę hazardu w kanonicznych przedziałach, a wynik losować **raz dla zamkniętego zakresu ekspozycji** pod trwałym kluczem `risk_owner:target:from:to:balance_version`. Slot jest jednostką deduplikacji/terminu, nie nową stawką. Dwa worker/job/HTTP nie zwiększają liczby rzutów. Przy podziale i scaleniu przedziału prawdopodobieństwo musi być identyczne. Zapisujemy `exposure_h`, risk owner, wersję parametrów, modyfikatory, seed key id, wynik i logical_at; zwykłe logi nie dostają seedu.
 
-Testy graniczne: 0/1/5/12/60 min, wejście 12:03 i wyjście 12:15, pełny dzień przy 5-min sweeperze, uśpiony gracz rozliczony po 48h, retry i dwa workery, p=0/1, cap 95%, BHP/skill/kondycja, brak dwóch rzutów Logistics/P13. Test 90 dni mierzy awarie na 100 aktywnych odwiertów według warstwy, czas przestoju, koszt napraw, utracone bbl, inflację i bankructwa. [Kontrola matematyczna DOM15](OILEMPIRE_DOM15_HAZARD_CALIBRATION.py) czyta obecny YAML i nakładkę kandydującą: 6/6 testów PASS (wartości bazowe, normalizacja doby, kurs 12/18 min, podział slotów, wykrycie błędnej jednostki 5 min). Nie modeluje kosztu napraw, przestojów ani rozkładu szkód. **Aktywacja DOM15 wymaga przebiegu ekonomicznego 90 dni i decyzji właściciela dla bazy odwiertów.** Sam obecny symulator 73 testów nie bada tej dystrybucji.
+Testy graniczne: 0/1/5/12/60 min, wejście 12:03 i wyjście 12:15, pełny dzień przy 5-min sweeperze, uśpiony gracz rozliczony po 48h, retry i dwa workery, p=0/1, cap 95%, BHP/skill/kondycja, brak dwóch rzutów Logistics/P13. Test 90 dni mierzy awarie na 100 aktywnych odwiertów według warstwy, czas przestoju, koszt napraw, utracone bbl, inflację i bankructwa. [Kontrola matematyczna DOM15](OILEMPIRE_DOM15_HAZARD_CALIBRATION.py) czyta obecny YAML i nakładkę kandydującą: 6/6 testów PASS (wartości bazowe, normalizacja doby, kurs 12/18 min, podział slotów, wykrycie błędnej jednostki 5 min). Nie modeluje kosztu napraw, przestojów ani rozkładu szkód. **Aktywacja DOM15 wymaga przebiegu ekonomicznego 90 dni, przeglądu wyników i wersjonowanej publikacji balansu.** Sam obecny symulator 73 testów nie bada tej dystrybucji.
