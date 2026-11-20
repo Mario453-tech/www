@@ -115,7 +115,7 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 
 ## Karty wykonawcze P14–P25
 
-> **Status:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). DOM03–05 i DOM08–14 przyjęto do programowania; DOM06/DOM15 wymagają dalszej kalibracji, a wykonanie DDL i silnika testów runtime.
+> **Status:** [13 ustaleń audytu poprawiono w dokumentacji](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md). DOM03–DOM15 mają wybór właściciela do programowania; aktywacja wymaga wersjonowanego balansu, a wykonanie DDL i silnika testów runtime.
 
 - [P14–P18: gospodarka, kontrakty, finanse, bankowość i PvP](OILEMPIRE_KARTY_IMPLEMENTACJI_P14_P18.md)
 - [P19–P20: rafineria/EPC/ubezpieczenia i płatności](OILEMPIRE_KARTY_IMPLEMENTACJI_P19_P20.md)
@@ -123,7 +123,7 @@ Pliki można edytować w GitHubie. Zmiana wymaga zachowania powiązań z §4 i w
 - [P25: wydanie i eksploatacja](OILEMPIRE_KARTY_IMPLEMENTACJI_P25.md)
 - [Manifest 89 kart i właścicieli tabel](OILEMPIRE_KONTRAKTY_P14_P25.yaml), [kontrakty szczegółowe](OILEMPIRE_KONTRAKTY_AKCJI_P14_P25.md), [projekt DDL MySQL 8.4](OILEMPIRE_DDL_P14_P25_MYSQL84.sql), [OpenAPI gracza](OILEMPIRE_OPENAPI_P14_P25_V1.yaml) i [providera](OILEMPIRE_WEBHOOK_OPENAPI_P20_V1.yaml)
 - [Scenariusze współbieżności i awarii](OILEMPIRE_SCENARIUSZE_WSPOLBIEZNOSCI_P14_P25.md), [migracje](OILEMPIRE_MIGRACJE_P14_P25.md), [runbook P25](OILEMPIRE_RUNBOOK_P25.md) i [raport weryfikacji](OILEMPIRE_P14_P25_RAPORT_WERYFIKACJI.md) oraz [raport napraw](OILEMPIRE_P14_P25_RAPORT_NAPRAW.md)
-- [Decyzje DOM03–05 i DOM08–14](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md), [katalog DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md), [kalibracja DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md), [kontrola hazardu 6/6](OILEMPIRE_DOM15_HAZARD_CALIBRATION.py) i [kandydująca nakładka YAML](OILEMPIRE_DOM_POLICY_CANDIDATE.yaml)
+- [Decyzje DOM03–DOM15](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md), [wzór DOM03-A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md), [kontrola wzoru 7/7](OILEMPIRE_DOM03_NEGOCJACJE_TEST.py), [katalog DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md), [kalibracja DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md), [kontrola hazardu 6/6](OILEMPIRE_DOM15_HAZARD_CALIBRATION.py) i [kandydująca nakładka YAML](OILEMPIRE_DOM_POLICY_CANDIDATE.yaml)
 - [Propozycje DOM do zatwierdzenia](OILEMPIRE_PROPOZYCJE_DOM_P14_P25.md)
 
 To dokumentacja do programowania. Nie stanowi działającego silnika ani zatwierdzonej wersji balansu. DDL wymaga sprawdzenia preflight na rzeczywistym schemacie P01–P13, a pełne testy MySQL, PHP, API, UI i 90 dni wymagają implementacji.
