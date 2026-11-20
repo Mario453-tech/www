@@ -3,7 +3,7 @@
 > **Kadry — wariant A do implementacji:** [mechanika i parametry §19](OILEMPIRE_KADRY_ZATRUDNIENIE_ROZSZERZENIE.md) oraz [HR-CONTRACT01](OILEMPIRE_KADRY_KONTRAKT_IMPLEMENTACYJNY.md) ustalają kierunek P07–P09/P16. DOM01/DOM02/DOM16 mają decyzje A, ale wymagają propagacji do kontraktów maszynowych, kalibracji i testów przed aktywacją. Starsze karty opisują bazowy model historyczny; przy wdrażaniu A stosuje się wskazaną deltę. Aktywny game_balance v1 nie został zmieniony.
 
 
-> **DOM03–05, DOM08–14:** [decyzja właściciela](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md) przyjęta do programowania, bez aktywacji balansu v1. [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) i [DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) pozostają kandydatami do kalibracji. Wcześniejsze określenia „otwarte” dla tych dziesięciu reguł są historyczne; publikację i testy nadal reguluje §29.5.
+> **DOM03–DOM15:** właściciel wybrał [warianty do programowania](OILEMPIRE_DOM_DECYZJE_WLASCICIELA_2026_11_18.md), w tym [wzór DOM03-A](OILEMPIRE_DOM03_NEGOCJACJE_WARIANT_A.md), [cennik DOM06-A](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md) i [jednostkę DOM15-A](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md). Aktywny balans v1 jest bez zmian; publikację i testy reguluje §29.5.
 
 > Część wspólnej specyfikacji OilEmpire. [Indeks, mapa pakietów i zasady wspólnej zmiany](README.md). Zakres tego rozdziału: Reguły domeny i kolejność rozliczeń. API, panel, bezpieczeństwo, standard modułu i plan są rozdziałami tej samej specyfikacji. Sprzeczność między rozdziałami wymaga jawnego rozstrzygnięcia i aktualizacji wszystkich dotkniętych zapisów.
 
@@ -317,7 +317,7 @@ flowchart TD
 - **Egzamin:** bazowy `pass_rate` per kurs w `game_balance` (domyślnie 70%); bonus powtórkowy **+10 p.p., maksymalnie +30 p.p.** (3 oblania); po trzecim oblaniu kurs dostępny ponownie po 7 dniach.
 - **Sub-skille:** cap **10**; kursy mają poziomy **I–III**, certyfikat unikalny per poziom (`training_certificates` UNIQUE(`employee_id`,`course_id`,`level`)); koszty kursów: tabela `game_balance` (domyślnie 10 000–100 000 PLN).
 
-Katalog cen, kwalifikowalności i skutków szkoleń do zatwierdzenia znajduje się w [DOM06](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md). Ustalone mnożniki poniżej nie otrzymują drugiego bonusu przez certyfikat.
+Zatwierdzony do programowania katalog cen, kwalifikowalności i skutków szkoleń znajduje się w [DOM06-A](OILEMPIRE_DOM06_KATALOG_SZKOLEN_KANDYDAT.md); jego aktywacja wymaga nowej wersji balansu i testów. Ustalone mnożniki poniżej nie otrzymują drugiego bonusu przez certyfikat.
 
 ### 6.1. Pięć Nowych Sub-Skilli Technicznych (`technical_staff_skills`):
 1. `skill_drilling` (Wiercenie): skraca czas operacji wiertniczych, redukuje ryzyko uszkodzenia głowic przy głębokich warstwach.
@@ -549,7 +549,7 @@ Naliczanie w fazie 1 ticka (§23.2), metodą delta-time:
 | OPEX wydobycia (PLN/bbl) | 30 | 45 | 70 | 110 |
 | Bazowe ryzyko awarii/tick | 0,2% | 0,4% | 0,7% | 1,2% |
 
-Wartości startowe do kalibracji headless symulatorem (§23.7) — nie docelowe „na sztywno". **Jednostka „tick” dla ryzyka awarii nie jest zatwierdzona:** nie mnożyć tych wartości przez każdy 5-minutowy sweeper. [DOM15](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) proponuje 24h ekspozycji dla testu 90 dni; aktywacja ryzyka czeka na wynik i decyzję. Każda zmiana w panelu podlega wersjonowaniu i audytowi (Etap 3, P2-8).
+Wartości startowe do kalibracji headless symulatorem (§23.7) — nie docelowe „na sztywno". **DOM15-A:** właściciel przyjął 24h ekspozycji jako jednostkę bazowych wartości ryzyka odwiertu; nie mnożyć tych wartości przez każdy 5-minutowy sweeper. [Kalibracja](OILEMPIRE_DOM15_KALIBRACJA_RYZYKA.md) i test ekonomii 90 dni poprzedzają aktywację. Każda zmiana w panelu podlega wersjonowaniu i audytowi (Etap 3, P2-8).
 
 ---
 
